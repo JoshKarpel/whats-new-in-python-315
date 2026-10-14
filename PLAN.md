@@ -17,6 +17,11 @@ A whirlwind tour of how Python is getting better, for working Python programmers
 snippet, press a key, and see its output, mypy's verdict, or a timing, run live on
 3.14 and 3.15 side by side.
 
+Prefer a diagram to text wherever a picture can carry the point: a mechanism, a
+before/after, a fan-out, a timeline. Timings get a bar chart beside the raw numbers.
+The running order below lists the diagrams each item wants, and
+[Diagrams](#diagrams) covers how they're built.
+
 ### Running observation: the features are unusually thorough
 
 Several features arrive as complete toolkits rather than a single function:
@@ -71,6 +76,9 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Example: `functools.cache` rejects a dict argument (`unhashable type: 'dict'`) and
   accepts a frozendict.
 - The sad note: no literal syntax. The PEP defers it ("can be added later").
+- Diagram: the class hierarchy, with `frozendict` beside `dict` under `Mapping`,
+  next to `frozenset` beside `set`. "Not a dict subclass, use `Mapping`" then reads
+  as a consequence rather than a gotcha.
 
 #### json `array_hook` (core, paired with frozendict)
 - New `array_hook=` on `load`, `loads` and `JSONDecoder` (it is a TypeError on 3.14).
@@ -100,6 +108,8 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Example: peeling an HTTP status line off a receive buffer.
 - Observed on a 50 MB buffer: the copy doubles peak memory and `take_bytes` doesn't.
   Run it live with `tracemalloc` peak numbers.
+- Diagram: memory before and after. `bytes(ba)` leaves two buffers; `take_bytes`
+  hands the one buffer over and leaves the bytearray empty.
 
 #### `re.prefixmatch` (cut-first, lightning round)
 - `match` is soft-deprecated: no warnings, no removal. `re.match is re.prefixmatch` at module level.
@@ -114,6 +124,8 @@ about an hour, and questions use up the slack before the 90-minute limit.
   segmentation. Width still comes from `wcwidth`, because the stdlib segments
   graphemes but doesn't measure terminal cells.
 - Self-referential demo: the deck rendering that string is the code under discussion.
+- Diagram: the family emoji's 7 code points (four people joined by three ZWJs)
+  under one grapheme box.
 
 ### 2. Startup and imports
 
@@ -135,6 +147,12 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Framing: mostly a CLI win, but the global switch makes it a one-flag experiment
   for any app.
 - Dogfood: the deck itself can `lazy import` its heavy demo dependencies (numpy).
+- Diagrams:
+  - the fake CLI's import tree, top-level modules only, with everything lit for eager
+    and only what `--version` reaches lit for lazy. Take the module counts from the
+    `-X importtime` run.
+  - a bar chart of the hyperfine timings: eager, lazy, `-X lazy_imports=all`, and
+    the bare interpreter.
 
 #### `.start` files, PEP 829 (std)
 - The problem: a `.pth` line beginning with `import` is `exec()`ed on _every_
@@ -145,6 +163,8 @@ about an hour, and questions use up the slack before the 90-minute limit.
   - a `.pth` alone runs its code
   - adding a `.start` makes the `.pth` import line go silent; `-v` explains why
   - 3.14 ignores `.start`
+- Diagram: `site.py`'s startup flow. A `.pth` import line goes to `exec()`; a
+  `.start` with a matching basename suppresses it and calls a named entry point.
 - Timeline: import lines still run through 3.17 (warning only under `-v`), are
   ignored from 3.18, and warn in 3.20.
 - Be precise about motivation. The SC acceptance says it narrows one vector,
@@ -164,6 +184,9 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Example 2: `loop.add_signal_handler(SIGTERM, tg.cancel)` for clean shutdown.
 - Before/after: the 3.14 version needs a private `_Done` exception plus `except* _Done`.
   Show both, run both.
+- Diagram: the task tree for first-mirror-wins, revealed in steps. Three fetches
+  start, one finishes, its `tg.cancel()` cancels the other two, and the
+  `async with` exits cleanly.
 
 #### Iterator synchronization (core)
 - Sharing one generator across threads was never safe. Run the unsafe demo, 4 threads
@@ -179,6 +202,12 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Honest caveat: production stays serial, since the lock is held across
   `__next__`. Only consumer work runs in parallel.
 - Needs 3.14t and 3.15t interpreters for the free-threaded half.
+- Diagram: three fan-outs, one source and four threads each.
+  - a bare generator: three threads die with `ValueError`
+  - `serialize_iterator`: each item goes to exactly one thread
+  - `concurrent_tee`: each item goes to every thread
+
+  The difference between the last two is the one people will mix up.
 
 ### 4. Typing
 
@@ -214,6 +243,9 @@ key for all three. Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.8
   `type[T]` and with `TypeForm[T]`. Run all three checkers. Observed:
   - `type[T]`: errors everywhere, and reveals of `Never` or `Unknown`.
   - `TypeForm[T]`: `int | None` and `Literal['GET', 'POST']` inferred correctly.
+- Diagram: nested regions. Class objects (`int`, `str`) sit inside type
+  expressions (`int | None`, `Literal[...]`, a protocol). `type[T]` covers the inner
+  region and `TypeForm[T]` covers the whole thing.
 
 #### TypedDict, PEP 728 (std)
 - Lean into the "I kinda hate TypedDict" angle: it keeps getting better anyway, and
@@ -233,6 +265,8 @@ key for all three. Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.8
 - Support varies: mypy (with `--warn-unreachable`) and ty narrow, while pyright
   only checks the class definition.
 - The decorator itself is mostly for stub authors.
+- Diagram: `Point` and `Color` with the impossible `ColoredPoint` below them,
+  crossed out.
 
 Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
 `isinstance` deprecation warning, and the removals.
@@ -249,6 +283,9 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
    - Overhead demo: run a CPU benchmark plain, under `profiling.tracing` (cProfile's
      new home), and under `profiling.sampling`, and show the three timings live.
      Don't assert a number before measuring it on the presenting VM.
+   - Diagram: one timeline of a program's calls, drawn twice. Tracing puts a hook on
+     every call and return. Sampling takes a stack snapshot at fixed intervals.
+     Then a bar chart of the three overhead timings.
 3. Why in CPython? py-spy and austin read interpreter memory from outside, so each
    new CPython release needs them to catch up.
    - Tachyon uses CPython's own `_remote_debugging` (the PEP 768 machinery from 3.14),
@@ -257,9 +294,17 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
      version. Show the error message from attaching 3.15 to a 3.14 process.
    - Check py-spy/austin's 3.15 support status close to the talk date and state it
      accurately.
+   - Diagram: the two architectures side by side. py-spy and austin read the
+     target's memory from outside with struct layouts specific to each version.
+     Tachyon reads it through `_remote_debugging`, which ships with the interpreter.
+     The coupling becomes visible: the reader has to match the target's version.
 4. Profile the running talk. The headline demo, built on counterweight's embedded
    terminals ([#423](https://github.com/JoshKarpel/counterweight/pull/423)).
    See [The Tachyon stage](#the-tachyon-stage) below for how it's built.
+   - Diagram, shown before the live demo: the loop. The deck spawns the profiler as
+     a child, the profiler attaches back to its parent, its screen comes back
+     through the PTY, and the deck draws it in its own pane. The ptrace point fits
+     on the same picture.
    - The deck runs Tachyon's live TUI _inside itself_, attached to its own PID.
    - Workload keys make the deck do expensive things at a few intensities
      (light, medium, heavy), and the profiler shows each one as it happens:
@@ -311,6 +356,10 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
   - Without frame pointers, unwinding needs DWARF tables, and eBPF can't use those at all.
   - Compilers dropped frame pointers to free a register. That mattered on 32-bit x86;
     the PEP measures 1.5–2% on x86-64.
+  - Diagram, revealed in steps: the stack as a column of frames, each saved `rbp`
+    pointing at its caller's frame. Then one extension frame built without frame
+    pointers breaks the chain, and everything above it becomes unreachable. That's
+    the 96.9% vs 4.7% result before the perf output appears.
 - Why it matters here: Tachyon's `--native` only inserts `<native>` placeholders. Real
   C-level stacks come from perf/eBPF, which need frame pointers _everywhere_. One
   extension built without them breaks unwinding for the whole process, and 3.15
@@ -335,6 +384,10 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
 - Live demo: an nbody/float loop, 3.14 vs 3.15 × JIT off/on, under hyperfine.
   Observed about 1.5x for 3.15+JIT, while the 3.14 JIT was flat or slower. The VM
   is noisy, so use hyperfine's warmup and runs rather than one shot.
+- Diagrams:
+  - the pipeline: bytecode, specialized bytecode, a trace, optimized micro-ops,
+    machine code. Mark the stages that changed in 3.15.
+  - a bar chart of the four hyperfine timings.
 
 #### base64 (cut-first, could join the lightning round)
 - Encode is about 2.5–3.4x faster and decode about 3.4x (observed, 5 MB). b32/b85
@@ -358,6 +411,10 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
   - Caveat to say aloud: this workload reproduces the memory complaint but not the
     incremental GC's pause benefit, so it isn't a general verdict.
 - Bonus: 3.15 adds `candidates` and `duration` to `gc.get_stats()`.
+- Diagrams:
+  - a timeline: the 3.13 rollback, 3.14.0 shipping it, 3.14.4, the 3.14.5 revert,
+    and 3.15. Mark which collector each release has.
+  - a bar chart of peak RSS per interpreter, laid out to match the timeline.
 
 ### 6. Lightning round (core, one slide or a rapid sequence)
 
@@ -405,6 +462,9 @@ Each item gets one runnable line where possible:
     works on today's `main`.
   - #423 brings in `pyghostty`, which bundles a prebuilt, pre-1.0 `libghostty-vt`.
     That's a supply-chain cost the deck inherits, not one it chooses.
+  - [#426](https://github.com/JoshKarpel/counterweight/pull/426) plans a diagram
+    engine. Nothing waits on it. If its graph container reaches `main` during the
+    build, rebuild the graph-shaped diagrams with it (see [Diagrams](#diagrams)).
   - counterweight already requires 3.15, and imports and renders headless on rc2.
     Pygments 2.21 already lexes `lazy`, `sentinel` and `frozendict`.
 - Demo tools:
@@ -421,7 +481,10 @@ src/whats_new/
   __main__.py        app entry: root component, navigation, export
   deck.py            SLIDES = (*OPENING, *SMALL_THINGS, ..., *CLOSING)
   sections/          one module per running-order section, each exporting a tuple of slides
-  components/        title card, footer, slide grid, code_example, run_pane, split layouts
+  components/        title card, drop shadow, footer, slide grid, code_example, run_pane,
+                     split layouts, bar chart
+  diagrams/          one module per diagram, built from counterweight elements
+  size.py            the presenting size, in cells
   runs.py            Run values, interpreter resolution
   tachyon.py         the Tachyon stage: profiler pane, modes, flamegraph server
   workloads.py       in-process workloads the Tachyon stage triggers
@@ -470,17 +533,35 @@ tests/
   - `r`: reset the current slide, by remounting via `.with_key`.
   - `d`: open the slide grid, as spiel's deck view does. See
     [The slide grid](#the-slide-grid).
-  - A clock toggle and a content-width check against the projector. The reference
-    talk put these on F1 and F2, but in a browser F1 opens help, so they move to
-    plain letter keys.
+  - A clock toggle and a size check against the
+    [presenting size](#presenting-resolution). The reference talk put these on F1
+    and F2, but in a browser F1 opens help, so they move to plain letter keys.
   - Slide-specific keys on Tachyon slides only.
 
   See [Presenting over zellij web](#presenting-over-zellij-web) for which keys the
   browser and zellij take first.
-- Persist the slide index to a temp file, as the reference talk does, so a
-  `watchfiles` restart lands on the same slide.
-- Export: keep the reference talk's headless autopilot to SVG/HTML for a
-  shareable copy. Run panes show their pre-run state there.
+- Title cards sit in a drop shadow, as the reference talk's do. The shadow is an
+  outer `Div` whose only borders are right and bottom, contracted by one cell so it
+  starts one cell in from the top and left. In current counterweight spelling:
+
+  ```python
+  def drop_shadow(*children: Text | Div) -> Div:
+      return Div(
+          style=border_right
+          | border_bottom
+          | border_lightshade
+          | border_contract(1)
+          | border_color("gray", 400),
+          children=list(children),
+      )
+  ```
+
+  The reference talk's `border_bottom_right` and `border_contract_1` utilities no
+  longer exist. #426 shows the other shade kinds (`▒`, `▓`, and a half-block
+  shadow from `border_thick`) if light shade turns out too faint on the laptop.
+- Live reload during development: see [Live reload](#live-reload).
+- Export: a committed `slides.html`, regenerated by a pre-commit hook. See
+  [HTML export](#html-export).
 - Mounting a slide starts nothing. Subprocesses, profilers, animations and
   focus grabs start from a key press, never from mount.
   - On stage, the presenter decides when something moves. A demo or animation
@@ -495,6 +576,117 @@ tests/
     a key press bumps.
   - No `use_focus(auto_focus=True)` in slide content. A thumbnail that takes
     focus would take the grid's keys.
+
+### Diagrams
+
+Diagrams are drawn by hand, as counterweight elements rather than text files.
+
+- Nodes are bordered `Div`s or `Text`s, styled like the slides, optionally in a drop
+  shadow. Flex rows and columns place them wherever the shape allows. Edges are
+  absolutely placed runs of box-drawing text drawn above the nodes, as #426's
+  `cw_shadows.py` probe does.
+- Border healing only joins corners, so an edge leaving the middle of a border
+  draws its own tee, matched to the border's weight (`┯` under a heavy border).
+- What elements cost over a text file: positions are fiddlier to edit. What they
+  buy:
+  - color and shadows that match the rest of the deck
+  - reveal steps, so a diagram builds up with Space (the frame-pointer chain, then
+    the break)
+  - a path to #426. Its graph container would compute the node positions that
+    the diagram currently writes by hand, and the node components stay.
+- A diagram is drawn for one width, so each one targets the
+  [presenting size](#presenting-resolution). Draw none until that's settled.
+- Bar charts for timings are a shared component drawn from the run's own output
+  (hyperfine's `--export-json`, `tracemalloc` peaks), so they show the numbers
+  from this run rather than numbers typed in beforehand.
+- Animations draw at double vertical resolution with half blocks (`▀` with
+  separate foreground and background colors), as the reference talk's `canvas`
+  does.
+
+### Presenting resolution
+
+The talk is given from my laptop: a browser on the laptop shows zellij web, which
+shows the deck. The deck targets one fixed size in cells, declared once in
+`size.py`. The hand-drawn diagrams, animations, slide grid, Tachyon stage, export
+and smoke test all read it from there.
+
+Settle it by experimenting on the laptop before drawing any diagrams. A diagram
+is drawn for one width, and redrawing all of them after the size changes is the
+expensive mistake.
+
+- Open zellij web full screen on the laptop, in the zellij layout to be used on
+  stage. The default layout spends rows on tab and status bars, so present with a
+  bare one. Record the cell count `tput cols lines` reports at a few browser zoom
+  levels.
+- Judge each candidate by:
+  - code: the longest example is legible from across a room
+  - the Tachyon stage: the pane gets at least 60x12 with the talking-point strip
+    above it, and a side-by-side split leaves the slide enough room
+  - run panes: 3.14 and 3.15 output fit side by side
+  - the slide grid: thumbnails at a third of the width are still recognizable
+  - diagrams: the frame-pointer stack and the CI-sized fan-outs fit
+- Cells are roughly twice as tall as they are wide, so a 16:9 window gives about
+  3.5 columns per row at any zoom. Zoom trades legibility for room. It doesn't
+  change the shape.
+- Repeat with the laptop mirrored to an external display or projector. Mirroring
+  can change the laptop's resolution, and with it the cell count at a given zoom.
+- Pin the cells, not the zoom. At the venue, adjust browser zoom until the deck's
+  size check matches the target. When the terminal doesn't match, the footer says
+  so, so a wrong size is visible before the first diagram.
+
+### Live reload
+
+The reference talk did this with two pieces, and the deck keeps both:
+
+- `just watch` runs the deck under `watchfiles`, which restarts it whenever a file
+  under `src/` or `examples/` changes. `watchfiles` goes in the dev dependency group.
+- The deck writes the current slide index to a file in the temp directory on every
+  navigation, and reads it at startup, clamped to the deck's length. A restart
+  lands on the same slide. Reveal steps and run output start fresh.
+
+Differences from the reference talk:
+
+- Its `watch` recipe also watched `../counterweight/counterweight/`. Here
+  counterweight is a locked git source, so edits in a local checkout don't reach
+  the deck. Co-developing counterweight needs a temporary local path source; work
+  out the exact uv mechanism when it's first needed.
+- Its HTML export reset the index file to 0. Export here leaves it alone, so
+  exporting doesn't throw the dev session back to the title slide.
+- A restart must leave nothing behind. A run pane's subprocess or the Tachyon
+  profiler outliving the old deck would pile up across reloads. Check this once
+  run panes exist.
+- The same file is crash recovery on stage: relaunch the deck and it's on the slide
+  it died on.
+
+### HTML export
+
+`slides.html` is the shareable copy, committed at the repository root as the
+reference talk's is. `just export` drives the deck headless at the presenting size,
+screenshots each slide as SVG, and writes the page.
+
+- One screenshot per reveal step, not per slide, so a diagram that builds up with
+  Space builds up in the export too.
+- Run panes show their pre-run state, and the Tachyon stage shows its placeholder,
+  since mounting starts nothing.
+- A pre-commit hook keeps it consistent. It runs the export and rewrites
+  `slides.html` in place, and pre-commit fails the commit when the file changes, so
+  regenerating _is_ the check: no separate `--check` mode.
+  - `repo: local`, `language: unsupported`, `pass_filenames: false`, and
+    `entry: uv run --frozen python -m whats_new export`. The entry calls the module
+    rather than `just export`, since just comes from mise and the hook shouldn't
+    depend on a second installer.
+  - Scope it with `files:` to what the render depends on: `src/` (`size.py`
+    included), `examples/`, and `uv.lock`, since a counterweight bump can change the
+    render with no deck change.
+  - The export stages a newly created `slides.html` with `git add --intent-to-add`,
+    so the first run fails like any other rewrite rather than passing silently.
+- The export must be deterministic, or the hook rewrites the file on every commit.
+  Anything that reads the clock, a random source, or the machine (the footer
+  clock, animations, interpreter paths, the temp directory) renders a fixed state
+  there. The clock is off by default and animations hold their first frame, so the
+  open question is what else leaks in. Run the export twice and diff the output
+  when it first works.
+- pre-commit itself goes in the uv dev group, as do the hooks' tools.
 
 ### The slide grid
 
@@ -523,7 +715,7 @@ Design:
   Enter sets the current index to `selected` and clears it. Escape only clears it.
 - Slides become `Slide(title, content)` values, since the thumbnail needs a title.
   The footer can use the same title.
-- Three columns of 30 cells fit the 90-column projector. Show three rows,
+- Three columns, each a third of the presenting width. Show three rows,
   windowed around the selected row as spiel does, rather than mounting the whole
   deck in a scroll area. Thumbnails are keyed by slide index, so moving the
   selection down a row mounts one new row and keeps the other two.
@@ -544,8 +736,8 @@ every navigation and restart the profiler.
   holds the current talking point and which workload is running.
   - Tachyon's live TUI needs at least 60x12. Below that it shows a "Terminal too
     small!" screen (observed).
-  - At the 90-column projector width, a side-by-side split would leave about 30
-    columns for the slide, so stack the panes instead.
+  - Stack the panes unless the presenting width leaves the slide a useful
+    strip beside a pane of at least 60 columns.
   - The `file:line` column truncates long paths, so run the deck from a short path.
 - The pane runs `use_terminal` with
   `[sys.executable, "-m", "profiling.sampling", "attach", "--live", "-a", str(os.getpid())]`.
@@ -582,7 +774,7 @@ every navigation and restart the profiler.
 ### Presenting over zellij web
 
 The deck runs on this exe.dev VM (2 vCPU) inside zellij, and the audience sees a
-browser showing zellij web.
+browser on my laptop showing zellij web.
 
 - Keys pass through two layers before the deck sees them.
   - zellij's normal mode takes Ctrl+B, Ctrl+G, Ctrl+P, Ctrl+T, Ctrl+N, Ctrl+H,
@@ -592,8 +784,8 @@ browser showing zellij web.
     and Ctrl+W/T/N. The deck binds none of them.
   - `just rehearse` presses every deck key through zellij web and confirms the deck
     received it.
-- The screen size is the browser window and its font size. Fix both before the
-  talk and check the content width with the deck's width key.
+- The cell count comes from the browser window and its zoom. See
+  [Presenting resolution](#presenting-resolution).
 - Terminal rendering is xterm.js, not a native terminal. The grapheme slide depends
   on how it draws ZWJ sequences, flags and skin tones. Check those, because a
   broken family emoji on the "graphemes are hard" slide would be on-message, but
@@ -623,12 +815,14 @@ browser showing zellij web.
     `SyntaxError` on 3.14, `Success: no issues found` for mypy, and so on.
   - Without this, an interpreter or checker bump silently breaks a slide.
   - Assert against the run's own output, not the rendered deck, which embeds the source.
-- Smoke test: a headless autopilot walks every slide, catching render crashes
-  and slides wider than the projector width.
+- Smoke test: a headless autopilot walks every slide at the presenting size,
+  catching render crashes and slides that overflow it.
   - It also opens the grid and moves the selection through every row, so a slide
     that crashes at thumbnail width fails here, not on stage.
   - At the end it asserts the deck process has no child processes, which
     enforces that mounting a slide starts nothing.
+- The export hook: a commit that changes the render without regenerating
+  `slides.html` fails. See [HTML export](#html-export).
 - `just rehearse` checks the presenting setup before the talk. It scripts what
   it can:
   - every interpreter resolves
@@ -665,7 +859,12 @@ browser showing zellij web.
 
 - Length: about an hour of material with questions during the talk, and 90 minutes
   at most.
-- Venue setup: present from this VM over zellij web.
+- Venue setup: present from this VM over zellij web, in a browser on my laptop.
+- Diagrams over text wherever a picture carries the point, drawn by hand as
+  counterweight elements. #426's diagram engine replaces hand placement if it
+  lands during the build.
+- Title cards get drop shadows.
+- A committed `slides.html` export, kept current by a pre-commit hook.
 - Color: the embed (#423) renders program output with its colors. If that falls
   through, the deck stays plain text and color becomes later work.
 - No speedscope. The point is Tachyon, so the browser step (if kept) shows
@@ -675,20 +874,27 @@ browser showing zellij web.
 
 1. Scaffold: pyproject with counterweight as a git source on `main`, `mise.toml`,
    `.python-version`, `justfile` (`present`, `watch`, `check-examples`,
-   `rehearse`, `export`).
-2. Deck skeleton: navigation, the slide grid, footer, title cards, slide-index
-   persistence, export.
-3. `code_example` + `Run` + `run_pane`, built and proven on the frozendict and json
+   `rehearse`, `export`), and `.pre-commit-config.yaml` with the base and ruff
+   hooks.
+2. Deck skeleton: navigation, footer, title cards with drop shadows, live reload,
+   and the HTML export with its pre-commit hook. Until step 3 settles the size, the
+   export renders at a provisional one.
+3. [Presenting resolution](#presenting-resolution): run the experiment on the
+   laptop and record the size in `size.py`. The grid, diagrams and Tachyon stage
+   depend on it.
+4. The slide grid, the size check, and the bar-chart component.
+5. `code_example` + `Run` + `run_pane`, built and proven on the frozendict and json
    slides, plus `check-examples`.
-4. Sections 1–4 in order: mostly content once step 3 exists.
-5. Tachyon, in two halves:
+6. Sections 1–4 in order, diagrams included: mostly content once step 5 exists.
+7. Tachyon, in two halves:
    - Now: `workloads.py` and the flamegraph link. Run the profiler from a plain
      zellij pane against the deck while building these.
    - Once #423 is on `main`: the Tachyon stage, then swap `run_pane` to embedded
      terminals. Budget the most time here.
-6. Frame pointers, JIT, GC and base64 demos.
-7. Lightning round, closing, and the thoroughness slide.
-8. `rehearse` over zellij web from the presenting browser, then the projector width pass.
+8. Frame pointers, JIT, GC and base64 demos, with their diagrams.
+9. Lightning round, closing, and the thoroughness slide.
+10. `rehearse` over zellij web from the laptop, then a pass with the laptop mirrored
+    to an external display at the presenting size.
 
 ## References
 
