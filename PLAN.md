@@ -421,7 +421,7 @@ src/whats_new/
   __main__.py        app entry: root component, navigation, export
   deck.py            SLIDES = (*OPENING, *SMALL_THINGS, ..., *CLOSING)
   sections/          one module per running-order section, each exporting a tuple of slides
-  components/        title card, footer, code_example, run_pane, split layouts
+  components/        title card, footer, slide grid, code_example, run_pane, split layouts
   runs.py            Run values, interpreter resolution
   tachyon.py         the Tachyon stage: profiler pane, modes, flamegraph server
   workloads.py       in-process workloads the Tachyon stage triggers
@@ -468,6 +468,8 @@ tests/
   - Space: reveal.
   - `1`–`9`: run.
   - `r`: reset the current slide, by remounting via `.with_key`.
+  - `d`: open the slide grid, as spiel's deck view does. See
+    [The slide grid](#the-slide-grid).
   - A clock toggle and a content-width check against the projector. The reference
     talk put these on F1 and F2, but in a browser F1 opens help, so they move to
     plain letter keys.
@@ -479,6 +481,58 @@ tests/
   `watchfiles` restart lands on the same slide.
 - Export: keep the reference talk's headless autopilot to SVG/HTML for a
   shareable copy. Run panes show their pre-run state there.
+- Mounting a slide starts nothing. Subprocesses, profilers, animations and
+  focus grabs start from a key press, never from mount.
+  - On stage, the presenter decides when something moves. A demo or animation
+    that starts on arrival competes with whatever the presenter is saying as the
+    slide comes up.
+  - Before the key, a `use_clock`-driven animation draws its first frame and
+    holds it, so it also costs nothing in a thumbnail or the export.
+  - The slide grid mounts up to nine slides at once to draw their thumbnails, and
+    the smoke test and export mount every slide. A slide that spawns on mount
+    would spawn in all of them.
+  - Run panes already follow this: their effect is keyed on a run ID that only
+    a key press bumps.
+  - No `use_focus(auto_focus=True)` in slide content. A thumbnail that takes
+    focus would take the grid's keys.
+
+### The slide grid
+
+`d` replaces the current slide with a grid of thumbnails of the whole deck, as
+[spiel's deck view](https://github.com/JoshKarpel/spiel/blob/main/spiel/widgets/minislides.py)
+does. Arrows move the selection, Enter jumps to the selected slide, and `d` or
+Escape goes back to the slide it was opened from. Clicking a thumbnail jumps to it.
+
+A headless probe against counterweight `main` drew a 3x3 grid of 14 slides at
+90x30 and windowed it, and both Enter and a click jumped to the right slide. It
+needed nothing new in counterweight:
+
+- `display_grid` with `grid_template_columns(fr(), fr(), fr())` and matching
+  rows lays out the cells.
+- Each thumbnail is a bordered `Div` with `overflow_hidden`, holding a title line
+  (`12 | Lazy imports`) and the slide's own content component. The content
+  reflows into the smaller box and clips at the border, as in spiel. It is the
+  live component rather than a picture, so a thumbnail is exactly what the slide
+  draws at that width.
+- `on_click` on the thumbnail handles the mouse.
+
+Design:
+
+- Deck state is the current index plus `selected: int | None`. `None` means the
+  slide is showing, so "the grid is open" and "what's selected" can't disagree.
+  Enter sets the current index to `selected` and clears it. Escape only clears it.
+- Slides become `Slide(title, content)` values, since the thumbnail needs a title.
+  The footer can use the same title.
+- Three columns of 30 cells fit the 90-column projector. Show three rows,
+  windowed around the selected row as spiel does, rather than mounting the whole
+  deck in a scroll area. Thumbnails are keyed by slide index, so moving the
+  selection down a row mounts one new row and keeps the other two.
+- The grid replaces the slide; it isn't an overlay on it. Leaving the slide
+  unmounts it, so it comes back fresh, with its reveals and run output reset.
+  That's the same as navigating away and back. An overlay would keep the slide
+  mounted underneath, including a live Tachyon pane still costing frame time.
+- The Tachyon stage leaves the grid while its pane has focus: there, `d` goes to
+  the profiler. Take focus back with the prefix key first.
 
 ### The Tachyon stage
 
@@ -497,6 +551,9 @@ every navigation and restart the profiler.
   `[sys.executable, "-m", "profiling.sampling", "attach", "--live", "-a", str(os.getpid())]`.
   - `sys.executable` matters: profiler and target must be the same minor version.
   - `-a` samples every thread, so workloads in worker threads show up.
+  - A key starts the profiler; arriving on the slide doesn't (see the
+    mount-starts-nothing decision). Until then the pane shows a placeholder,
+    which is also what the slide's thumbnail shows.
   - The mode lives in state. Changing it changes the pane's argv and key, which
     remounts the pane and restarts the profiler. Leaving the slide unmounts the
     pane, which hangs up the PTY and ends the profiler.
@@ -568,6 +625,10 @@ browser showing zellij web.
   - Assert against the run's own output, not the rendered deck, which embeds the source.
 - Smoke test: a headless autopilot walks every slide, catching render crashes
   and slides wider than the projector width.
+  - It also opens the grid and moves the selection through every row, so a slide
+    that crashes at thumbnail width fails here, not on stage.
+  - At the end it asserts the deck process has no child processes, which
+    enforces that mounting a slide starts nothing.
 - `just rehearse` checks the presenting setup before the talk. It scripts what
   it can:
   - every interpreter resolves
@@ -577,7 +638,9 @@ browser showing zellij web.
 
   Then it prints a manual checklist for the browser side, run over zellij web
   from the presenting browser:
-  - every deck key arrives through the browser and zellij's locked mode
+  - every deck key arrives through the browser and zellij's locked mode,
+    Escape and Enter included
+  - clicking a thumbnail in the slide grid reaches the deck
   - the flamegraph URL opens from a click
   - the grapheme slide renders as intended
 
@@ -613,7 +676,8 @@ browser showing zellij web.
 1. Scaffold: pyproject with counterweight as a git source on `main`, `mise.toml`,
    `.python-version`, `justfile` (`present`, `watch`, `check-examples`,
    `rehearse`, `export`).
-2. Deck skeleton: navigation, footer, title cards, slide-index persistence, export.
+2. Deck skeleton: navigation, the slide grid, footer, title cards, slide-index
+   persistence, export.
 3. `code_example` + `Run` + `run_pane`, built and proven on the frozendict and json
    slides, plus `check-examples`.
 4. Sections 1–4 in order: mostly content once step 3 exists.
