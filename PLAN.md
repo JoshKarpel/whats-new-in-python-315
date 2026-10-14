@@ -1,5 +1,7 @@
 # What's New in Python 3.15: Talk Plan
 
+Artifact: https://claude.ai/code/artifact/661c4edd-7424-4218-8c92-58912482fd24
+
 This plan covers the talk's content, its running order, and how to build it as an
 executable counterweight deck. It doesn't contain the slide text itself. The model
 is the
