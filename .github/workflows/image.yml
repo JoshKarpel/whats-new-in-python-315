@@ -1,0 +1,84 @@
+name: image
+
+# Builds the image others run the deck from, tests it with no network on both architectures,
+# and on main publishes it as `main` and as the commit SHA.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  IMAGE: ghcr.io/joshkarpel/whats-new-in-python-315
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write  # pushes the per-architecture image on main
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build --tag "deck:${ARCH}" .
+        env:
+          ARCH: ${{ matrix.arch }}
+
+      # With no network, so anything that reaches for one fails the build rather than a viewer's run.
+      - name: Test image
+        run: >
+          docker run --rm --network none --entrypoint /home/deck/deck/.venv/bin/pytest "deck:${ARCH}" -v
+        env:
+          ARCH: ${{ matrix.arch }}
+
+      - name: Push per-architecture image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "${TOKEN}" | docker login ghcr.io --username "${ACTOR}" --password-stdin
+          docker tag "deck:${ARCH}" "${IMAGE}:${SHA}-${ARCH}"
+          docker push "${IMAGE}:${SHA}-${ARCH}"
+        env:
+          ARCH: ${{ matrix.arch }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publish multi-architecture image
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - name: Tag main and the commit SHA
+        run: |
+          echo "${TOKEN}" | docker login ghcr.io --username "${ACTOR}" --password-stdin
+          docker buildx imagetools create \
+            --tag "${IMAGE}:main" \
+            --tag "${IMAGE}:${SHA}" \
+            "${IMAGE}:${SHA}-amd64" \
+            "${IMAGE}:${SHA}-arm64"
+        env:
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
