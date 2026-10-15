@@ -20,7 +20,8 @@ snippet, press a key, and see its output, mypy's verdict, or a timing, run live 
 3.14 and 3.15 side by side.
 
 Prefer a diagram to text wherever a picture can carry the point: a mechanism, a
-before/after, a fan-out, a timeline. Timings get a bar chart beside the raw numbers.
+before/after, a fan-out, a timeline. Timing comparisons usually get a bar chart
+beside the raw numbers.
 The running order below lists the diagrams each item wants, and
 [Diagrams](#diagrams) covers how they're built.
 
@@ -78,16 +79,22 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Example: `functools.cache` rejects a dict argument (`unhashable type: 'dict'`) and
   accepts a frozendict.
 - The sad note: no literal syntax. The PEP defers it ("can be added later").
+- Why not a subclass? The common first guess is that `frozendict` should subclass
+  `dict`. That's backwards: `frozendict` has _fewer_ methods, so if anything `dict`
+  would extend `frozendict`. And that fails too. Code holding a `frozendict` relies
+  on it never changing and being hashable, and a `dict` standing in for one breaks
+  both promises, which violates Liskov substitution. So neither subclasses the
+  other, exactly as with `set` and `frozenset`.
 - Diagram: the class hierarchy, with `frozendict` beside `dict` under `Mapping`,
-  next to `frozenset` beside `set`. "Not a dict subclass, use `Mapping`" then reads
-  as a consequence rather than a gotcha.
+  next to `frozenset` beside `set`. Draw the tempting `frozendict → dict` edge and
+  cross it out, then the reversed `dict → frozendict` edge and cross that out too.
+  "Use `Mapping`" then reads as a consequence rather than a gotcha.
 
 #### json `array_hook` (core, paired with frozendict)
-- New `array_hook=` on `load`, `loads` and `JSONDecoder` (it is a TypeError on 3.14).
+- New `array_hook=` on `load`, `loads` and `JSONDecoder`.
 - Build `loads_immutable` and `load_immutable`:
   `json.loads(s, object_pairs_hook=frozendict, array_hook=tuple)`.
-- Show the result is deeply immutable and usable as a cache key. Run the same file
-  on 3.14 to show the TypeError.
+- Show the result is deeply immutable and usable as a cache key.
 
 #### Unpacking in comprehensions, PEP 798 (core)
 - `[*row for row in rows]` replaces `list(chain.from_iterable(rows))`.
@@ -97,13 +104,29 @@ about an hour, and questions use up the slack before the 90-minute limit.
   `chain`. The inner value must be a _sync_ iterable, so
   `[*src async for src in sources()]` over async generators raises
   `TypeError: Value after * must be an iterable, not async_generator`. It flattens
-  an async stream of sync batches. Show that error on purpose.
+  an async stream of sync batches. Show that error on purpose, then show what
+  flattening async generators actually takes:
+
+  ```python
+  async def flatten(sources):
+      async for source in sources:
+          async for item in source:
+              yield item
+  ```
+
+  The one-line form is a nested async comprehension,
+  `[x async for src in sources() async for x in src]`, which predates 3.15.
+  Observed: both give the same list on 3.15.
 - On 3.14 this is a `SyntaxError: iterable unpacking cannot be used in comprehension`.
 
 #### `Counter.__xor__` (std)
 - Gives `|c[x] - d[x]|` per key, i.e. `(c - d) + (d - c)`.
-- Example: expected vs on-shelf inventory. `set(a) ^ set(b)` only catches missing
-  SKUs; `Counter ^` also catches wrong quantities.
+- The result is unsigned, so it fits a question where the direction doesn't
+  matter. A diff like expected vs on-shelf inventory doesn't fit: it needs to know
+  which side is short, which `c - d` and `d - c` already answer separately.
+- Example: how many letters must be deleted to make two words anagrams?
+  `(Counter(a) ^ Counter(b)).total()`. A deletion from either word counts the same,
+  so the missing sign is exactly right. Observed: `"cde"` and `"abc"` give 4.
 
 #### `bytearray.take_bytes` (std)
 - Take the whole buffer as `bytes` without a copy; `bytes(ba)` always copied.
@@ -149,12 +172,7 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Framing: mostly a CLI win, but the global switch makes it a one-flag experiment
   for any app.
 - Dogfood: the deck itself can `lazy import` its heavy demo dependencies (numpy).
-- Diagrams:
-  - the fake CLI's import tree, top-level modules only, with everything lit for eager
-    and only what `--version` reaches lit for lazy. Take the module counts from the
-    `-X importtime` run.
-  - a bar chart of the hyperfine timings: eager, lazy, `-X lazy_imports=all`, and
-    the bare interpreter.
+- No diagrams. The live runs and their timings carry it.
 
 #### `.start` files, PEP 829 (std)
 - The problem: a `.pth` line beginning with `import` is `exec()`ed on _every_
@@ -245,9 +263,6 @@ key for all three. Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.8
   `type[T]` and with `TypeForm[T]`. Run all three checkers. Observed:
   - `type[T]`: errors everywhere, and reveals of `Never` or `Unknown`.
   - `TypeForm[T]`: `int | None` and `Literal['GET', 'POST']` inferred correctly.
-- Diagram: nested regions. Class objects (`int`, `str`) sit inside type
-  expressions (`int | None`, `Literal[...]`, a protocol). `type[T]` covers the inner
-  region and `TypeForm[T]` covers the whole thing.
 
 #### TypedDict, PEP 728 (std)
 - Lean into the "I kinda hate TypedDict" angle: it keeps getting better anyway, and
@@ -267,8 +282,6 @@ key for all three. Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.8
 - Support varies: mypy (with `--warn-unreachable`) and ty narrow, while pyright
   only checks the class definition.
 - The decorator itself is mostly for stub authors.
-- Diagram: `Point` and `Color` with the impossible `ColoredPoint` below them,
-  crossed out.
 
 Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
 `isinstance` deprecation warning, and the removals.
@@ -338,6 +351,12 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
      `python -m http.server --bind 127.0.0.1 8315 --directory out` and prints
      `https://<vm>.exe.xyz:8315/deck-flamegraph.html`. zellij web's browser client
      bundles xterm.js's link addon, so clicking the URL opens it in a new tab.
+   - `<vm>` comes from exe.dev's
+     [reflection integration](https://exe.dev/docs/integrations-reflection.md):
+     `https://reflection.int.exe.xyz/` returns the VM's own name at the top level
+     (observed: `"name": "cumulus"`). The deck resolves it once at startup,
+     alongside the interpreters, so a missing integration fails at launch rather
+     than on the flamegraph key.
    - It stays private: exe.dev proxies ports 3000 to 9999 behind the same exe.dev
      login as zellij web. Opening the page is an ordinary top-level navigation, so
      no CORS or public port is involved.
@@ -521,6 +540,11 @@ tests/
   (`uv python find 3.14`, etc.) into a typed `Interpreters` value and fail loudly if
   one is missing. That turns a missing interpreter into a startup error, not a dead
   key on stage.
+- Every slide that references a PEP links to it from the bottom of the slide
+  (`https://peps.python.org/pep-0814/`). The PEP numbers are a field on `Slide`,
+  and the slide frame draws the link line, so a slide declares which PEPs it cites
+  rather than laying out its own links. The links are clickable over zellij web
+  through the same xterm.js link addon as the flamegraph URL.
 - Dogfood 3.15 in the deck's own code where it fits naturally:
   - `frozendict` for `Run.env`
   - `sentinel` for "not yet run" output state
@@ -715,8 +739,8 @@ Design:
 - Deck state is the current index plus `selected: int | None`. `None` means the
   slide is showing, so "the grid is open" and "what's selected" can't disagree.
   Enter sets the current index to `selected` and clears it. Escape only clears it.
-- Slides become `Slide(title, content)` values, since the thumbnail needs a title.
-  The footer can use the same title.
+- Slides become `Slide(title, content, peps)` values, since the thumbnail needs a
+  title. The footer can use the same title, and `peps` drives the PEP link line.
 - Three columns, each a third of the presenting width. Show three rows,
   windowed around the selected row as spiel does, rather than mounting the whole
   deck in a scroll area. Thumbnails are keyed by slide index, so moving the
@@ -823,11 +847,13 @@ browser on my laptop showing zellij web.
     that crashes at thumbnail width fails here, not on stage.
   - At the end it asserts the deck process has no child processes, which
     enforces that mounting a slide starts nothing.
+  - On each slide, every `PEP <n>` in the rendered text must appear in that
+    slide's `peps`, so a slide can't cite a PEP without linking it.
 - The export hook: a commit that changes the render without regenerating
   `slides.html` fails. See [HTML export](#html-export).
 - `just rehearse` checks the presenting setup before the talk. It scripts what
   it can:
-  - every interpreter resolves
+  - every interpreter resolves, and so does the VM name
   - the embedded profiler attaches to the deck's PID
   - `perf` works
   - numpy has a 3.15 wheel installed
