@@ -1,16 +1,20 @@
 """
-The run pane: a slide's runs side by side, each started by its number key, with its output in color.
+The run pane: one box at the slide's full width, showing whichever of the slide's runs was started last,
+each started by its number key, with its output in color.
 
-Mounting starts nothing. A key press bumps the run's request count in state, and an effect keyed on that count
-starts the program, so a thumbnail or the export, which never press the key, never spawn anything.
+Mounting starts nothing. A key press records a new request in state, and an effect keyed on the request
+starts the program, so a thumbnail or the export, which never press a key, never spawn anything.
 """
 
+import asyncio
+from dataclasses import dataclass
 from datetime import timedelta
 
 from counterweight.commands import CommandOutputStyles
-from counterweight.commands import command_output
+from counterweight.commands import outcome_text
 from counterweight.commands import use_command
 from counterweight.components import component
+from counterweight.elements import Canvas
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
@@ -25,13 +29,15 @@ from counterweight.hooks import use_rects
 from counterweight.hooks import use_state
 from counterweight.keys import Key
 from counterweight.styles import CellStyle
-from counterweight.styles import Style
 from counterweight.styles.utilities import *
 from counterweight.widgets import ScrollAreaStyles
+from counterweight.widgets import scroll_area
 
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.runs import Run
+from whats_new.runs import copy_examples
+from whats_new.runs import rehomed
 from whats_new.slides import SlideProps
 
 RUN_TIMEOUT = timedelta(seconds=90)
@@ -45,58 +51,50 @@ OUTPUT_STYLES = CommandOutputStyles(
 )
 
 
-@component
-def run_pane(props: SlideProps, style: Style = default, vertical: bool = False) -> Div:
+@dataclass(frozen=True, slots=True)
+class Request:
     """
-    The slide's runs side by side (or stacked, if `vertical`), the first started by `1`, the next by `2`, and so on;
-    pressing a run's key again runs it again. Escape stops every run in progress.
+    Which run to show, and the how-manyth press of any run's key asked for it,
+    so pressing the same key again is a new request, which runs it again.
+    """
+
+    index: int
+    press: int
+
+
+@component
+def run_pane(props: SlideProps) -> Div:
+    """
+    The slide's runs, named in a line above one box: `1` runs the first in the box, `2` the next, and so on,
+    replacing whatever the box showed, and the line marks which one it shows, with how it's going at its right end.
+    Pressing a run's key again runs it again. Escape stops the run in progress.
+    Every run executes a copy of `examples/` with the slide's edits written over it.
     Only a live slide's pane takes focus, which is how its keys reach it.
     """
     runs = props.runs
     if len(runs) > len(NUMBER_KEYS):
         raise ValueError(f"a slide can bind at most {len(NUMBER_KEYS)} runs, not {len(runs)}")
 
-    use_focus(auto_focus=props.is_live, is_focusable=props.is_live)
-    requests, set_requests = use_state(tuple(0 for _ in runs))
+    # Out of the focus order, so Tab moves among the slide's editors only.
+    use_focus(auto_focus=props.is_live, handle=props.runs_focus, is_focusable=props.is_live, in_focus_order=False)
+    nothing_requested: Request | None = None
+    request, set_request = use_state(nothing_requested)
     cancels, set_cancels = use_state(0)
-
-    def on_input(event: InputEvent, receiver: Receiver) -> InputResponse:
-        match event:
-            case KeyPressed(key=key) if key in NUMBER_KEYS[: len(runs)]:
-                index = NUMBER_KEYS.index(key)
-                set_requests(lambda counts: tuple(c + (i == index) for i, c in enumerate(counts)))
-                return ()
-            case KeyPressed(key=Key.Escape):
-                set_cancels(lambda n: n + 1)
-                return ()
-            case _:
-                return None
-
-    return Div(
-        style=(col if vertical else row) | fill(1) | gap(1) | style,
-        on_input=on_input,
-        children=tuple(
-            run_column(
-                run=run,
-                argv=props.host.interpreters.argv(run),
-                number=index + 1,
-                request=requests[index],
-                cancels=cancels,
-                is_live=props.is_live,
-            ).with_key(str(index))
-            for index, run in enumerate(runs)
-        ),
+    viewport, _ = use_state(ElementHandle)
+    shown = None if request is None else runs[request.index]
+    # The environment is read when the run starts, in the render that made the request, so it's the shown run's.
+    command = use_command(
+        columns=use_rects(viewport).content.width,
+        env=frozendict() if shown is None else shown.env,
+        timeout=RUN_TIMEOUT,
     )
 
-
-@component
-def run_column(run: Run, argv: tuple[str, ...], number: int, request: int, cancels: int, is_live: bool) -> Div:
-    viewport, _ = use_state(ElementHandle)
-    command = use_command(columns=use_rects(viewport).content.width, env=run.env, timeout=RUN_TIMEOUT)
-
     async def start() -> None:
-        if request > 0:
-            command.run(argv)
+        if shown is None:
+            return
+        examples_copy = props.host.examples_copy
+        await asyncio.to_thread(copy_examples, examples_copy, props.edits)
+        command.run(rehomed(props.host.interpreters.argv(shown), examples_copy))
 
     use_effect(start, deps=(request,))
 
@@ -106,22 +104,59 @@ def run_column(run: Run, argv: tuple[str, ...], number: int, request: int, cance
 
     use_effect(stop, deps=(cancels,))
 
+    def on_input(event: InputEvent, receiver: Receiver) -> InputResponse:
+        match event:
+            case KeyPressed(key=key) if key in NUMBER_KEYS[: len(runs)]:
+                index = NUMBER_KEYS.index(key)
+                set_request(lambda current: Request(index=index, press=1 if current is None else current.press + 1))
+                return ()
+            case KeyPressed(key=Key.Escape):
+                set_cancels(lambda n: n + 1)
+                return ()
+            case _:
+                return None
+
+    latest = command.latest
     return Div(
-        style=col | fill(1),
+        # Across the slide, in a column that centers its other children.
+        style=col | fill(1) | align_self_stretch,
+        on_input=on_input,
         children=(
-            Text(
-                content=(
-                    Chunk(content=f" {number} ", style=CellStyle(foreground=PYTHON_YELLOW, bold=True)),
-                    Chunk(content=run.label, style=CellStyle(foreground=PYTHON_BLUE, bold=True)),
+            # The outcome shares the line with the names, rather than taking a line under the box as
+            # `command_output` does, so the box doesn't jump when the first run starts.
+            Div(
+                style=row | justify_children_space_between | shrink(0),
+                children=(
+                    Text(
+                        content=tuple(
+                            chunk
+                            for index, run in enumerate(runs)
+                            for chunk in run_name(index, run, is_shown=request is not None and request.index == index)
+                        ),
+                    ),
+                    Text(
+                        content="" if latest is None else outcome_text(latest.outcome) + " ",
+                        style=default if latest is None else OUTPUT_STYLES.outcome_style(latest.outcome),
+                    ),
                 ),
-                style=shrink(0),
             ),
-            command_output(
-                command.latest,
-                viewport,
+            scroll_area(
+                children=() if latest is None else (Canvas(painter=latest.output),),
+                stick_to_end=True,
                 style=fill(1),
-                styles=OUTPUT_STYLES,
-                is_focusable=is_live,
+                styles=OUTPUT_STYLES.area,
+                viewport=viewport,
+                is_focusable=props.is_live,
+                in_focus_order=False,
             ),
         ),
+    )
+
+
+def run_name(index: int, run: Run, is_shown: bool) -> tuple[Chunk, ...]:
+    """A run's key and label in the line above the box, bright for the run the box shows and dim for the rest."""
+    return (
+        Chunk(content=f" {index + 1} ", style=CellStyle(foreground=PYTHON_YELLOW, bold=True, dim=not is_shown)),
+        Chunk(content=run.label, style=CellStyle(foreground=PYTHON_BLUE, bold=True, dim=not is_shown)),
+        Chunk(content="  "),
     )

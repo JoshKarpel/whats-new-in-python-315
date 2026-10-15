@@ -6,7 +6,7 @@ from counterweight.styles.utilities import *
 
 from whats_new.components.code import code_example
 from whats_new.components.layouts import code_above_runs
-from whats_new.components.layouts import code_beside_runs
+from whats_new.components.layouts import notes_beside_code_above_runs
 from whats_new.components.layouts import stack
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
@@ -14,9 +14,8 @@ from whats_new.components.look import code
 from whats_new.components.look import em
 from whats_new.components.look import plain
 from whats_new.components.look import title_card
-from whats_new.components.run_pane import run_pane
 from whats_new.diagrams import frozendict_hierarchy
-from whats_new.diagrams.graphemes import family_code_points
+from whats_new.diagrams.graphemes import band_code_points
 from whats_new.diagrams.take_bytes import take_bytes_memory
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
@@ -28,9 +27,6 @@ from whats_new.slides import SlideProps
 PY315 = Interpreter.PY315
 
 
-NO_FROZENDICT = Expect(status=1, output="NameError: name 'frozendict' is not defined")
-
-
 @component
 def section_title(props: SlideProps) -> Div:
     return centered(title_card("Small things you'll use tomorrow"))
@@ -38,9 +34,9 @@ def section_title(props: SlideProps) -> Div:
 
 @component
 def frozendict_basics(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return code_above_runs(
         props,
-        code_example("small/frozendict_basics.py"),
+        code_example(props, "small/frozendict_basics.py"),
         bullets(
             (plain("a builtin, immutable "), em("mapping")),
             (plain("hashable when its values are")),
@@ -51,18 +47,18 @@ def frozendict_basics(props: SlideProps) -> Div:
 
 @component
 def frozendict_default(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return code_above_runs(
         props,
-        code_example("small/frozendict_default.py"),
+        code_example(props, "small/frozendict_default.py"),
         bullets((plain("a default that can't be mutated by accident"),)),
     )
 
 
 @component
 def frozendict_cache(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return notes_beside_code_above_runs(
         props,
-        code_example("small/frozendict_cache.py"),
+        code_example(props, "small/frozendict_cache.py"),
         bullets(
             (plain("a mapping argument that "), code("@cache"), plain(" can key on")),
         ),
@@ -76,9 +72,9 @@ def frozendict_subclass(props: SlideProps) -> Div:
 
 @component
 def json_immutable(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return code_above_runs(
         props,
-        code_example("small/json_immutable.py"),
+        code_example(props, "small/json_immutable.py"),
         bullets(
             (plain("new: "), code("array_hook="), plain(" on "), code("load"), plain(", "), code("loads")),
             (plain("immutable all the way down")),
@@ -88,9 +84,9 @@ def json_immutable(props: SlideProps) -> Div:
 
 @component
 def unpacking(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return code_above_runs(
         props,
-        code_example("small/unpack.py"),
+        code_example(props, "small/unpack.py"),
         bullets(
             (code("[*row for row in rows]"),),
             (plain("instead of "), code("list(chain.from_iterable(rows))")),
@@ -103,14 +99,14 @@ UNPACK_FILES = ("small/unpack_pages.py", "small/unpack_sources.py", "small/unpac
 
 @component
 def unpacking_async(props: SlideProps) -> Div:
-    return code_beside_runs(props, code_example(UNPACK_FILES[props.step], start="async def"))
+    return code_above_runs(props, code_example(props, UNPACK_FILES[props.step], start="async def"))
 
 
 @component
 def counter_xor(props: SlideProps) -> Div:
     return code_above_runs(
         props,
-        code_example("small/counter_xor.py"),
+        code_example(props, "small/counter_xor.py"),
         bullets(
             (code("c ^ d"), plain(" is "), code("|c[x] - d[x]|"), plain(" for every key: "), code("(c - d) + (d - c)")),
             (plain("unsigned, so for questions where direction doesn't matter")),
@@ -119,42 +115,19 @@ def counter_xor(props: SlideProps) -> Div:
 
 
 @component
-def take_bytes(props: SlideProps) -> Div:
-    return code_above_runs(
-        props,
-        code_example("small/take_bytes.py"),
-        bullets(
-            (plain("the buffer becomes "), code("bytes"), plain(" without a copy")),
-        ),
-    )
-
-
-@component
 def take_bytes_peak(props: SlideProps) -> Div:
-    return Div(
-        style=row | fill(1) | gap(1),
-        children=(
-            Div(
-                style=col | gap(1) | shrink(0),
-                children=(code_example("small/take_bytes_memory.py"),),
-            ),
-            Div(
-                style=col | fill(1) | gap(1),
-                children=(take_bytes_memory(), run_pane(props)),
-            ),
-        ),
-    )
+    return notes_beside_code_above_runs(props, code_example(props, "small/take_bytes_memory.py"), take_bytes_memory())
 
 
 @component
 def graphemes(props: SlideProps) -> Div:
-    return code_above_runs(props, code_example("small/graphemes.py"))
+    return code_above_runs(props, code_example(props, "small/graphemes.py"))
 
 
 @component
 def grapheme_picture(props: SlideProps) -> Div:
     return stack(
-        family_code_points(),
+        band_code_points(),
         bullets(
             "counterweight segments text with iter_graphemes: this deck is the code under discussion",
             (
@@ -172,30 +145,36 @@ SLIDES = (
         title="frozendict",
         content=frozendict_basics,
         peps=(814,),
-        runs=on_both(
-            "small/frozendict_basics.py",
-            new=Expect(status=1, output="'frozendict' object does not support item assignment"),
-            old=NO_FROZENDICT,
+        runs=(
+            python(
+                Interpreter.PY315,
+                "small/frozendict_basics.py",
+                expect=Expect(status=1, output="'frozendict' object does not support item assignment"),
+            ),
         ),
     ),
     Slide(
         title="frozendict: the mutable default, fixed",
         content=frozendict_default,
         peps=(814,),
-        runs=on_both(
-            "small/frozendict_default.py",
-            new=Expect(status=0, output="frozendict({'retries': 3, 'timeout': 10.0})"),
-            old=NO_FROZENDICT,
+        runs=(
+            python(
+                Interpreter.PY315,
+                "small/frozendict_default.py",
+                expect=Expect(status=0, output="frozendict({'retries': 3, 'timeout': 10.0})"),
+            ),
         ),
     ),
     Slide(
         title="frozendict: a cache key",
         content=frozendict_cache,
         peps=(814,),
-        runs=on_both(
-            "small/frozendict_cache.py",
-            new=Expect(status=1, output="TypeError: unhashable type: 'dict'"),
-            old=NO_FROZENDICT,
+        runs=(
+            python(
+                Interpreter.PY315,
+                "small/frozendict_cache.py",
+                expect=Expect(status=1, output="TypeError: unhashable type: 'dict'"),
+            ),
         ),
     ),
     Slide(
@@ -208,10 +187,12 @@ SLIDES = (
         title="json: immutable all the way down",
         content=json_immutable,
         peps=(814,),
-        runs=on_both(
-            "small/json_immutable.py",
-            new=Expect(status=0, output="frozendict({'name': 'Ada', 'tags': ('math', 'poetry')})"),
-            old=NO_FROZENDICT,
+        runs=(
+            python(
+                Interpreter.PY315,
+                "small/json_immutable.py",
+                expect=Expect(status=0, output="frozendict({'name': 'Ada', 'tags': ('math', 'poetry')})"),
+            ),
         ),
     ),
     Slide(
@@ -243,34 +224,23 @@ SLIDES = (
     Slide(
         title="Counter ^ Counter",
         content=counter_xor,
-        runs=on_both(
-            "small/counter_xor.py",
-            new=Expect(status=0, output="4"),
-            old=Expect(status=1, output="unsupported operand type(s) for ^: 'Counter' and 'Counter'"),
-        ),
-    ),
-    Slide(
-        title="bytearray.take_bytes",
-        content=take_bytes,
-        runs=on_both(
-            "small/take_bytes.py",
-            new=Expect(status=0, output="b'HTTP/1.1 200 OK\\r\\n'"),
-            old=Expect(status=1, output="'bytearray' object has no attribute 'take_bytes'"),
-        ),
+        runs=(python(Interpreter.PY315, "small/counter_xor.py", expect=Expect(status=0, output="4")),),
     ),
     Slide(
         title="bytearray.take_bytes: half the peak",
         content=take_bytes_peak,
-        runs=(python(PY315, "small/take_bytes_memory.py", expect=Expect(status=0, output="take: peak 50 MiB")),),
+        runs=(python(PY315, "small/take_bytes_memory.py", expect=Expect(status=0, output="take_bytes: peak 50 MiB")),),
     ),
     Slide(
         title="unicodedata.iter_graphemes",
         content=graphemes,
-        runs=on_both(
-            "small/graphemes.py",
-            new=Expect(status=0, output="7 1"),
-            old=Expect(status=1, output="cannot import name 'iter_graphemes' from 'unicodedata'"),
+        runs=(
+            python(
+                Interpreter.PY315,
+                "small/graphemes.py",
+                expect=Expect(status=0, output="len(list(iter_graphemes(band)))=10"),
+            ),
         ),
     ),
-    Slide(title="One grapheme, seven code points", content=grapheme_picture),
+    Slide(title="One grapheme, two code points", content=grapheme_picture),
 )

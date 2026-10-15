@@ -8,6 +8,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from counterweight.components import Component
+from counterweight.controls import AnyControl
+from counterweight.controls import ClearFocus
+from counterweight.controls import FocusOn
+from counterweight.focus import FocusHandle
 
 from whats_new.host import Host
 from whats_new.runs import Run
@@ -30,6 +34,23 @@ class SlideProps:
 
     runs: tuple[Run, ...]
     """The slide's runs, which its run pane binds to the number keys."""
+
+    edits: frozendict[str, str]
+    """
+    The text of each example file edited on the slide so far, by its name under `examples/`,
+    which the slide's code shows and its runs execute in place of the file.
+    """
+
+    edit: Callable[[str, Callable[[str], str]], None]
+    """Edits the example `name`, with a function from its latest text, edited or not, to its new text."""
+
+    runs_focus: FocusHandle
+    """The run pane's focus handle, which leaving an editor focuses, so the number keys run again."""
+
+    @property
+    def leave_editor(self) -> AnyControl:
+        """What leaving an editor does: focus the run pane, or clear focus, giving the keys to the deck, on a slide with no runs."""
+        return FocusOn(self.runs_focus) if self.runs else ClearFocus()
 
 
 @dataclass(frozen=True, slots=True)

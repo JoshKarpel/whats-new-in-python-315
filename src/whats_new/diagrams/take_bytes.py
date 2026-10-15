@@ -30,7 +30,7 @@ def take_bytes_memory() -> Text:
             Chunk(content="bytes(buffer)", style=HIGHLIGHT),
             Chunk.newline(),
             *buffer_line("buffer", True),
-            *buffer_line("result", True, "  a copy"),
+            *buffer_line("result", True, " a copy"),
             Chunk.newline(),
             Chunk(content="buffer.take_bytes()", style=HIGHLIGHT),
             Chunk.newline(),

@@ -7,4 +7,4 @@ class Point(namedtuple("Point", "x y")):
 
 point = Point(1, 2)
 point.label = "origin-ish"
-print(point, point.label)
+print(f"{point=} {point.label=}")

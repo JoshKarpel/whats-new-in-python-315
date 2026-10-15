@@ -20,7 +20,8 @@ scratchpad. The useful ones get promoted into `examples/` during the build.
 A whirlwind tour of how Python is getting better, for working Python programmers
 (not C-extension authors). There's no single theme. The deck is executable: show a
 snippet, press a key, and see its output, mypy's verdict, or a timing, run live on
-3.14 and 3.15 side by side.
+3.15. Where behavior changed, or the syntax is new, another key runs it on 3.14.
+An addition gets no 3.14 run: all 3.14 can say is that it doesn't exist.
 
 Prefer a diagram to text wherever a picture can carry the point: a mechanism, a
 before/after, a fan-out, a timeline. Timing comparisons usually get a bar chart
@@ -75,8 +76,8 @@ also means trimming some of the std items.
 
 ### 0. Opening (core)
 - Title, who I am.
-- "This deck is a Python 3.15 program": press a key to show `sys.version`, then run
-  the same one-liner on 3.14.
+- Don't announce that the deck is a Python 3.15 program. The first run box gives
+  it away, and the audience working that out is part of the fun.
 - A quick glance at the 3.15 changelog's size, to set up the "thorough" observation.
 
 ### 1. Small things you'll use tomorrow
@@ -104,7 +105,7 @@ also means trimming some of the std items.
 
 #### json `array_hook` (core, paired with frozendict)
 - New `array_hook=` on `load`, `loads` and `JSONDecoder`.
-- Build `loads_immutable` and `load_immutable`:
+- Call it inline, with no wrapper function to spend rows on:
   `json.loads(s, object_pairs_hook=frozendict, array_hook=tuple)`.
 - Show the result is deeply immutable and usable as a cache key.
 
@@ -142,9 +143,11 @@ also means trimming some of the std items.
 
 #### `bytearray.take_bytes` (std)
 - Take the whole buffer as `bytes` without a copy; `bytes(ba)` always copied.
-- Example: peeling an HTTP status line off a receive buffer.
-- Observed on a 50 MB buffer: the copy doubles peak memory and `take_bytes` doesn't.
-  Run it live with `tracemalloc` peak numbers.
+- One slide: `bytes` and `bytearray.take_bytes` over the same 50 MB buffer, with
+  `tracemalloc` peaks. Each prints the buffer's length before and after (the
+  copy leaves it full, `take_bytes` empties it), and the two results are
+  asserted equal. Observed: the copy doubles peak memory and `take_bytes`
+  doesn't.
 - Diagram: memory before and after. `bytes(ba)` leaves two buffers; `take_bytes`
   hands the one buffer over and leaves the bytearray empty.
 
@@ -153,16 +156,19 @@ also means trimming some of the std items.
 - The rationale is that "match" means "search" in most other regex engines.
 
 #### `unicodedata.iter_graphemes` (std)
-- `len("👨‍👩‍👧‍👦") == 7`, but it is one grapheme.
-- Reversing `"Café 🇯🇵 👩‍💻!"` naively turns 🇯🇵 into 🇵🇯 and splits the ZWJ sequence.
+- `"Spin̈al Tap"` is 11 code points but 10 graphemes: its n̈ is `n` and
+  U+0308 COMBINING DIAERESIS, with no precomposed form, so NFC can't fold it away.
+- Reversing it naively moves the umlaut onto the `a` (`paT länipS`).
   Reversing by grapheme gets it right.
+- A combining mark, not emoji: xterm.js draws ZWJ sequences and flags at
+  inconsistent widths, and a combining mark is zero-width everywhere.
 - Personal hook: counterweight uses it
   ([#392](https://github.com/JoshKarpel/counterweight/issues/392), PR #398) for
   segmentation. Width still comes from `wcwidth`, because the stdlib segments
   graphemes but doesn't measure terminal cells.
 - Self-referential demo: the deck rendering that string is the code under discussion.
-- Diagram: the family emoji's 7 code points (four people joined by three ZWJs)
-  under one grapheme box.
+- Diagram: the string's code points under grapheme brackets, with one bracket
+  spanning the `n` and its combining diaeresis.
 
 ### 2. Startup and imports
 
@@ -495,7 +501,7 @@ frame earns a slide or just a sentence.
 
 What will bite on upgrade, from the whatsnew's
 [Porting](https://docs.python.org/3.15/whatsnew/3.15.html#porting-to-python-3-15)
-section and its removals. One script runs on 3.14 and on 3.15 side by side. Observed:
+section and its removals. One script runs on 3.14 and on 3.15. Observed:
 
 | Change | 3.14.7 | 3.15 |
 |---|---|---|
@@ -529,7 +535,7 @@ section and its removals. One script runs on 3.14 and on 3.15 side by side. Obse
 - Coming next: `profile` is removed in 3.17 (use `profiling.tracing`), and
   `__version__` attributes in about 25 stdlib modules are deprecated for removal
   in 3.20 (observed: `argparse.__version__` warns).
-- No diagram. The side-by-side runs carry it.
+- No diagram. The runs on each version carry it.
 
 ### 7. Lightning round (core, one slide or a rapid sequence)
 
@@ -637,6 +643,24 @@ Dockerfile           the image others run the deck from
   checkers, so display and execution can't drift. (The reference talk used
   `inspect.getsource`, which can't hold 3.15-only syntax that must also be shown
   failing on 3.14.)
+- Examples are editable on stage, so an audience question becomes an edit and a
+  run.
+  - `e` or Ctrl+X moves into the slide's first example, Tab to the next, and
+    Ctrl+X gives the keys back to the run box. The browser keeps Escape, so it
+    can't be the way out, and Ctrl+X is free in the editor, which uses the Emacs
+    keys (Ctrl+A, Ctrl+E, ...) for moving. While editing, every other key types,
+    so the deck's own keys wait until Ctrl+X.
+  - The code stays highlighted while it's edited. The border is yellow while
+    editing, and red whenever the whole file, hidden lines included, doesn't
+    `compile()` on the deck's 3.15. That's the grammar the run will see, so a
+    typo shows before the run. An example that is a `SyntaxError` on purpose
+    (`lazy import` inside `try`) is red from the start, which is on-message.
+  - Every run executes a copy of `examples/` in a temporary directory, with the
+    slide's edits written over it, and its argv pointed at the copy. A harness
+    finds the files it drives relative to its own copy, so edits reach the type
+    checkers and hyperfine too. Never `examples/` itself, which `just watch`
+    watches.
+  - Edits live in the slide's state, so `r` or leaving the slide undoes them.
 - A `Run` is a value. Something like
   `Run(label="3.14", argv=(...), env=frozendict(...))`. Slides declare a tuple of
   runs, bound to keys `1`–`9`, and a shared `run_pane` component shows the output.
@@ -658,11 +682,16 @@ Dockerfile           the image others run the deck from
     free-threaded 3.15.0 final both installed, `uv python find 3.15` returned the
     free-threaded one (observed, uv 0.13.0). Ask for `3.15+gil` and
     `3.15+freethreaded` (both observed to resolve correctly), and the same for 3.14.
-- Every slide that references a PEP links to it from the bottom of the slide
-  (`https://peps.python.org/pep-0814/`). The PEP numbers are a field on `Slide`,
-  and the slide frame draws the link line, so a slide declares which PEPs it cites
-  rather than laying out its own links. The links are clickable over zellij web
-  through the same xterm.js link addon as the flamegraph URL.
+- Every slide that references a PEP links to it from its title:
+  `PEP 814: frozendict`. The PEP numbers are a field on `Slide`, and the slide
+  frame draws them into the heading, so a slide declares which PEPs it cites
+  rather than laying out its own links, and the links cost no row of their own.
+  - Each link is just `PEP 814`, an OSC 8 hyperlink to the PEP. The URL isn't
+    spelled out: from a seat, searching for "PEP 814" is quicker than typing one.
+  - A title card has no heading, so it cites no PEP; the slides after it do.
+  - Without a URL in the text, xterm.js's link addon can't find it, so a click
+    depends on zellij web passing OSC 8 hyperlinks through to xterm.js. That's
+    untested; `just rehearse` checks it.
 - Dogfood 3.15 in the deck's own code where it fits naturally:
   - `frozendict` for `Run.env`
   - `sentinel` for "not yet run" output state
@@ -674,6 +703,8 @@ Dockerfile           the image others run the deck from
   - Left/Right: navigate.
   - Space: reveal.
   - `1`–`9`: run.
+  - `e` or Ctrl+X: edit the slide's code; Ctrl+X stops editing. The Tachyon stage claims
+    `e` for its exception workload first, since a slide's own keys win.
   - `r`: reset the current slide, by remounting via `.with_key`.
   - `d`: open the slide grid, as spiel's deck view does. See
     [The slide grid](#the-slide-grid).
@@ -716,8 +747,8 @@ Dockerfile           the image others run the deck from
   - The slide grid mounts up to nine slides at once to draw their thumbnails, and
     the smoke test and export mount every slide. A slide that spawns on mount
     would spawn in all of them.
-  - Run panes already follow this: their effect is keyed on a run ID that only
-    a key press bumps.
+  - Run panes already follow this: their effect is keyed on a request that only
+    a key press makes.
   - No `use_focus(auto_focus=True)` in slide content. A thumbnail that takes
     focus would take the grid's keys.
 
@@ -754,10 +785,20 @@ zellij web, which shows the deck. The deck targets one size in cells, declared o
 in `size.py`. The hand-drawn diagrams, animations, slide grid, Tachyon stage, export
 and smoke test all read it from there.
 
-Columns matter more than rows. Layouts tend to run sideways (side-by-side run
-panes, the Tachyon split, the fan-outs), so the width is the exact target and the
+Columns matter more than rows. Layouts tend to run sideways (code beside its
+notes, the Tachyon split, the fan-outs), so the width is the exact target and the
 height is a floor. A diagram is drawn for one width, and redrawing all of them
 after the width changes is the expensive mistake. Extra rows are slack.
+
+A slide's runs go under its code, at the slide's full width, in one box: `1`
+runs the first in it, `2` the next, each replacing what the box showed, and the
+line above the box marks which one it shows. Runs beside the code, or side by
+side, would halve the width of a traceback that already wraps.
+
+Content is centered both ways by default, and a slide's title is centered on its
+top row. The exceptions are pictures drawn for a fixed position, the hand-placed
+diagrams. Notes beside code take their natural width and shrink to fit;
+code too wide to leave the notes 28 columns puts them under it instead.
 
 The starting point is the reference talk's 90x30, presented from the same laptop.
 Its footer checked for exactly 90 columns, and its export rendered at 90x30.
@@ -774,7 +815,7 @@ Its footer checked for exactly 90 columns, and its export rendered at 90x30.
   - code: the longest example is legible from across a room
   - the Tachyon stage: the pane gets at least 60x12 with the talking-point strip
     above it, and a side-by-side split leaves the slide enough room
-  - run panes: 3.14 and 3.15 output fit side by side
+  - run panes: a run's output fits the full-width box under its code
   - the slide grid: thumbnails at a third of the width are still recognizable
   - diagrams: the frame-pointer stack and the CI-sized fan-outs fit
 - Repeat with the laptop mirrored to an external display or projector. Projectors
@@ -871,7 +912,7 @@ Design:
   slide is showing, so "the grid is open" and "what's selected" can't disagree.
   Enter sets the current index to `selected` and clears it. Escape only clears it.
 - Slides become `Slide(title, content, peps)` values, since the thumbnail needs a
-  title. The footer can use the same title, and `peps` drives the PEP link line.
+  title. The footer can use the same title, and `peps` prefixes the heading with PEP links.
 - Three columns, each a third of the presenting width. Show three rows,
   windowed around the selected row as spiel does, rather than mounting the whole
   deck in a scroll area. Thumbnails are keyed by slide index, so moving the
@@ -944,10 +985,9 @@ browser on my laptop showing zellij web.
     received it.
 - The cell count comes from the browser window and its zoom. See
   [Presenting resolution](#presenting-resolution).
-- Terminal rendering is xterm.js, not a native terminal. The grapheme slide depends
-  on how it draws ZWJ sequences, flags and skin tones. Check those, because a
-  broken family emoji on the "graphemes are hard" slide would be on-message, but
-  only if it's intended.
+- Terminal rendering is xterm.js, not a native terminal. It draws ZWJ sequences
+  and flags at inconsistent widths, so the grapheme slide uses a combining mark
+  instead. Check that the n̈ draws as one cell.
 - Clickable links come from xterm.js's link addon, which zellij web bundles (found
   in the zellij 0.45.1 binary). That's untested end to end.
 - The network sits between the deck and the projector. The live Tachyon pane

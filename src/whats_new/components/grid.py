@@ -15,9 +15,9 @@ from counterweight.handlers import on_click
 from counterweight.styles.utilities import *
 
 from whats_new.components.look import dim
+from whats_new.components.slide_body import slide_body
 from whats_new.host import Host
 from whats_new.slides import Slide
-from whats_new.slides import SlideProps
 
 COLUMNS = 3
 ROWS = 3
@@ -40,7 +40,6 @@ def thumbnail(
     host: Host,
 ) -> Div:
     slide = slides[index]
-    props = SlideProps(step=slide.steps - 1, is_live=False, host=host, runs=slide.runs)
     return Div(
         style=col
         | border
@@ -50,7 +49,7 @@ def thumbnail(
         on_input=on_click(lambda: jump(index)),
         children=(
             Text(content=f"{index + 1} | {slide.title}", style=(text_color("amber", 300) if is_selected else dim)),
-            Div(style=col | fill(1) | overflow_hidden, children=(slide.content(props),)),
+            Div(style=col | fill(1) | overflow_hidden, children=(slide_body(slide, slide.steps - 1, False, host),)),
         ),
     )
 

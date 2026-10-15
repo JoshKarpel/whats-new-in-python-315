@@ -18,7 +18,7 @@ MANUAL = (
     "clicking a thumbnail in the slide grid (d) reaches the deck",
     "the flamegraph URL on the Tachyon slide opens from a click",
     "PEP links open from a click",
-    "the grapheme slide's family emoji and flags render as intended",
+    "the grapheme slide's n̈ draws as one cell, and its naive reversal puts the umlaut on the a",
     "the Tachyon pane redraws smoothly enough over the venue network",
 )
 

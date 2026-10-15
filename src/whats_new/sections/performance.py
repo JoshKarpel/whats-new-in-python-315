@@ -122,7 +122,7 @@ def jit_speed(props: SlideProps) -> Div:
 def base64_speed(props: SlideProps) -> Div:
     return code_above_runs(
         props,
-        code_example("performance/base64_bench.py", start="print(sys"),
+        code_example(props, "performance/base64_bench.py", start="print(sys"),
         bullets(
             "C rewrites, and b32/b85 moved to C",
             "a 5 MB PDF in a JSON body for an LLM API: real, and small next to the network",
@@ -151,7 +151,7 @@ FRAME_POINTER_DEMO = Run(
 
 SLIDES = (
     Slide(title="Performance", content=section_title, has_heading=False),
-    Slide(title="Tachyon", content=tachyon_name, peps=(799,), has_heading=False),
+    Slide(title="Tachyon", content=tachyon_name, has_heading=False),
     Slide(
         title="Why sampling?",
         content=why_sampling,

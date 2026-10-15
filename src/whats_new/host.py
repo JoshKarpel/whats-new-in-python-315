@@ -7,6 +7,7 @@ import json
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from whats_new.runs import Interpreters
 
@@ -48,3 +49,8 @@ EXPORT_FLAMEGRAPH_SITE = FlamegraphSite(base_url="http://127.0.0.1:8315", bind="
 class Host:
     interpreters: Interpreters
     flamegraph: FlamegraphSite
+    examples_copy: Path
+    """
+    Where each run copies `examples/` to, with the slide's edits written over their files, and runs from.
+    Never `examples/` itself, since `just watch` restarts the deck when a file there changes.
+    """

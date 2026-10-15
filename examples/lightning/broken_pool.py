@@ -11,5 +11,5 @@ if __name__ == "__main__":
         try:
             pool.submit(crash).result()
         except Exception as error:
-            print(type(error).__name__)
-            print("caused by:", repr(error.__cause__))
+            print(f"{type(error).__name__=}")
+            print(f"{error.__cause__=}")

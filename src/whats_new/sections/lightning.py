@@ -5,21 +5,25 @@ from counterweight.elements import Div
 from counterweight.styles.utilities import *
 
 from whats_new.components.code import code_example
-from whats_new.components.layouts import code_beside_runs
+from whats_new.components.layouts import code_above_runs
+from whats_new.components.layouts import notes_beside_code_above_runs
+from whats_new.components.layouts import side_by_side
 from whats_new.components.layouts import stack
 from whats_new.components.look import bullets
 from whats_new.components.look import code
 from whats_new.components.look import plain
 from whats_new.components.repl import repl_pane
 from whats_new.runs import Expect
+from whats_new.runs import Interpreter
 from whats_new.runs import on_both
+from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
 
 
 @component
 def did_you_mean(props: SlideProps) -> Div:
-    return code_beside_runs(props, code_example("lightning/did_you_mean.py", start="hint("))
+    return code_above_runs(props, code_example(props, "lightning/did_you_mean.py", start="hint("))
 
 
 @component
@@ -36,19 +40,21 @@ def repl(props: SlideProps) -> Div:
 
 @component
 def context_managers(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return notes_beside_code_above_runs(
         props,
-        code_example("lightning/contextmanager_generator.py"),
+        code_example(props, "lightning/contextmanager_generator.py"),
         bullets("as a decorator on a generator, it stays open across the iteration"),
     )
 
 
 @component
 def odds_and_ends(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return code_above_runs(
         props,
-        code_example("lightning/namedtuple_slots.py", start="class Point"),
-        code_example("lightning/pprint_expand.py", start="config"),
+        side_by_side(
+            code_example(props, "lightning/namedtuple_slots.py", start="class Point"),
+            code_example(props, "lightning/pprint_expand.py", start="config"),
+        ),
     )
 
 
@@ -76,7 +82,7 @@ def quickfire(props: SlideProps) -> Div:
             (code("Popen.wait(timeout=)"), plain(" waits on an event, not a sleep loop")),
             (plain("the "), code("pkg.sub"), plain(" / "), code("pkg.sub.mod"), plain(" import deadlock is fixed")),
         ),
-        code_beside_runs(props, code_example("lightning/broken_pool.py", start="def crash")),
+        code_above_runs(props, code_example(props, "lightning/broken_pool.py", start="def crash")),
     )
 
 
@@ -106,14 +112,10 @@ SLIDES = (
         runs=(
             *on_both(
                 "lightning/namedtuple_slots.py",
-                new=Expect(status=0, output="Point(x=1, y=2) origin-ish"),
+                new=Expect(status=0, output="point=Point(x=1, y=2) point.label='origin-ish'"),
                 old=Expect(status=1, output="nonempty __slots__ not supported"),
             ),
-            *on_both(
-                "lightning/pprint_expand.py",
-                new=Expect(status=0, output="'counterweight',"),
-                old=Expect(status=1, output="unexpected keyword argument 'expand'"),
-            ),
+            python(Interpreter.PY315, "lightning/pprint_expand.py", expect=Expect(status=0, output="'counterweight',")),
         ),
     ),
     Slide(
@@ -122,7 +124,7 @@ SLIDES = (
         runs=on_both(
             "lightning/broken_pool.py",
             new=Expect(status=0, output="terminated abruptly with exit code 3"),
-            old=Expect(status=0, output="caused by: None"),
+            old=Expect(status=0, output="error.__cause__=None"),
         ),
     ),
 )

@@ -9,12 +9,13 @@ FROM docker.io/jdxcode/mise:2026.10.3 AS mise
 FROM docker.io/library/debian:trixie-slim
 
 # git: counterweight is a git source. gcc and libc6-dev: the frame pointer demo builds a C extension.
+# tzdata: the footer's clock reads Chicago time, through zoneinfo.
 # linux-perf: the frame pointer demo samples with perf. nodejs: pyright runs on it.
 # locales: the UTF-8 slide runs under en_US, a Latin-1 locale, to show the old default.
 RUN <<EOF
 set -e
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates git gcc libc6-dev linux-perf locales nodejs
+apt-get install -y --no-install-recommends ca-certificates git gcc libc6-dev linux-perf locales nodejs tzdata
 echo "en_US ISO-8859-1" >> /etc/locale.gen
 locale-gen
 apt-get clean

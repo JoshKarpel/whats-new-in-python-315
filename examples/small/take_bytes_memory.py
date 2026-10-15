@@ -2,17 +2,14 @@ import tracemalloc
 
 SIZE = 50 * 2**20
 
-def copy():
-    buffer = bytearray(SIZE)
-    return bytes(buffer)
-
-def take():
-    buffer = bytearray(SIZE)
-    return buffer.take_bytes()
-
-for f in (copy, take):
+results = []
+for f in (bytes, bytearray.take_bytes):
     tracemalloc.start()
-    f()
+    buffer = bytearray(SIZE)
+    print(f"{f.__name__}: before, {len(buffer)=}")
+    results.append(f(buffer))
+    print(f"{f.__name__}: after,  {len(buffer)=}")
     _, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    print(f"{f.__name__:>4}: peak {peak / 2**20:.0f} MiB")
+    print(f"{f.__name__}: peak {peak // 2**20} MiB")
+assert results[0] == results[1]

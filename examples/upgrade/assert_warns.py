@@ -14,4 +14,5 @@ with warnings.catch_warnings(record=True) as leaked:
     warnings.simplefilter("always", UserWarning)
     tests = unittest.TestLoader().loadTestsFromTestCase(Test)
     unittest.TextTestRunner(stream=io.StringIO()).run(tests)
-print("leaked:", [str(warning.message) for warning in leaked])
+messages = [str(warning.message) for warning in leaked]
+print(f"{messages=}")

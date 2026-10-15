@@ -4,5 +4,5 @@ def fetch(url, options=DEFAULTS):
     options = options | {"url": url}  # a new frozendict
     return options
 
-print(fetch("https://python.org"))
-print(DEFAULTS)
+print(f"{fetch("https://python.org")=}")
+print(f"{DEFAULTS=}")

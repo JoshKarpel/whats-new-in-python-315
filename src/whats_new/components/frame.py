@@ -1,6 +1,7 @@
 """The frame around every presented slide: its heading, the PEP link line, and the footer."""
 
 from datetime import timedelta
+from datetime import tzinfo
 
 from counterweight.components import component
 from counterweight.elements import Chunk
@@ -19,36 +20,42 @@ from whats_new.slides import pep_url
 TALK_TITLE = "What's New in Python 3.15"
 
 
-def heading(title: str) -> Text:
-    return Text(content=title, style=heading_style | pad_x(1) | shrink(0))
-
-
-def pep_links(peps: tuple[int, ...]) -> Text:
+def heading(title: str, peps: tuple[int, ...]) -> Text:
     """
-    One line linking every PEP a slide cites, as OSC 8 hyperlinks whose text is also the URL,
-    so a terminal that only detects URLs in text can open them too.
+    The slide's title, centered on its top row, after the PEPs it cites: `PEP 814: frozendict`.
+    Each `PEP <n>` is an OSC 8 hyperlink to it, and the URL isn't spelled out, since from a seat,
+    searching for "PEP 814" is quicker than typing one, and a line of links would cost a row on every such slide.
     """
-    chunks: list[Chunk] = []
+    links: list[Chunk] = []
     for number in peps:
-        if chunks:
-            chunks.append(Chunk(content="  "))
-        url = pep_url(number)
-        chunks.append(Chunk(content=f"PEP {number} ", style=CellStyle(foreground=PYTHON_BLUE, bold=True)))
-        chunks.append(Chunk(content=url, style=CellStyle(foreground=PYTHON_BLUE, underline=True, link=url)))
-    return Text(content=tuple(chunks), style=pad_x(1) | shrink(0))
+        if links:
+            links.append(Chunk(content=", "))
+        links.append(
+            Chunk(
+                content=f"PEP {number}",
+                style=CellStyle(foreground=PYTHON_BLUE, bold=True, underline=True, link=pep_url(number)),
+            )
+        )
+    prefix = (*links, Chunk(content=": ")) if links else ()
+    return Text(
+        content=(*prefix, Chunk(content=title)), style=heading_style | pad_x(1) | shrink(0) | text_justify_center
+    )
 
 
 @component
-def footer(index: int, total: int, show_clock: bool, show_size: bool, columns: int, rows: int) -> Div:
+def footer(index: int, total: int, show_clock: bool, show_size: bool, columns: int, rows: int, timezone: tzinfo) -> Div:
     """
     The talk's title and the slide number, with the clock (F1) and the size check (F2) between them.
+    The clock reads 12-hour time in `timezone`, not the machine's, which on the presenting VM is UTC.
     The size check is green when the terminal is exactly the presenting width (and at least its height),
     and red otherwise, so a wrong browser zoom shows before the first diagram.
     """
     now = use_clock(timedelta(seconds=15)).now
     middle: list[Text] = []
     if show_clock:
-        middle.append(Text(content=f"{now:%H:%M}", style=text_color("slate", 200)))
+        middle.append(
+            Text(content=f"{now.astimezone(timezone):%I:%M %p}".removeprefix("0"), style=text_color("slate", 200))
+        )
     if show_size:
         middle.append(
             Text(

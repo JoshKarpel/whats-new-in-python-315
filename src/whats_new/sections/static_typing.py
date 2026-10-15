@@ -6,7 +6,6 @@ from counterweight.styles.utilities import *
 
 from whats_new.components.code import code_example
 from whats_new.components.layouts import code_above_runs
-from whats_new.components.layouts import code_beside_runs
 from whats_new.components.layouts import notes_beside_code_above_runs
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
@@ -19,7 +18,6 @@ from whats_new.runs import Interpreter
 from whats_new.runs import Run
 from whats_new.runs import checkers
 from whats_new.runs import example
-from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
@@ -47,9 +45,9 @@ def section_title(props: SlideProps) -> Div:
 
 @component
 def sentinel_runtime(props: SlideProps) -> Div:
-    return notes_beside_code_above_runs(
+    return code_above_runs(
         props,
-        code_example("typing/sentinel_runtime.py"),
+        code_example(props, "typing/sentinel_runtime.py"),
         bullets(
             "the repr is the name, and it's always truthy",
             "copies are itself, and it pickles by name",
@@ -61,7 +59,7 @@ def sentinel_runtime(props: SlideProps) -> Div:
 def sentinel_naive(props: SlideProps) -> Div:
     return notes_beside_code_above_runs(
         props,
-        code_example("typing/sentinel_naive.py"),
+        code_example(props, "typing/sentinel_naive.py"),
         bullets(
             (plain("narrowing is "), em("broken"), plain(": "), code("name"), plain(" is still "), code("object")),
             (code("greet(42)"), plain(" passes: everything is an object")),
@@ -71,9 +69,9 @@ def sentinel_naive(props: SlideProps) -> Div:
 
 @component
 def sentinel_enum(props: SlideProps) -> Div:
-    return notes_beside_code_above_runs(
+    return code_above_runs(
         props,
-        code_example("typing/sentinel_enum.py"),
+        code_example(props, "typing/sentinel_enum.py"),
         bullets("works everywhere, if you know the trick"),
     )
 
@@ -82,7 +80,7 @@ def sentinel_enum(props: SlideProps) -> Div:
 def sentinel_builtin(props: SlideProps) -> Div:
     return notes_beside_code_above_runs(
         props,
-        code_example("typing/sentinel.py"),
+        code_example(props, "typing/sentinel.py"),
         bullets(
             (code("str | MISSING"), plain(": the sentinel is its own type")),
             (plain("3.14 and earlier: "), code("typing_extensions.Sentinel")),
@@ -95,7 +93,7 @@ def typeform(props: SlideProps) -> Div:
     name = ("typing/validate_type.py", "typing/validate_typeform.py")[props.step]
     return code_above_runs(
         props,
-        code_example(name, stop="reveal_type"),
+        code_example(props, name, stop="reveal_type"),
         bullets(
             (
                 code("type[T]"),
@@ -112,7 +110,7 @@ def typeform(props: SlideProps) -> Div:
 def closed_typeddict(props: SlideProps) -> Div:
     return notes_beside_code_above_runs(
         props,
-        code_example("typing/closed.py", start="class Book"),
+        code_example(props, "typing/closed.py", start="class Book"),
         bullets(
             (code("closed=True"), plain(": no keys but the ones declared")),
             (plain("so "), code('"isbn" in item'), plain(" narrows the union "), em("soundly")),
@@ -124,7 +122,7 @@ def closed_typeddict(props: SlideProps) -> Div:
 def closed_assignment(props: SlideProps) -> Div:
     return notes_beside_code_above_runs(
         props,
-        code_example("typing/closed_assign.py", start="class Book"),
+        code_example(props, "typing/closed_assign.py", start="class Book"),
         bullets(
             (plain("closed: a "), code("Hardback"), plain(" has an extra key, so it isn't a "), code("Book")),
             (plain('open TypedDicts allowed this "wider" assignment')),
@@ -136,7 +134,7 @@ def closed_assignment(props: SlideProps) -> Div:
 def extra_items(props: SlideProps) -> Div:
     return code_above_runs(
         props,
-        code_example("typing/extra_items.py"),
+        code_example(props, "typing/extra_items.py"),
         bullets(
             (code("extra_items=str"), plain(": any other key, as long as its value is a "), code("str")),
             "mypy 2.4 doesn't support it yet, and rejects valid code",
@@ -146,9 +144,9 @@ def extra_items(props: SlideProps) -> Div:
 
 @component
 def disjoint(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return notes_beside_code_above_runs(
         props,
-        code_example("typing/disjoint.py"),
+        code_example(props, "typing/disjoint.py"),
         bullets(
             (plain("checkers know "), code("slots=True"), plain(" classes can't share a subclass")),
             (plain("the decorator, "), code("@disjoint_base"), plain(", is mostly for stubs")),
@@ -162,10 +160,12 @@ SLIDES = (
         title="Sentinels",
         content=sentinel_runtime,
         peps=(661,),
-        runs=on_both(
-            "typing/sentinel_runtime.py",
-            new=Expect(status=1, output="type 'sentinel' is not an acceptable base type"),
-            old=Expect(status=1, output="name 'sentinel' is not defined"),
+        runs=(
+            python(
+                Interpreter.PY315,
+                "typing/sentinel_runtime.py",
+                expect=Expect(status=1, output="type 'sentinel' is not an acceptable base type"),
+            ),
         ),
     ),
     Slide(

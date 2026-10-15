@@ -14,8 +14,12 @@ def interpreters() -> Interpreters:
 
 
 @pytest.fixture(scope="session")
-def host(interpreters: Interpreters) -> Host:
-    return Host(interpreters=interpreters, flamegraph=EXPORT_FLAMEGRAPH_SITE)
+def host(interpreters: Interpreters, tmp_path_factory: pytest.TempPathFactory) -> Host:
+    return Host(
+        interpreters=interpreters,
+        flamegraph=EXPORT_FLAMEGRAPH_SITE,
+        examples_copy=tmp_path_factory.mktemp("examples"),
+    )
 
 
 @pytest.fixture(scope="session")

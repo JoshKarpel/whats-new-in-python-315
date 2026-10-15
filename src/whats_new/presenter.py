@@ -8,6 +8,8 @@ so "the grid is open" and "what it has selected" can't disagree.
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import replace
+from datetime import tzinfo
+from zoneinfo import ZoneInfo
 
 from counterweight.components import Component
 from counterweight.components import component
@@ -25,12 +27,11 @@ from counterweight.styles.utilities import *
 
 from whats_new.components.frame import footer
 from whats_new.components.frame import heading
-from whats_new.components.frame import pep_links
 from whats_new.components.grid import COLUMNS
 from whats_new.components.grid import grid
+from whats_new.components.slide_body import slide_body
 from whats_new.host import Host
 from whats_new.slides import Slide
-from whats_new.slides import SlideProps
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,16 +83,22 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
             return None
 
 
+CHICAGO = ZoneInfo("America/Chicago")
+"""Where the talk is given, so the clock reads the room's time, not the VM's UTC."""
+
+
 @component
 def root(
     slides: tuple[Slide, ...],
     host: Host,
     start_index: int,
     remember_index: Callable[[int], None],
+    timezone: tzinfo = CHICAGO,
 ) -> Div:
     """
     The deck. It starts on `start_index` and calls `remember_index` with the index after every move,
     so a restart (live reload, or a crash on stage) can come back to the same slide.
+    The footer's clock reads the time in `timezone`.
     """
     position, set_position = use_state(Position(index=clamp(start_index, 0, len(slides) - 1)))
     show_clock, set_show_clock = use_state(False)
@@ -124,15 +131,17 @@ def root(
 
     slide = slides[position.index]
     if position.selected is None:
-        props = SlideProps(step=position.step, is_live=True, host=host, runs=slide.runs)
         body: tuple[Component | AnyElement, ...] = (
-            *((heading(slide.title),) if slide.has_heading else ()),
+            *((heading(slide.title, slide.peps),) if slide.has_heading else ()),
             Div(
                 style=col | fill(1) | pad_x(1),
                 # Keyed by index and generation: navigating away and back, or pressing r, mounts the slide fresh.
-                children=(slide.content(props).with_key(f"slide-{position.index}-{position.generation}"),),
+                children=(
+                    slide_body(slide, position.step, True, host).with_key(
+                        f"slide-{position.index}-{position.generation}"
+                    ),
+                ),
             ),
-            *((pep_links(slide.peps),) if slide.peps else ()),
         )
     else:
         body = (grid(slides, position.selected, jump, host).with_key("grid"),)
@@ -142,6 +151,6 @@ def root(
         on_input=on_input,
         children=(
             *body,
-            footer(position.index, len(slides), show_clock, show_size, screen.width, screen.height),
+            footer(position.index, len(slides), show_clock, show_size, screen.width, screen.height, timezone),
         ),
     )

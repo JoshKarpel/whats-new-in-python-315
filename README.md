@@ -2,7 +2,7 @@
 
 A whirlwind tour of how Python is getting better, as an executable deck:
 the slides are [counterweight](https://github.com/JoshKarpel/counterweight) components,
-and the code on screen is the code that runs, live, on 3.14 and 3.15 side by side.
+and the code on screen is the code that runs, live, on 3.15 and on 3.14.
 
 [`slides.html`](slides.html) is a static copy of every slide.
 
@@ -41,9 +41,10 @@ What doesn't work in a default container:
 |---|---|
 | Left / Right | previous / next slide |
 | Space | reveal the next step |
-| `1`–`9` | run the slide's programs |
-| Escape | stop the runs in progress |
-| `r` | reset the slide |
+| `1`–`9` | run the slide's programs, with any edits to its code |
+| Escape | stop the run in progress |
+| `e` / Ctrl+X | edit the slide's code: every key types until Ctrl+X, Tab moves to the next example |
+| `r` | reset the slide, undoing its edits |
 | `d` | the slide grid: arrows move, Enter jumps, Escape goes back |
 | F1 / F2 | the clock / the size check |
 | Ctrl+C | quit |

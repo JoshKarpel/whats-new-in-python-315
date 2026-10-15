@@ -5,5 +5,5 @@ __lazy_modules__ = ["json"]
 import json
 import csv
 
-print("json loaded:", "json" in sys.modules)
-print("csv loaded:", "csv" in sys.modules)
+print(f"{"json" in sys.modules=}")
+print(f"{"csv" in sys.modules=}")

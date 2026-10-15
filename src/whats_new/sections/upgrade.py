@@ -1,4 +1,4 @@
-"""6. Before you upgrade: what bites, run on 3.14 and 3.15 side by side."""
+"""6. Before you upgrade: what bites, run on 3.14 and on 3.15."""
 
 from counterweight.components import component
 from counterweight.elements import Div
@@ -6,7 +6,7 @@ from counterweight.styles.utilities import *
 
 from whats_new.components.code import code_example
 from whats_new.components.layouts import code_above_runs
-from whats_new.components.layouts import code_beside_runs
+from whats_new.components.layouts import notes_beside_code_above_runs
 from whats_new.components.look import bullets
 from whats_new.components.look import code
 from whats_new.components.look import em
@@ -41,9 +41,9 @@ def breakage(props: SlideProps) -> Div:
 
 @component
 def assert_warns(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return code_above_runs(
         props,
-        code_example("upgrade/assert_warns.py", start="class Test"),
+        code_example(props, "upgrade/assert_warns.py", start="class Test"),
         bullets(
             (code("assertWarns"), plain(" no longer swallows warnings that don't match")),
             "so a test suite can start leaking warnings it used to hide",
@@ -53,9 +53,9 @@ def assert_warns(props: SlideProps) -> Div:
 
 @component
 def utf8(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return notes_beside_code_above_runs(
         props,
-        code_example("upgrade/encoding.py"),
+        code_example(props, "upgrade/encoding.py"),
         bullets(
             "UTF-8 by default: the change most likely to alter behavior silently, especially on Windows",
             (code("PYTHONUTF8=0"), plain(" or "), code("-X utf8=0"), plain(" for the old behavior")),
@@ -67,9 +67,9 @@ def utf8(props: SlideProps) -> Div:
 
 @component
 def smaller_changes(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return notes_beside_code_above_runs(
         props,
-        code_example("upgrade/argparse_dest.py"),
+        code_example(props, "upgrade/argparse_dest.py"),
         bullets(
             (
                 code("urlsafe_b64decode"),
@@ -114,8 +114,8 @@ SLIDES = (
         content=assert_warns,
         runs=on_both(
             "upgrade/assert_warns.py",
-            new=Expect(status=0, output="leaked: ['unrelated']"),
-            old=Expect(status=0, output="leaked: []"),
+            new=Expect(status=0, output="messages=['unrelated']"),
+            old=Expect(status=0, output="messages=[]"),
         ),
     ),
     Slide(
@@ -123,8 +123,8 @@ SLIDES = (
         content=utf8,
         peps=(686,),
         runs=(
-            latin1(Interpreter.PY315, "open() encoding: utf-8"),
-            latin1(Interpreter.PY314, "open() encoding: ISO-8859-1"),
+            latin1(Interpreter.PY315, "file.encoding='utf-8'"),
+            latin1(Interpreter.PY314, "file.encoding='ISO-8859-1'"),
         ),
     ),
     Slide(

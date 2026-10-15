@@ -9,6 +9,7 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from tempfile import gettempdir
 
 from counterweight.app import app
@@ -58,20 +59,27 @@ def main() -> None:
     except MissingInterpreter as error:
         sys.exit(str(error))
 
-    match arguments.command:
-        case "export":
-            host = Host(interpreters=interpreters, flamegraph=EXPORT_FLAMEGRAPH_SITE)
-            frames = asyncio.run(export.screenshots(SLIDES, host))
-            html = export.page(frames)
-            if arguments.output is None:
-                export.write_tracked(ROOT / "slides.html", html)
-            else:
-                arguments.output.write_text(html)
-        case "present" | None:
-            host = Host(interpreters=interpreters, flamegraph=FlamegraphSite.resolve(os.environ))
-            asyncio.run(app(root(SLIDES, host, load_index(), save_index), title="What's New in Python 3.15"))
-        case unknown:
-            parser.error(f"unknown command {unknown!r}")
+    with TemporaryDirectory(prefix="whats-new-examples-") as examples_copy:
+        match arguments.command:
+            case "export":
+                host = Host(
+                    interpreters=interpreters, flamegraph=EXPORT_FLAMEGRAPH_SITE, examples_copy=Path(examples_copy)
+                )
+                frames = asyncio.run(export.screenshots(SLIDES, host))
+                html = export.page(frames)
+                if arguments.output is None:
+                    export.write_tracked(ROOT / "slides.html", html)
+                else:
+                    arguments.output.write_text(html)
+            case "present" | None:
+                host = Host(
+                    interpreters=interpreters,
+                    flamegraph=FlamegraphSite.resolve(os.environ),
+                    examples_copy=Path(examples_copy),
+                )
+                asyncio.run(app(root(SLIDES, host, load_index(), save_index), title="What's New in Python 3.15"))
+            case unknown:
+                parser.error(f"unknown command {unknown!r}")
 
 
 if __name__ == "__main__":

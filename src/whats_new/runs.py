@@ -5,6 +5,7 @@ A slide declares its runs; `run_pane` runs them and the example check runs every
 so what's on screen and what's tested are the same declaration.
 """
 
+import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -144,8 +145,30 @@ def python(interpreter: Interpreter, name: str, *, label: str | None = None, exp
 
 
 def on_both(name: str, *, new: Expect, old: Expect) -> tuple[Run, Run]:
-    """The example `name` on 3.15 (`1`) and on 3.14 (`2`), where it usually fails, which shows what's new."""
+    """
+    The example `name` on 3.15 (`1`) and on 3.14 (`2`), for a change worth seeing on both: behavior that differs,
+    or new syntax that 3.14 rejects. An addition (a new builtin, method or parameter) gets no 3.14 run,
+    since all 3.14 can say is that it doesn't exist.
+    """
     return (python(Interpreter.PY315, name, expect=new), python(Interpreter.PY314, name, expect=old))
+
+
+def copy_examples(directory: Path, edits: Mapping[str, str]) -> None:
+    """
+    Copies `examples/` into `directory`, over whatever an earlier run left there,
+    then writes the text of each example in `edits`, by its name under `examples/`, over its copy.
+    """
+    shutil.copytree(EXAMPLES, directory, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__"))
+    for name, text in edits.items():
+        (directory / name).write_text(text + "\n")
+
+
+def rehomed(argv: tuple[str, ...], directory: Path) -> tuple[str, ...]:
+    """
+    `argv` with every path into `examples/` pointed at the same file in `directory`, a copy of it.
+    A harness then finds the files it drives relative to its own copy, so the edits reach those too.
+    """
+    return tuple(part.replace(str(EXAMPLES), str(directory)) for part in argv)
 
 
 def harness(name: str, *arguments: str | Interpreter, label: str, expect: Expect) -> Run:

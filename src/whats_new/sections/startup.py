@@ -8,7 +8,8 @@ from whats_new.components.code import code_example
 from whats_new.components.code import code_snippet
 from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
-from whats_new.components.layouts import code_beside_runs
+from whats_new.components.layouts import notes_beside_code_above_runs
+from whats_new.components.layouts import side_by_side
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
 from whats_new.components.look import code
@@ -37,9 +38,9 @@ def section_title(props: SlideProps) -> Div:
 
 @component
 def lazy_basics(props: SlideProps) -> Div:
-    return code_beside_runs(
+    return notes_beside_code_above_runs(
         props,
-        code_example("startup/lazy_basics.py"),
+        code_example(props, "startup/lazy_basics.py"),
         bullets(
             (code("lazy import x"), plain(", "), code("lazy from x import y")),
             (plain("module scope only")),
@@ -53,7 +54,7 @@ def lazy_startup(props: SlideProps) -> Div:
     return Div(
         style=col | fill(1) | gap(1),
         children=(
-            labeled("cli_lazy.py (cli_eager.py is the same without lazy)", code_example("startup/cli_lazy.py")),
+            labeled("cli_lazy.py (cli_eager.py is the same without lazy)", code_example(props, "startup/cli_lazy.py")),
             run_pane(props),
         ),
     )
@@ -80,7 +81,7 @@ def lazy_everything(props: SlideProps) -> Div:
 def lazy_typo(props: SlideProps) -> Div:
     return code_above_runs(
         props,
-        code_example("startup/lazy_typo.py"),
+        code_example(props, "startup/lazy_typo.py"),
         bullets(
             (plain("a typo surfaces at first use, with a chained traceback pointing at both lines")),
         ),
@@ -89,40 +90,25 @@ def lazy_typo(props: SlideProps) -> Div:
 
 @component
 def lazy_gotchas(props: SlideProps) -> Div:
-    return Div(
-        style=row | fill(1) | gap(1),
-        children=(
-            Div(
-                style=col | gap(1) | shrink(0),
-                children=(
-                    code_example("startup/lazy_try.py"),
-                    code_example("startup/lazy_compat.py"),
-                    bullets(
-                        (plain("a plain import in "), code("try"), plain(" stays eager, even in "), code("all")),
-                        (code("lazy from x import *"), plain(" is a "), code("SyntaxError")),
-                        (plain("import-time side effects (plugin registration) break")),
-                    ),
-                ),
-            ),
-            run_pane(props, vertical=True),
+    return code_above_runs(
+        props,
+        side_by_side(code_example(props, "startup/lazy_try.py"), code_example(props, "startup/lazy_compat.py")),
+        bullets(
+            (plain("a plain import in "), code("try"), plain(" stays eager, even in "), code("all")),
+            (code("lazy from x import *"), plain(" is a "), code("SyntaxError")),
+            (plain("import-time side effects (plugin registration) break")),
         ),
     )
 
 
 @component
 def start_files(props: SlideProps) -> Div:
-    return Div(
-        style=col | fill(1) | gap(1),
-        children=(
-            Div(
-                style=row | gap(1),
-                children=(
-                    labeled("greet.pth", code_snippet('import sys; print("hello from greet.pth")', language="text")),
-                    labeled("greet.start", code_snippet("greet:hello", language="text")),
-                    labeled("greet/__init__.py", code_snippet('def hello():\n    print("hello from greet.start")')),
-                ),
-            ),
-            run_pane(props),
+    return code_above_runs(
+        props,
+        side_by_side(
+            labeled("greet.pth", code_snippet('import sys; print("hello from greet.pth")', language="text")),
+            labeled("greet.start", code_snippet("greet:hello", language="text")),
+            labeled("greet/__init__.py", code_snippet('def hello():\n    print("hello from greet.start")')),
         ),
     )
 
@@ -223,13 +209,13 @@ SLIDES = (
                 PY315,
                 "startup/lazy_compat.py",
                 label="compat 3.15",
-                expect=Expect(status=0, output="json loaded: False"),
+                expect=Expect(status=0, output='"json" in sys.modules=False'),
             ),
             python(
                 PY314,
                 "startup/lazy_compat.py",
                 label="compat 3.14",
-                expect=Expect(status=0, output="json loaded: True"),
+                expect=Expect(status=0, output='"json" in sys.modules=True'),
             ),
         ),
     ),
