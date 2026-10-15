@@ -559,9 +559,9 @@ tests/
   - `r`: reset the current slide, by remounting via `.with_key`.
   - `d`: open the slide grid, as spiel's deck view does. See
     [The slide grid](#the-slide-grid).
-  - A clock toggle and a size check against the
-    [presenting size](#presenting-resolution). The reference talk put these on F1
-    and F2, but in a browser F1 opens help, so they move to plain letter keys.
+  - F1: toggle the clock, as in the reference talk. F1 opens help in some
+    browsers, but not in the laptop's.
+  - F2: the size check. See [Presenting resolution](#presenting-resolution).
   - Slide-specific keys on Tachyon slides only.
 
   See [Presenting over zellij web](#presenting-over-zellij-web) for which keys the
@@ -631,19 +631,27 @@ Diagrams are drawn by hand, as counterweight elements rather than text files.
 
 ### Presenting resolution
 
-The talk is given from my laptop: a browser on the laptop shows zellij web, which
-shows the deck. The deck targets one fixed size in cells, declared once in
-`size.py`. The hand-drawn diagrams, animations, slide grid, Tachyon stage, export
+The talk is given from my laptop, a Surface Pro: a browser on the laptop shows
+zellij web, which shows the deck. The deck targets one size in cells, declared once
+in `size.py`. The hand-drawn diagrams, animations, slide grid, Tachyon stage, export
 and smoke test all read it from there.
 
-Settle it by experimenting on the laptop before drawing any diagrams. A diagram
-is drawn for one width, and redrawing all of them after the size changes is the
-expensive mistake.
+Columns matter more than rows. Layouts tend to run sideways (side-by-side run
+panes, the Tachyon split, the fan-outs), so the width is the exact target and the
+height is a floor. A diagram is drawn for one width, and redrawing all of them
+after the width changes is the expensive mistake. Extra rows are slack.
 
-- Open zellij web full screen on the laptop, in the zellij layout to be used on
-  stage. The default layout spends rows on tab and status bars, so present with a
-  bare one. Record the cell count `tput cols lines` reports at a few browser zoom
-  levels.
+The starting point is the reference talk's 90x30, presented from the same laptop.
+Its footer checked for exactly 90 columns, and its export rendered at 90x30.
+
+- The Surface Pro's screen is 3:2. Cells are roughly twice as tall as they are
+  wide, so a 3:2 window gives about 3 columns per row at any zoom, and 90x30 is
+  exactly that shape. Zoom trades legibility for room. It doesn't change the shape.
+- Confirm it before drawing any diagrams. Open zellij web full screen on the
+  laptop, in the zellij layout to be used on stage. The default layout spends rows
+  on tab and status bars, so present with a bare one. Record the cell count
+  `tput cols lines` reports at the zoom that gives 90 columns, and at a step
+  either side.
 - Judge each candidate by:
   - code: the longest example is legible from across a room
   - the Tachyon stage: the pane gets at least 60x12 with the talking-point strip
@@ -651,14 +659,19 @@ expensive mistake.
   - run panes: 3.14 and 3.15 output fit side by side
   - the slide grid: thumbnails at a third of the width are still recognizable
   - diagrams: the frame-pointer stack and the CI-sized fan-outs fit
-- Cells are roughly twice as tall as they are wide, so a 16:9 window gives about
-  3.5 columns per row at any zoom. Zoom trades legibility for room. It doesn't
-  change the shape.
-- Repeat with the laptop mirrored to an external display or projector. Mirroring
-  can change the laptop's resolution, and with it the cell count at a given zoom.
-- Pin the cells, not the zoom. At the venue, adjust browser zoom until the deck's
-  size check matches the target. When the terminal doesn't match, the footer says
-  so, so a wrong size is visible before the first diagram.
+- Repeat with the laptop mirrored to an external display or projector. Projectors
+  are usually 16:9, and mirroring can switch the laptop to a 16:9 mode or
+  letterbox it. Either changes the cell count at a given zoom, giving more
+  columns per row than the laptop alone.
+- Pin the columns, not the zoom. The live check is the reference talk's: F2
+  toggles a width readout in the footer, green when the terminal is exactly the
+  target width and red otherwise, so a wrong width is visible before the first
+  diagram. At the venue, press F2 and adjust browser zoom until it goes green.
+  - The readout shows the rows too. They turn red only below the floor.
+  - F1 and F2 aren't among the keys the browser keeps (see
+    [Presenting over zellij web](#presenting-over-zellij-web)), but confirm both
+    reach the deck through zellij web. `just rehearse` covers it.
+  - It's off by default, so the export renders without it.
 
 ### Live reload
 
@@ -806,8 +819,9 @@ browser on my laptop showing zellij web.
   - zellij's normal mode takes Ctrl+B, Ctrl+G, Ctrl+P, Ctrl+T, Ctrl+N, Ctrl+H,
     Ctrl+S, Ctrl+O and Ctrl+Q, so the Tachyon stage's Ctrl+B prefix wouldn't reach
     the deck. Present in locked mode (Ctrl+G), where zellij passes every key through.
-  - The browser keeps some keys whatever zellij does: F1 (help), F5 (reload), F11,
-    and Ctrl+W/T/N. The deck binds none of them.
+  - The browser keeps some keys whatever zellij does: F5 (reload), F11, and
+    Ctrl+W/T/N. The deck binds none of them. F1 opens help in some browsers, but
+    the laptop's passes it through.
   - `just rehearse` presses every deck key through zellij web and confirms the deck
     received it.
 - The cell count comes from the browser window and its zoom. See
@@ -905,10 +919,10 @@ browser on my laptop showing zellij web.
    `rehearse`, `export`), and `.pre-commit-config.yaml` with the base and ruff
    hooks.
 2. Deck skeleton: navigation, footer, title cards with drop shadows, live reload,
-   and the HTML export with its pre-commit hook. Until step 3 settles the size, the
-   export renders at a provisional one.
-3. [Presenting resolution](#presenting-resolution): run the experiment on the
-   laptop and record the size in `size.py`. The grid, diagrams and Tachyon stage
+   and the HTML export with its pre-commit hook. Until step 3 confirms the size,
+   the export renders at the starting 90x30.
+3. [Presenting resolution](#presenting-resolution): confirm 90x30 on the laptop
+   and record the size in `size.py`. The grid, diagrams and Tachyon stage
    depend on it.
 4. The slide grid, the size check, and the bar-chart component.
 5. `code_example` + `Run` + `run_pane`, built and proven on the frozendict and json
