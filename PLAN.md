@@ -356,7 +356,8 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
      `https://reflection.int.exe.xyz/` returns the VM's own name at the top level
      (observed: `"name": "cumulus"`). The deck resolves it once at startup,
      alongside the interpreters, so a missing integration fails at launch rather
-     than on the flamegraph key.
+     than on the flamegraph key. The image sets the base URL and bind address
+     instead; see [Running it yourself](#running-it-yourself).
    - It stays private: exe.dev proxies ports 3000 to 9999 behind the same exe.dev
      login as zellij web. Opening the page is an ordinary top-level navigation, so
      no CORS or public port is involved.
@@ -513,6 +514,7 @@ examples/            every snippet shown on screen, as real files
   frozendict_default.py, json_immutable.py, sentinel_naive.py, ...
 demos/frame_pointers/  churn.c + build script
 tests/
+Dockerfile           the image others run the deck from
 ```
 
 ### Design decisions
@@ -838,6 +840,67 @@ browser on my laptop showing zellij web.
   - Timings will be noisy. Phrase results as "on this VM, right now".
   - The free-threaded duplicate-items demo did reproduce here.
 
+### Running it yourself
+
+Anyone can run the deck from one line in the README, without trusting their
+machine to its dependency tree: counterweight from git, `pyghostty`'s prebuilt
+pre-1.0 `libghostty-vt`, three type checkers and six interpreters.
+
+```bash
+docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:main
+```
+
+- The container is the safety boundary. A compromised dependency can't read the
+  viewer's home directory or credentials, and with `--network none` it can't send
+  anything anywhere either.
+  - The README says so beside the command, and says what breaks the boundary:
+    mounting a home directory or the Docker socket, or `--privileged`.
+  - The image runs as a non-root user.
+- CI builds the image from `uv.lock` with `uv sync --frozen`, so everyone runs the
+  resolution the deck was tested against.
+  - Every push to `main` publishes tags `main` and the commit SHA. The README
+    uses `main`. Anyone who wants a fixed build pins the SHA tag or the digest.
+  - What it costs: a build-and-push workflow, a multi-gigabyte image, and viewers
+    trusting this repository's CI build instead of resolving packages themselves.
+- Not `uvx --from git+...`. `uv tool run` ignores the project's lockfile and
+  resolves fresh, and has no `--locked` or `--frozen`. Observed on uv 0.13.0: a
+  lock pinning `six==1.15.0` ran 1.15.0 under `uv run --frozen` and 1.17.0 under
+  `uvx --from`. Viewers would get whatever counterweight `main` and `pyghostty`
+  look like that day.
+- Nothing downloads at launch, which `--network none` requires. The image bakes
+  in everything the deck uses:
+  - the six interpreters, from `uv python install`, so the startup interpreter
+    check passes in the image too
+  - the dev group's type checkers, and Node for pyright
+  - mypy 2.3.1, by running its `uvx --from mypy==2.3.1` once at build time and
+    setting `UV_OFFLINE=1`. Confirm that `uvx` then reuses the cached
+    environment without the network.
+  - hyperfine from mise, so it's the version `mise.toml` pins
+  - a C compiler, for the frame-pointer extension
+  - The entrypoint runs the synced venv's Python directly, so uv resolves
+    nothing at startup.
+- Build for `linux/amd64` and `linux/arm64`, so Docker Desktop on Apple Silicon
+  runs it natively.
+- The flamegraph link needs a network, so `--network none` costs that
+  (cut-first) demo. Its base URL becomes one setting: on the VM the deck fills it
+  from the reflection lookup, and the image sets it, so the lookup doesn't run off
+  exe.dev. The README gives a second command for it, with
+  `-p 127.0.0.1:8315:8315` and the server bound to `0.0.0.0` inside the
+  container, since a server bound to the container's own loopback can't be
+  reached through a published port.
+- Some demos may not work in a default container. Test each in the image, and
+  list in the README whatever fails. A failure shows on the slide as any failed
+  run's output does, with no special path.
+  - `perf`, for frame pointers. Docker's default seccomp profile is expected to
+    block `perf_event_open` (untested). The README doesn't suggest
+    `--privileged`, since that removes the isolation the image exists for.
+  - Tachyon attaching to its parent. It depends on the host kernel's Yama
+    `ptrace_scope` (Docker Desktop's VM, on a Mac) and the seccomp profile's
+    ptrace rules. The `prctl(PR_SET_PTRACER, ...)` opt-in from
+    [The Tachyon stage](#the-tachyon-stage) covers scope 1.
+- A viewer's terminal won't be the presenting size. F2's size check shows them
+  which way to resize.
+
 ### Counterweight gaps likely to matter
 - No controls from effects (`plans/react-features.md` step 2, not started). An
   effect can't `Quit()` or ring the bell. Probably fine.
@@ -865,6 +928,10 @@ browser on my laptop showing zellij web.
     slide's `peps`, so a slide can't cite a PEP without linking it.
 - The export hook: a commit that changes the render without regenerating
   `slides.html` fails. See [HTML export](#html-export).
+- The image: CI runs the smoke test and the example check inside the image, on
+  both architectures and with `--network none`, before pushing it. A missing
+  interpreter or tool, or anything that reaches for the network, fails the
+  build rather than a viewer's run. See [Running it yourself](#running-it-yourself).
 - `just rehearse` checks the presenting setup before the talk. It scripts what
   it can:
   - every interpreter resolves, and so does the VM name
@@ -889,8 +956,8 @@ browser on my laptop showing zellij web.
   and have a hotspot.
 - #423 timing. The Tachyon stage and colored run panes wait on #423 reaching
   `main`. Build everything else first, so a late #423 delays only one section.
-- numpy wheels for 3.15. Confirm cp315 wheels exist before relying on the
-  compiled-extension workload.
+- numpy wheels for 3.15. Confirm cp315 wheels exist, for both x86-64 and
+  aarch64 Linux, before relying on the compiled-extension workload.
 - Noisy timings (JIT, base64, lazy imports, profiler overhead) on a shared
   2-vCPU VM. Use hyperfine with warmup, and phrase results as "on this VM, right now".
 - Free-threaded builds are needed for the duplicate-items demo. Pin
@@ -911,6 +978,8 @@ browser on my laptop showing zellij web.
   through, the deck stays plain text and color becomes later work.
 - No speedscope. The point is Tachyon, so the browser step (if kept) shows
   Tachyon's own HTML flamegraph.
+- Others run the deck from a CI-built image, built from `uv.lock` and run with
+  `--network none`. Not `uvx --from git+...`, which ignores the lockfile.
 
 ## Build order
 
@@ -919,23 +988,28 @@ browser on my laptop showing zellij web.
    `rehearse`, `export`), and `.pre-commit-config.yaml` with the base and ruff
    hooks.
 2. Deck skeleton: navigation, footer, title cards with drop shadows, live reload,
-   and the HTML export with its pre-commit hook. Until step 3 confirms the size,
+   and the HTML export with its pre-commit hook. Until step 4 confirms the size,
    the export renders at the starting 90x30.
-3. [Presenting resolution](#presenting-resolution): confirm 90x30 on the laptop
+3. The image: the `Dockerfile`, the CI workflow that tests it and pushes it, and
+   the README command. See [Running it yourself](#running-it-yourself). Building
+   it this early means each later step adds its interpreters and tools to the
+   `Dockerfile` as they arrive, and CI catches the ones that don't.
+4. [Presenting resolution](#presenting-resolution): confirm 90x30 on the laptop
    and record the size in `size.py`. The grid, diagrams and Tachyon stage
    depend on it.
-4. The slide grid, the size check, and the bar-chart component.
-5. `code_example` + `Run` + `run_pane`, built and proven on the frozendict and json
+5. The slide grid, the size check, and the bar-chart component.
+6. `code_example` + `Run` + `run_pane`, built and proven on the frozendict and json
    slides, plus `check-examples`.
-6. Sections 1–4 in order, diagrams included: mostly content once step 5 exists.
-7. Tachyon, in two halves:
+7. Sections 1–4 in order, diagrams included: mostly content once step 6 exists.
+8. Tachyon, in two halves:
    - Now: `workloads.py` and the flamegraph link. Run the profiler from a plain
      zellij pane against the deck while building these.
    - Once #423 is on `main`: the Tachyon stage, then swap `run_pane` to embedded
      terminals. Budget the most time here.
-8. Frame pointers, JIT, GC and base64 demos, with their diagrams.
-9. Lightning round, closing, and the thoroughness slide.
-10. `rehearse` over zellij web from the laptop, then a pass with the laptop mirrored
+9. Frame pointers, JIT, GC and base64 demos, with their diagrams. Test `perf` and
+   the ptrace attach in the image, and list what fails in the README.
+10. Lightning round, closing, and the thoroughness slide.
+11. `rehearse` over zellij web from the laptop, then a pass with the laptop mirrored
     to an external display at the presenting size.
 
 ## References
