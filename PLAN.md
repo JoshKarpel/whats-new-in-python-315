@@ -8,8 +8,11 @@ is the
 [python-concurrency-and-parallelism](https://github.com/JoshKarpel/python-concurrency-and-parallelism)
 talk: slides are counterweight components, and the code on screen is the code that runs.
 
-Everything marked "observed" below was run on CPython 3.15.0rc2/rc3 and 3.14.7 on a
-2-vCPU Linux VM. Probe scripts from that research live (temporarily) in the session
+The source material is
+[What's New in Python 3.15](https://docs.python.org/3.15/whatsnew/3.15.html).
+
+Everything marked "observed" below was run on CPython 3.15 (rc2, rc3 or 3.15.0 final)
+and 3.14.7 on a 2-vCPU Linux VM. Probe scripts from that research live (temporarily) in the session
 scratchpad. The useful ones get promoted into `examples/` during the build.
 
 ## The pitch
@@ -35,6 +38,11 @@ Several features arrive as complete toolkits rather than a single function:
 - lazy imports come with syntax, `-X`/env/`sys` switches, a filter hook,
   and a 3.14-compatible `__lazy_modules__`.
 - Tachyon has a dozen output formats, a live TUI, async awareness, attach, dump and replay.
+- frozendict arrives with the stdlib already updated around it: copy, decimal, json,
+  marshal, pickle, pprint, plistlib and ElementTree accept it, as do `eval`/`exec`
+  globals, `type()` and `str.maketrans`.
+- "More color" reaches about 20 command-line interfaces, from argparse and
+  `python --help` to sqlite3, timeit, pickletools and unraisable exceptions.
 
 Collect these as the talk goes, and close by asking whether coding agents make this
 kind of completeness cheaper. Pose it as a question, not a claim: there's no
@@ -51,15 +59,19 @@ run long) or **cut-first** (the first to go, or folded into the lightning round)
 | 0. Opening | 3 |
 | 1. Small things you'll use tomorrow | 12 |
 | 2. Startup and imports | 7 |
-| 3. Concurrency | 7 |
+| 3. Concurrency | 9 |
 | 4. Typing | 8 |
-| 5. Performance (Tachyon about 14 of it) | 22 |
-| 6. Lightning round | 4 |
-| 7. Closing | 2 |
-| Material | 65 |
+| 5. Performance (Tachyon about 15 of it) | 23 |
+| 6. Before you upgrade | 3 |
+| 7. Lightning round | 6 |
+| 8. Closing | 2 |
+| Material | 73 |
 
-The cut-first items are worth about 6 minutes. Cutting them puts the material at
-about an hour, and questions use up the slack before the 90-minute limit.
+Every item gets built, cut-first ones included, and the cutting happens while
+practicing the talk. So the tags and minutes are first guesses, to be revised
+once rehearsals show what each item really takes and how well it lands. The
+cut-first items are worth about 6 minutes, so getting back to about an hour
+also means trimming some of the std items.
 
 ### 0. Opening (core)
 - Title, who I am.
@@ -156,7 +168,8 @@ about an hour, and questions use up the slack before the 90-minute limit.
 
 #### Lazy imports, PEP 810 (core)
 - Syntax: `lazy import x`, `lazy from x import y`. Module scope only.
-- Show `sys.lazy_modules` and the proxy repr `<lazy_import 'json'>`.
+- Show `sys.lazy_modules` and the proxy repr `<lazy_import 'json'>`. The proxy's type
+  is `types.LazyImportType`.
 - Startup demo, run with hyperfine: a fake CLI that eagerly imports asyncio,
   sqlite3, email, http.client, etc. but only prints `--version`. Observed: eager
   84–93 ms, lazy 13–16 ms, bare interpreter 9 ms. `-X importtime` shows 215 vs 25 imports.
@@ -166,7 +179,11 @@ about an hour, and questions use up the slack before the 90-minute limit.
 - Failure mode: a typo in a lazy import surfaces at first use, with a chained
   traceback pointing at both lines. Show it.
 - Gotchas worth a line each:
-  - imports inside `try` stay eager even in `all` mode, which is right for optional deps
+  - `try` blocks go both ways. Writing `lazy import` inside one is a `SyntaxError`
+    (observed: `lazy import not allowed inside try/except blocks`), and a plain
+    import inside one stays eager even in `all` mode, which is right for optional
+    deps.
+  - `lazy from x import *` and lazy `__future__` imports are `SyntaxError`s too.
   - import-time side effects (plugin registration) break under laziness
   - `__lazy_modules__` is the 3.14-compatible spelling
 - Framing: mostly a CLI win, but the global switch makes it a one-flag experiment
@@ -229,6 +246,23 @@ about an hour, and questions use up the slack before the 90-minute limit.
 
   The difference between the last two is the one people will mix up.
 
+#### Free-threading status (std, right after iterator synchronization)
+- The previous item already runs on 3.15t, so this is the state of play rather
+  than an introduction. Keep it to what changes for someone who installs
+  packages, not someone who builds them.
+- PEP 803's stable ABI for free-threaded builds (`abi3t`): a library can ship one
+  wheel that works on free-threaded builds of 3.15 and later, instead of a
+  `cp315t` wheel per release. Expect the packages you depend on to grow
+  free-threaded wheels faster. meson-python, scikit-build-core and Maturin support it.
+- The python.org macOS installer installs free-threading support by default.
+- Raw memory allocations now use mimalloc, for better performance on
+  free-threaded builds.
+- Demo: `sys.abi_info`, new in 3.15, on both builds. Observed:
+  `namespace(pointer_bits=64, free_threaded=False, ...)` on 3.15 and
+  `free_threaded=True` on 3.15t, with `sys._is_gil_enabled()` True and False.
+- Check how many popular packages ship free-threaded wheels close to the talk
+  date, and state it as of that day.
+
 ### 4. Typing
 
 Run all checkers live from the slide: mypy, pyright and ty, as one key each or one
@@ -288,6 +322,14 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
 
 ### 5. Performance
 
+A possible frame for the section: 3.15 is an observability release. Tachyon
+watches a running process, frame pointers let `perf` and eBPF walk native
+stacks, the JIT publishes unwind information so GDB and `backtrace()` see
+through JIT frames, `gc.get_stats()` reports `candidates` and `duration`, and
+`faulthandler` gains `max_threads`. Each item below then answers "how do I see
+what Python is doing?" from a different side. Decide in rehearsal whether the
+frame earns a slide or just a sentence.
+
 #### Tachyon, PEP 799 (core, the centerpiece, about a third of the talk)
 
 1. Why the name? Physicist digression: a tachyon is a hypothetical
@@ -332,9 +374,11 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
      | `i` | blocking file/sleep I/O in a thread | wall vs cpu mode: idle time vanishes in cpu mode |
      | `a` | a fan of asyncio tasks | `--async-aware` reconstructs task trees |
      | `g` | garbage-cycle churn | `<GC>` frames, which links to the GC story below |
+     | `e` | a raise-and-catch loop in a worker thread | exception mode shows only it |
 
-   - `m` cycles the profiler's mode (wall, cpu, gil, async-aware) by restarting it
-     with new flags. gil mode pairs with `c`: the worker thread holds the GIL while
+   - `m` cycles the profiler's mode (wall, cpu, gil, exception, async-aware) by
+     restarting it with new flags. Exception mode samples only threads with an
+     active exception (observed in `--help`: `--mode {wall,cpu,gil,exception}`). gil mode pairs with `c`: the worker thread holds the GIL while
      the render loop waits for it, which is also why the deck stutters.
    - The mirror moment: drawing the profiler's screen is itself work the deck
      does (the #423 plan measures 3 to 10 ms per emulator snapshot of a busy colored
@@ -368,6 +412,11 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
    while a threaded workload is busy. Not during `C`: a frozen deck can't draw the answer.
    - `--diff-flamegraph` compares a baseline with the current run.
    - `heatmap` is another output format.
+   - `--opcodes` records which bytecode instructions are executing, including the
+     adaptive interpreter's specializations. Profile the nbody workload with it and
+     point at the specialized float instructions: that's the hand-off to the JIT
+     section, which builds on specialization. Check whether the live TUI shows
+     opcodes or only the file outputs before choosing how to show it.
    - Sampling-rate claims depend on hardware: the VM topped out near 120k samples/s,
      not the documented 1 MHz, so don't quote 1 MHz on stage.
 
@@ -401,6 +450,10 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
 - What changed: a tracing frontend, register allocation, and more constant
   propagation and refcount elimination. The whatsnew cites 7–8% geomean on x86-64
   Linux and 11–12% on AArch64 macOS, still experimental.
+- The JIT now publishes unwind information for its machine code to GDB, and to
+  GNU `backtrace()` where libgcc frame registration is available, so native
+  debuggers and crash handlers unwind through JIT frames instead of stopping at
+  them. One line, and it belongs to the observability frame.
 - uv builds ship it compiled-in but off (`yes-off`). `PYTHON_JIT=1` turns it on, and
   `sys._jit.is_enabled()` proves it.
 - Live demo: an nbody/float loop, 3.14 vs 3.15 × JIT off/on, under hyperfine.
@@ -416,8 +469,8 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
   were rewritten in C (58–140x observed).
 - LLM angle: a JSON request body with a 5 MB base64 PDF went from about 23 to about
   15 ms. Real, but small next to network latency, so say so.
-- Behavior change worth a warning: `urlsafe_b64decode(b"aGk")` no longer raises on
-  missing padding. Pass `padded=True` for the old strictness.
+- The padding change lives in [Before you upgrade](#6-before-you-upgrade-std), so
+  it stays in the talk if this item is cut.
 
 #### The GC story (std)
 - Incremental GC:
@@ -438,15 +491,60 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
     and 3.15. Mark which collector each release has.
   - a bar chart of peak RSS per interpreter, laid out to match the timeline.
 
-### 6. Lightning round (core, one slide or a rapid sequence)
+### 6. Before you upgrade (std)
+
+What will bite on upgrade, from the whatsnew's
+[Porting](https://docs.python.org/3.15/whatsnew/3.15.html#porting-to-python-3-15)
+section and its removals. One script runs on 3.14 and on 3.15 side by side. Observed:
+
+| Change | 3.14.7 | 3.15 |
+|---|---|---|
+| `strptime("29", "%d")` | `DeprecationWarning`, returns 1900-01-29 | `ValueError` |
+| `sqlite3.connect(":memory:", 5.0)` | `DeprecationWarning` | `TypeError`: at most 1 positional argument |
+| `NamedTuple("P", x=int)` | `DeprecationWarning` | `TypeError` |
+| `TypedDict("TD")` | `DeprecationWarning` | `TypeError`: missing `fields` |
+| `urlsafe_b64decode(b"aGk")` | `binascii.Error: Incorrect padding` | `b'hi'` |
+| `assertWarns(DeprecationWarning)` around an unrelated `UserWarning` | swallowed | escapes the test |
+
+- The punchline: every `TypeError` and `ValueError` in that table was a
+  `DeprecationWarning` on 3.14. Run your tests on 3.14 with
+  `-W error::DeprecationWarning` before upgrading and you find them first.
+- `assertWarns` and `assertWarnsRegex` no longer swallow warnings that don't
+  match, so a test suite can start leaking warnings it used to hide.
+- UTF-8 by default (PEP 686). It's a release highlight and the change most
+  likely to alter behavior silently, especially on Windows.
+  - Demo with a non-UTF-8 locale: under `LC_ALL=en_US` (ISO-8859-1 on the VM),
+    `open(...).encoding` is `ISO-8859-1` on 3.14.7 and `utf-8` on 3.15 (observed).
+    `LC_ALL=C` doesn't show it: the C locale already gets UTF-8 mode on 3.14
+    (observed `sys.flags.utf8_mode` 1).
+  - `PYTHONUTF8=0` or `-X utf8=0` restores the old behavior, `encoding="locale"`
+    asks for the locale explicitly, and `-X warn_default_encoding` emits an
+    `EncodingWarning` at every call that relies on the default.
+- `urlsafe_b64decode` no longer requires padding. Pass `padded=True`, or use
+  `b64decode(..., altchars=b"-_")` on any version, for the old strictness.
+- `importlib.metadata.metadata()` raises `MetadataNotFound` for a distribution
+  directory with no metadata file, instead of returning empty metadata.
+- argparse infers `dest` from a single-dash long option:
+  `add_argument("-f", "-foo")` now stores to `foo`, not `f`.
+- Coming next: `profile` is removed in 3.17 (use `profiling.tracing`), and
+  `__version__` attributes in about 25 stdlib modules are deprecated for removal
+  in 3.20 (observed: `argparse.__version__` warns).
+- No diagram. The side-by-side runs carry it.
+
+### 7. Lightning round (core, one slide or a rapid sequence)
 
 Each item gets one runnable line where possible:
 
 - "Did you mean" hints from other languages: `[1,2].push(3)` → `.append`,
   `'hi'.toUpperCase()` → `.upper`, and nested `container.area` → `.inner.area`.
-- UTF-8 by default (PEP 686).
+- The REPL, live in the embedded REPL pane: tab completions are colored by object
+  kind, `from x import <Tab>` completes the module's attributes, and pdb uses the
+  new REPL.
 - `pprint(..., expand=True)` gives JSON-style output.
-- `@contextmanager` on a generator function now holds across the whole iteration.
+- A context manager used as a decorator (`@contextmanager`, `@asynccontextmanager`
+  or any `ContextDecorator`) on a generator, coroutine or async generator function
+  now stays open across the iteration or `await`. It used to exit as soon as the
+  call returned the generator or coroutine object.
 - tomllib supports TOML 1.1.
 - `math.integer`.
 - `-W` accepts regexes.
@@ -455,8 +553,21 @@ Each item gets one runnable line where possible:
 - argparse suggests fixes for typos.
 - More colored CLIs.
 - `re.prefixmatch`.
+- Windows python.org builds use the tail-calling interpreter, which the whatsnew
+  cites at 15–20% faster on pyperformance. It can't be shown on the Linux VM, so
+  quote it as cited.
+- A crashed `ProcessPoolExecutor` worker is named: the `BrokenProcessPool`
+  message is unchanged, but its chained cause now reads
+  `Process <pid> terminated abruptly with exit code 3` (observed).
+- `subprocess.Popen.wait(timeout=...)` waits on an event (`pidfd_open` on Linux,
+  kqueue on macOS) instead of a sleep loop.
+- The import deadlock between one thread importing `pkg.sub` and another importing
+  `pkg.sub.mod` is fixed: module locks are taken parent first.
+- `__slots__` on a namedtuple subclass. Observed: 3.14 raises
+  `TypeError: nonempty __slots__ not supported for subtype of 'P'`, and 3.15
+  accepts it.
 
-### 7. Closing (core)
+### 8. Closing (core)
 
 - The thoroughness observation, with the examples collected along the way, and the
   open question about agents.
@@ -465,9 +576,10 @@ Each item gets one runnable line where possible:
 ## Deck architecture
 
 ### Stack
-- Python: 3.15, requires-python `>=3.15`. Pin `.python-version` to 3.15.0 final
-  once python-build-standalone publishes it. rc2 has a Tachyon bug (gh-154335: pstats
-  output ignores `NO_COLOR`) that rc3 fixes.
+- Python: 3.15, requires-python `>=3.15`. Pin `.python-version` to 3.15.0 final,
+  which python-build-standalone publishes (`uv python list` offers it). rc2 has a
+  Tachyon bug (gh-154335: pstats output ignores `NO_COLOR`) that rc3 fixes. Most
+  observed results come from release candidates, so re-run the probes on final.
 - counterweight: a git source on `main` until the next release, then the release:
 
   ```toml
@@ -542,6 +654,10 @@ Dockerfile           the image others run the deck from
   (`uv python find 3.14`, etc.) into a typed `Interpreters` value and fail loudly if
   one is missing. That turns a missing interpreter into a startup error, not a dead
   key on stage.
+  - Name the build variant in every request. With a GIL 3.15.0rc2 and a
+    free-threaded 3.15.0 final both installed, `uv python find 3.15` returned the
+    free-threaded one (observed, uv 0.13.0). Ask for `3.15+gil` and
+    `3.15+freethreaded` (both observed to resolve correctly), and the same for 3.14.
 - Every slide that references a PEP links to it from the bottom of the slide
   (`https://peps.python.org/pep-0814/`). The PEP numbers are a field on `Slide`,
   and the slide frame draws the link line, so a slide declares which PEPs it cites
@@ -968,6 +1084,8 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
 
 - Length: about an hour of material with questions during the talk, and 90 minutes
   at most.
+- Build content for every item, then cut while practicing. The tags and minutes
+  guide the cutting rather than decide what gets built.
 - Venue setup: present from this VM over zellij web, in a browser on my laptop.
 - Diagrams over text wherever a picture carries the point, drawn by hand as
   counterweight elements. #426's diagram engine replaces hand placement if it
@@ -1008,19 +1126,21 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
      terminals. Budget the most time here.
 9. Frame pointers, JIT, GC and base64 demos, with their diagrams. Test `perf` and
    the ptrace attach in the image, and list what fails in the README.
-10. Lightning round, closing, and the thoroughness slide.
+10. Before you upgrade, the lightning round, closing, and the thoroughness slide.
 11. `rehearse` over zellij web from the laptop, then a pass with the laptop mirrored
     to an external display at the presenting size.
 
 ## References
 
-- [What's New in Python 3.15](https://docs.python.org/3/whatsnew/3.15.html)
+- [What's New in Python 3.15](https://docs.python.org/3.15/whatsnew/3.15.html)
 - PEPs: [661](https://peps.python.org/pep-0661/) sentinels,
+  [686](https://peps.python.org/pep-0686/) UTF-8 by default,
   [728](https://peps.python.org/pep-0728/) closed TypedDict,
   [747](https://peps.python.org/pep-0747/) TypeForm,
   [798](https://peps.python.org/pep-0798/) unpacking in comprehensions,
   [799](https://peps.python.org/pep-0799/) profiling package,
   [800](https://peps.python.org/pep-0800/) disjoint bases,
+  [803](https://peps.python.org/pep-0803/) stable ABI for free-threaded builds,
   [810](https://peps.python.org/pep-0810/) lazy imports,
   [814](https://peps.python.org/pep-0814/) frozendict,
   [829](https://peps.python.org/pep-0829/) startup configuration files,
@@ -1032,6 +1152,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   [the 3.13 rollback](https://discuss.python.org/t/incremental-gc-and-pushing-back-the-3-13-0-release/65285),
   [the 3.14/3.15 revert](https://discuss.python.org/t/reverting-the-incremental-gc-in-python-3-14-and-3-15/107014),
   [3.14.5 release](https://discuss.python.org/t/python-3-14-5-is-here-with-a-new-old-garbage-collector/107304)
+- [Python Free-Threading Guide](https://py-free-threading.github.io/)
 - [PEP 829 discussion](https://discuss.python.org/t/pep-829-structured-startup-configuration-files/106789)
 - [litellm `.pth` compromise](https://futuresearch.ai/blog/litellm-pypi-supply-chain-attack/)
   (timing context only)
