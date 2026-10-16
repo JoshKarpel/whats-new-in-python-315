@@ -91,7 +91,6 @@ def json_immutable(props: SlideProps) -> Div:
         code_example(props, "small/json_immutable.py"),
         bullets(
             (plain("new: "), code("array_hook="), plain(" on "), code("load"), plain(", "), code("loads")),
-            (plain("immutable all the way down")),
         ),
     )
 
@@ -253,7 +252,13 @@ SLIDES = (
             python(
                 Interpreter.PY315,
                 "small/json_immutable.py",
-                expect=Expect(status=0, output="frozendict({'name': 'Ada', 'tags': ('math', 'poetry')})"),
+                expect=Expect(
+                    status=0,
+                    output=(
+                        "config = frozendict({'name': 'Ada', 'tags': ('math', 'poetry')})\n"
+                        """json.dumps(config) = '{"name": "Ada", "tags": ["math", "poetry"]}'"""
+                    ),
+                ),
             ),
         ),
     ),

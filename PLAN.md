@@ -117,7 +117,9 @@ also means trimming some of the std items.
 - New `array_hook=` on `load`, `loads` and `JSONDecoder`.
 - Call it inline, with no wrapper function to spend rows on:
   `json.loads(s, object_pairs_hook=frozendict, array_hook=tuple)`.
-- Show the result is deeply immutable and usable as a cache key.
+- Show the result is deeply immutable and usable as a cache key, and that
+  `json.dumps` writes it back out as the same JSON. Each print is an `f"{expr = }"`,
+  so the output says which line is which.
 
 #### Unpacking in comprehensions, PEP 798 (core)
 - `[*row for row in rows]` replaces `list(chain.from_iterable(rows))`.

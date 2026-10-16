@@ -6,10 +6,11 @@ config = json.loads(
     object_pairs_hook=frozendict,
     array_hook=tuple,
 )
-print(config)
+print(f"{config = }")
+print(f"{json.dumps(config) = }")
 
 @cache
 def lookup(config, key):
     return config[key]
 
-print(lookup(config, "tags"))
+print(f"{lookup(config, 'tags') = }")
