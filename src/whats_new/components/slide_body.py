@@ -6,15 +6,10 @@ and the keys that move between the editors and the run pane.
 from collections.abc import Callable
 
 from counterweight.components import component
-from counterweight.controls import FocusNext
 from counterweight.elements import Div
-from counterweight.events import InputEvent
-from counterweight.events import InputResponse
-from counterweight.events import KeyPressed
-from counterweight.events import Receiver
 from counterweight.focus import FocusHandle
+from counterweight.handlers import tab_focus
 from counterweight.hooks import use_state
-from counterweight.keys import Key
 from counterweight.styles.utilities import *
 
 from whats_new.components.code import read_example
@@ -26,36 +21,26 @@ NO_EDITS: frozendict[str, str] = frozendict()
 
 
 @component
-def slide_body(slide: Slide, step: int, is_live: bool, host: Host) -> Div:
+def slide_body(slide: Slide, step: int, is_live: bool, host: Host, code_theme: str, slide_focus: FocusHandle) -> Div:
     """
     `slide`'s content at `step`, holding its edits until it unmounts, so `r` or leaving the slide undoes them.
 
-    `e` or Ctrl+X moves into the slide's first editor, from the run pane, which claims neither,
-    and Tab, which an editor doesn't claim, moves on to the next one, as unclaimed Tab does anywhere.
-    An editor claims Ctrl+X to leave; Escape, which it doesn't claim, leaves too, outside a browser that keeps it.
+    Tab moves focus through the slide's editors, then its run pane, which comes after them in every layout,
+    and wraps back to the first editor; Shift+Tab goes the other way. Neither an editor nor the run pane claims Tab.
     """
     edits, set_edits = use_state(NO_EDITS)
-    runs_focus, _ = use_state(FocusHandle)
 
     def edit(name: str, change: Callable[[str], str]) -> None:
         set_edits(lambda current: current | {name: change(current.get(name, read_example(name)))})
-
-    def on_input(event: InputEvent, receiver: Receiver) -> InputResponse:
-        match event:
-            case KeyPressed(key="e" | Key.ControlX):
-                return FocusNext(within=receiver.subtree)
-            case KeyPressed(key=Key.Escape):
-                return props.leave_editor
-            case _:
-                return None
 
     props = SlideProps(
         step=step,
         is_live=is_live,
         host=host,
+        code_theme=code_theme,
         runs=slide.runs,
         edits=edits,
         edit=edit,
-        runs_focus=runs_focus,
+        slide_focus=slide_focus,
     )
-    return Div(style=col | fill(1) | justify_children_center, on_input=on_input, children=(slide.content(props),))
+    return Div(style=col | fill(1) | justify_children_center, on_input=tab_focus, children=(slide.content(props),))

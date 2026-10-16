@@ -15,6 +15,7 @@ from counterweight.keys import Key
 from counterweight.output import Frame
 from counterweight.styles import CellStyle
 
+from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CURSOR
 from whats_new.components.code import compiles
 from whats_new.components.code import excerpt
@@ -108,16 +109,16 @@ async def test_a_run_executes_the_edited_example(host: Host) -> None:
         return tuple(KeyPressed(key=Key.Enter if character == "\n" else character) for character in text)
 
     autopilot: tuple[AnyEvent | AnyControl, ...] = (
-        KeyPressed(key=Key.ControlX),
+        KeyPressed(key=Key.Tab),
         *typed('\nprint("edited on stage")'),
-        KeyPressed(key=Key.ControlX),
+        KeyPressed(key=Key.Tab),
         KeyPressed(key="1"),
         *(Screenshot(handler=settle) for _ in range(20)),
         Screenshot(handler=frames.append),
         Quit(),
     )
     await app(
-        root(SLIDES, host, index, lambda index: None),
+        root(SLIDES, host, Checkpoint(slide=index), lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=autopilot,
@@ -125,3 +126,53 @@ async def test_a_run_executes_the_edited_example(host: Host) -> None:
     )
 
     assert "│edited on stage" in frames[0].text(ansi=False)
+
+
+FIRST_EDITED = "json = NoneQ"
+SECOND_EDITED = 'print(f"{"csv" in sys.modules=}")Q'
+
+
+@pytest.mark.parametrize(
+    ("keys", "edited_line"),
+    [
+        ((Key.Tab,), FIRST_EDITED),
+        ((Key.Tab, Key.Tab), SECOND_EDITED),
+        ((Key.Tab, Key.Tab, Key.Tab), None),
+        ((Key.Tab, Key.Tab, Key.Tab, Key.Tab), FIRST_EDITED),
+        ((Key.BackTab,), SECOND_EDITED),
+    ],
+    ids=[
+        "Tab enters the first editor",
+        "Tab moves on to the next",
+        "Tab from the last goes back to the run pane",
+        "Tab wraps around to the first",
+        "Shift+Tab goes the other way",
+    ],
+)
+async def test_tab_cycles_through_the_editors_and_the_run_pane(
+    host: Host, keys: tuple[str, ...], edited_line: str | None
+) -> None:
+    index = next(index for index, slide in enumerate(SLIDES) if slide.title == "Lazy imports: gotchas")
+    frames: list[Frame] = []
+
+    await app(
+        root(SLIDES, host, Checkpoint(slide=index), lambda checkpoint: None),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=(
+            *(KeyPressed(key=key) for key in keys),
+            KeyPressed(key="Q"),
+            Screenshot(handler=frames.append),
+            Quit(),
+        ),
+        clock=EXPORT_CLOCK,
+    )
+
+    text = frames[0].text(ansi=False)
+    if edited_line is None:
+        # The run pane doesn't type.
+        assert "Q" not in text
+    else:
+        # An editor's cursor starts at the end of its text, so the Q lands at the end of its last line.
+        assert text.count("Q") == 1
+        assert edited_line in text

@@ -2,7 +2,7 @@ from functools import cache
 
 @cache
 def render(template, context):
-    print("rendering...")
+    print("cache miss...")
     return template.format_map(context)
 
 print(render("Hi {name}", frozendict(name="Ada")))

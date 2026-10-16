@@ -10,8 +10,10 @@ from whats_new.components.layouts import notes_beside_code_above_runs
 from whats_new.components.layouts import side_by_side
 from whats_new.components.layouts import stack
 from whats_new.components.look import bullets
+from whats_new.components.look import centered
 from whats_new.components.look import code
 from whats_new.components.look import plain
+from whats_new.components.look import title_card
 from whats_new.components.repl import repl_pane
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
@@ -19,6 +21,11 @@ from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+
+
+@component
+def section_title(props: SlideProps) -> Div:
+    return centered(title_card("Lightning round"))
 
 
 @component
@@ -87,6 +94,7 @@ def quickfire(props: SlideProps) -> Div:
 
 
 SLIDES = (
+    Slide(title="Lightning round", content=section_title, is_title_card=True),
     Slide(
         title="Lightning: did you mean?",
         content=did_you_mean,

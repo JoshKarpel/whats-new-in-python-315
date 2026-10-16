@@ -1,12 +1,20 @@
 """5. Performance: Tachyon (the centerpiece), frame pointers, the JIT, base64, and the GC story."""
 
+from datetime import timedelta
+
 from counterweight.components import component
+from counterweight.elements import Chunk
 from counterweight.elements import Div
+from counterweight.elements import Text
+from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
+from whats_new.components.animation import use_loop
 from whats_new.components.code import code_example
+from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
 from whats_new.components.layouts import stack
+from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
 from whats_new.components.look import code
@@ -21,10 +29,7 @@ from whats_new.runs import Capability
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
 from whats_new.runs import Run
-from whats_new.runs import example
 from whats_new.runs import harness
-from whats_new.runs import on_both
-from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
 from whats_new.tachyon import STEPS as TACHYON_STEPS
@@ -45,10 +50,42 @@ def section_title(props: SlideProps) -> Div:
     )
 
 
+STREAK_WIDTH = 60
+STREAK_PERIOD = timedelta(seconds=2.5)
+TRAIL = "━━━━━━━━────────····"
+"""The trail behind the particle, brightest nearest it."""
+
+
+@component
+def streak(is_live: bool) -> Text:
+    """
+    A particle streaking across, ahead of its own trail, looping while the slide is up:
+    the one decorative animation, so it starts on arrival rather than on a key.
+    """
+    phase = use_loop(STREAK_PERIOD, is_live)
+    # Past the right edge for the last third of each loop, so the streak comes round again after a pause.
+    head = round(phase * STREAK_WIDTH * 1.5)
+    cells = [" "] * STREAK_WIDTH
+    shades: list[CellStyle] = [CellStyle()] * STREAK_WIDTH
+    for distance, mark in enumerate(TRAIL, 1):
+        x = head - distance
+        if 0 <= x < STREAK_WIDTH:
+            cells[x] = mark
+            shades[x] = CellStyle(foreground=PYTHON_YELLOW, dim=distance > len(TRAIL) // 2)
+    if head < STREAK_WIDTH:
+        cells[head] = "●"
+        shades[head] = CellStyle(foreground=PYTHON_YELLOW, bold=True)
+    return Text(
+        content=tuple(Chunk(content=cell, style=shade) for cell, shade in zip(cells, shades, strict=True)),
+        style=text_wrap_none | shrink(0),
+    )
+
+
 @component
 def tachyon_name(props: SlideProps) -> Div:
     return centered(
         title_card("Tachyon", "profiling.sampling"),
+        streak(props.is_live),
         bullets(
             (plain("a hypothetical "), em("faster-than-light"), plain(' particle ("tachy": swift)')),
             "the PEP calls it an internal codename, and gives no reason",
@@ -59,9 +96,17 @@ def tachyon_name(props: SlideProps) -> Div:
 @component
 def why_sampling(props: SlideProps) -> Div:
     return stack(
-        profilers.tracing_vs_sampling(),
+        profilers.tracing_vs_sampling(props.step, props.is_live),
         bullets("production performance problems show up in situ: measure before optimizing"),
-        run_pane(props),
+    )
+
+
+@component
+def sampling_overhead(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        code_example(props, "performance/cpu.py"),
+        bullets("the program times itself: the overhead it feels, not the profiler's start-up"),
     )
 
 
@@ -72,7 +117,7 @@ def why_in_cpython(props: SlideProps) -> Div:
 
 @component
 def the_loop(props: SlideProps) -> Div:
-    return stack(profilers.the_loop())
+    return stack(profilers.the_loop(props.host.pid))
 
 
 @component
@@ -95,26 +140,29 @@ def more_tachyon(props: SlideProps) -> Div:
 
 @component
 def frame_pointers(props: SlideProps) -> Div:
-    return stack(low_level.frame_pointer_chain(props.step), run_pane(props))
+    return stack(low_level.frame_pointer_chain(props.step, props.is_live), run_pane(props))
 
 
 @component
 def jit(props: SlideProps) -> Div:
     return stack(
         low_level.jit_pipeline(),
-        bullets("still experimental; uv's builds ship it compiled in and off"),
-        run_pane(props),
+        bullets(
+            "still experimental: uv's builds ship it compiled in, and off",
+            (code("PYTHON_JIT=1"), plain(" turns it on, and "), code("sys._jit.is_enabled()"), plain(" says so")),
+            "the whatsnew cites 7-8% geomean on x86-64 Linux, 11-12% on AArch64 macOS",
+        ),
     )
 
 
 @component
 def jit_speed(props: SlideProps) -> Div:
-    return stack(
-        bullets(
-            "the whatsnew cites 7-8% geomean on x86-64 Linux, 11-12% on AArch64 macOS",
-            "a float-heavy loop, on this VM, right now:",
+    return code_above_runs(
+        props,
+        labeled(
+            "nbody.py: the hot loop, run 60,000 times",
+            code_example(props, "performance/nbody.py", start="    for _ in range(steps)", stop="        for b in"),
         ),
-        run_pane(props),
     )
 
 
@@ -131,14 +179,30 @@ def base64_speed(props: SlideProps) -> Div:
 
 
 @component
+def gc_title(props: SlideProps) -> Div:
+    return centered(title_card("The garbage collector saga"))
+
+
+@component
 def gc_story(props: SlideProps) -> Div:
     return stack(
-        low_level.gc_timeline(),
+        low_level.gc_timeline(props.step, props.is_live),
         bullets(
-            "cycle churn beside a long-lived heap, peak memory per interpreter",
-            "this reproduces the memory complaint, not incremental GC's shorter pauses",
+            "3.15 ships the generational collector",
+            "bringing the incremental one back now takes a PEP",
         ),
-        run_pane(props),
+    )
+
+
+@component
+def gc_peaks(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        labeled(
+            "gc_churn.py: cycles churning beside a long-lived heap",
+            code_example(props, "performance/gc_churn.py", start="class Node", stop="peak ="),
+        ),
+        bullets("it reproduces the memory complaint, not incremental GC's shorter pauses"),
     )
 
 
@@ -150,23 +214,19 @@ FRAME_POINTER_DEMO = Run(
 )
 
 SLIDES = (
-    Slide(title="Performance", content=section_title, has_heading=False),
-    Slide(title="Tachyon", content=tachyon_name, has_heading=False),
+    Slide(title="Performance", content=section_title, is_title_card=True),
+    Slide(title="Tachyon", content=tachyon_name, is_title_card=True),
+    Slide(title="Why sampling?", content=why_sampling, peps=(799,), steps=profilers.SAMPLING_STEPS),
     Slide(
-        title="Why sampling?",
-        content=why_sampling,
+        title="Tracing vs sampling: the overhead",
+        content=sampling_overhead,
         peps=(799,),
         runs=(
             harness(
-                "bench.py",
-                "--interpreter",
-                "py",
-                PY315,
-                "plain={py} {examples}/performance/cpu.py",
-                "tracing={py} -m profiling.tracing -o /dev/null {examples}/performance/cpu.py",
-                "sampling={py} -m profiling.sampling run -o /dev/null {examples}/performance/cpu.py",
-                label="hyperfine",
-                expect=Expect(status=0, output="sampling"),
+                "overhead.py",
+                "performance/cpu.py",
+                label="no profiler, tracing, sampling",
+                expect=Expect(status=0, output="python -m profiling.sampling run cpu.py: "),
             ),
         ),
     ),
@@ -193,19 +253,7 @@ SLIDES = (
         steps=low_level.FRAME_POINTER_STEPS,
         runs=(FRAME_POINTER_DEMO,),
     ),
-    Slide(
-        title="The JIT",
-        content=jit,
-        runs=(
-            python(PY315, "performance/jit_status.py", expect=Expect(status=0, output="JIT enabled:   False")),
-            Run(
-                label="PYTHON_JIT=1",
-                argv=(PY315, example("performance/jit_status.py")),
-                env=frozendict(PYTHON_JIT="1"),
-                expect=Expect(status=0, output="JIT enabled:   True"),
-            ),
-        ),
-    ),
+    Slide(title="The JIT", content=jit),
     Slide(
         title="The JIT: how much faster?",
         content=jit_speed,
@@ -222,7 +270,7 @@ SLIDES = (
                 "3.14 JIT=env PYTHON_JIT=1 {py314} {examples}/performance/nbody.py",
                 "3.15={py315} {examples}/performance/nbody.py",
                 "3.15 JIT=env PYTHON_JIT=1 {py315} {examples}/performance/nbody.py",
-                label="nbody",
+                label="hyperfine",
                 expect=Expect(status=0, output="3.15 JIT"),
             ),
         ),
@@ -230,15 +278,22 @@ SLIDES = (
     Slide(
         title="base64",
         content=base64_speed,
-        runs=on_both(
-            "performance/base64_bench.py",
-            new=Expect(status=0, output="b85encode 1 MB:"),
-            old=Expect(status=0, output="b85encode 1 MB:"),
+        runs=(
+            harness(
+                "versions.py",
+                "performance/base64_bench.py",
+                PY314,
+                PY315,
+                label="3.14 and 3.15, side by side",
+                expect=Expect(status=0, output="b85encode 1 MB"),
+            ),
         ),
     ),
+    Slide(title="The garbage collector saga", content=gc_title, is_title_card=True),
+    Slide(title="The garbage collector", content=gc_story, steps=low_level.GC_STEPS),
     Slide(
-        title="The garbage collector",
-        content=gc_story,
+        title="The garbage collector: peak memory",
+        content=gc_peaks,
         runs=(
             harness(
                 "gc_peaks.py",
@@ -246,11 +301,8 @@ SLIDES = (
                 Interpreter.PY3144,
                 PY314,
                 PY315,
-                label="peak memory",
+                label="3.13, 3.14.4, 3.14.7, 3.15",
                 expect=Expect(status=0, output="gc.get_threshold() = (2000, 10, 0)"),
-            ),
-            python(
-                PY315, "performance/gc_stats.py", label="gc.get_stats()", expect=Expect(status=0, output="'duration'")
             ),
         ),
     ),

@@ -5,8 +5,10 @@ from counterweight.elements import Div
 from counterweight.styles.utilities import *
 
 from whats_new.components.code import code_example
+from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
 from whats_new.components.layouts import notes_beside_code_above_runs
+from whats_new.components.layouts import side_by_side
 from whats_new.components.layouts import stack
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
@@ -38,7 +40,7 @@ def first_wins(props: SlideProps) -> Div:
 
 @component
 def first_wins_tree(props: SlideProps) -> Div:
-    return stack(task_group.task_group(props.step))
+    return stack(task_group.task_group(props.step, props.is_live))
 
 
 @component
@@ -64,8 +66,13 @@ def shared_iterators(props: SlideProps) -> Div:
         code_example(props, "concurrency/shared_generator.py", start="def rows"),
         bullets(
             "never safe to share one generator between threads",
-            (plain("and on a free-threaded build, a hand-written "), code("__next__")),
-            (plain("hands out "), em("duplicates"), plain(", silently")),
+            (
+                plain("on a free-threaded build, a hand-written "),
+                code("__next__"),
+                plain(" hands out "),
+                em("duplicates"),
+                plain(", silently"),
+            ),
         ),
     )
 
@@ -81,7 +88,7 @@ def serialize(props: SlideProps) -> Div:
 @component
 def fan_outs(props: SlideProps) -> Div:
     return stack(
-        fan_out.fan_out(props.step),
+        fan_out.fan_out(props.step, props.is_live),
         bullets(
             (plain("production stays serial: the lock is held across "), code("__next__")),
             "only the consumers' work runs in parallel",
@@ -92,16 +99,12 @@ def fan_outs(props: SlideProps) -> Div:
 @component
 def old_patterns(props: SlideProps) -> Div:
     return stack(
-        Div(
-            style=row | gap(2),
-            children=(
-                code_example(props, "concurrency/locked_iterator.py", start="class LockedIterator"),
-                bullets(
-                    "before: a lock-wrapping iterator class,",
-                    "or a feeder thread and a queue.Queue",
-                    (plain("now: "), code("threading.serialize_iterator(it)")),
-                ),
-            ),
+        side_by_side(
+            labeled("a lock around next()", code_example(props, "concurrency/locked_iterator.py", start="class")),
+            labeled("a feeder thread and a queue", code_example(props, "concurrency/feeder_queue.py", start="DONE")),
+        ),
+        bullets(
+            (plain("now: "), code("threading.serialize_iterator(it)"), plain(", and friends")),
         ),
     )
 
@@ -121,7 +124,7 @@ def free_threading(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Concurrency", content=section_title, has_heading=False),
+    Slide(title="Concurrency", content=section_title, is_title_card=True),
     Slide(
         title="TaskGroup.cancel()",
         content=first_wins,
@@ -159,15 +162,15 @@ SLIDES = (
                 expect=Expect(status=0, output="generator already executing"),
             ),
             python(
-                Interpreter.PY315T,
-                "concurrency/shared_iterator.py",
-                label="__next__, 3.15t",
-                expect=Expect(status=0, output="free-threaded"),
-            ),
-            python(
                 Interpreter.PY314T,
                 "concurrency/shared_iterator.py",
                 label="__next__, 3.14t",
+                expect=Expect(status=0, output="free-threaded"),
+            ),
+            python(
+                Interpreter.PY315T,
+                "concurrency/shared_iterator.py",
+                label="__next__, 3.15t",
                 expect=Expect(status=0, output="free-threaded"),
             ),
         ),

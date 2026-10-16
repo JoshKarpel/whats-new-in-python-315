@@ -9,7 +9,6 @@ on a machine without Yama (Yama's `ptrace_scope` 1 would refuse it).
 """
 
 import asyncio
-import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -50,7 +49,6 @@ from whats_new.components.run_pane import OUTPUT_STYLES
 from whats_new.host import FlamegraphSite
 from whats_new.runs import ROOT
 from whats_new.slides import SlideProps
-from whats_new.workloads import WORKLOADS
 from whats_new.workloads import WORKLOADS_BY_KEY
 from whats_new.workloads import Workload
 from whats_new.workloads import perform
@@ -68,16 +66,16 @@ MODES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 POINTS = (
-    "p attaches Tachyon to this deck: the profiler is the deck's child, attached to its parent",
+    "p attaches Tachyon to this deck: the profiler is its child, attached to its parent",
     "c: pure-Python CPU in a worker thread: the hot function, and the lines in it",
-    "C: the same on the event loop: the deck freezes, and the profile explains it afterwards",
+    "C: the same on the event loop: the deck freezes, and the profile explains why",
     "n: numpy: compiled code shows up as <native> frames",
     "i: blocking I/O: m to cpu mode, and the idle time vanishes",
     "a: asyncio tasks: m to async-aware mode, and the task tree comes back",
     "g: garbage cycles: <GC> frames",
     "e: raise and catch in a thread: exception mode samples only it",
-    "drawing the profiler's screen is work the deck does: is it in the profile?",
-    "f hands Tachyon the keyboard (s sort, t mode, x trends, h help); Ctrl+B takes it back",
+    "drawing the profiler's screen is work the deck does, so it shows up in the profile",
+    "f hands Tachyon the keyboard (s sort, t mode, x trends, h help); Tab takes it back",
     "F: a flamegraph of the next 10 seconds; D: what is every thread doing, right now?",
 )
 STEPS = len(POINTS)
@@ -123,7 +121,7 @@ class Started:
 
 @component
 def tachyon_stage(props: SlideProps) -> Div:
-    focus = use_focus(auto_focus=props.is_live, is_focusable=props.is_live)
+    focus = use_focus(auto_focus=props.is_live, handle=props.slide_focus, is_focusable=props.is_live)
     pane, _ = use_state(FocusHandle)
     viewport, _ = use_state(ElementHandle)
     is_profiling, set_profiling = use_state(False)
@@ -134,7 +132,7 @@ def tachyon_stage(props: SlideProps) -> Div:
     is_serving, set_serving = use_state(False)
     executor: Ref[ThreadPoolExecutor] = use_ref(new_executor)
     one_shot = use_command(columns=use_rects(viewport).content.width, timeout=timedelta(seconds=30))
-    pid = os.getpid()
+    pid = props.host.pid
 
     async def run_workload() -> None:
         if started is None:
@@ -186,9 +184,10 @@ def tachyon_stage(props: SlideProps) -> Div:
                 return None
         return ()
 
+    # Safe to claim: Tachyon's TUI binds letters, arrows, /, + and -, but not Tab.
     def take_back(event: InputEvent, receiver: Receiver) -> InputResponse:
         match event:
-            case KeyPressed(key=Key.ControlB):
+            case KeyPressed(key=Key.Tab | Key.ControlB):
                 return (FocusOn(focus.handle),)
             case _:
                 return None
@@ -226,7 +225,10 @@ def tachyon_stage(props: SlideProps) -> Div:
 
 
 def strip(step: int, mode: str, running: tuple[str, ...], is_profiling: bool) -> Text:
-    keys = " ".join(workload.key for workload in WORKLOADS)
+    """
+    The talking point, on one line (each fits the slide), then the mode and what's running,
+    which wraps rather than being clipped when two long-named workloads run at once.
+    """
     status = ", ".join(running) if running else "idle"
     return Text(
         content=(
@@ -234,9 +236,8 @@ def strip(step: int, mode: str, running: tuple[str, ...], is_profiling: bool) ->
             Chunk.newline(),
             Chunk(content=f"mode {mode}", style=CellStyle(foreground=PYTHON_BLUE)),
             Chunk(content=f" · {'profiling' if is_profiling else 'p to profile'} · running: {status}"),
-            Chunk(content=f" · workloads {keys} · m mode · f focus", style=CellStyle(dim=True)),
         ),
-        style=shrink(0),
+        style=shrink(0) | text_wrap_pretty,
     )
 
 

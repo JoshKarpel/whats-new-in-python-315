@@ -43,10 +43,12 @@ What doesn't work in a default container:
 | Space | reveal the next step |
 | `1`–`9` | run the slide's programs, with any edits to its code |
 | Escape | stop the run in progress |
-| `e` / Ctrl+X | edit the slide's code: every key types until Ctrl+X, Tab moves to the next example |
+| Up / Down | scroll the run's output |
+| Tab / Shift+Tab | move between the slide's code and its runs: in the code, every key types until Tab |
 | `r` | reset the slide, undoing its edits |
-| `d` | the slide grid: arrows move, Enter jumps, Escape goes back |
-| F1 / F2 | the clock / the size check |
+| `d` | the slide grid, one section at a time: arrows move, Enter or `d` jumps, Escape goes back |
+| F1 / F2 / F3 | the clock / the size check / how long the last frame took to render |
+| F4 | pick the code theme: type to narrow the list, Up and Down move, Enter chooses, F4 closes |
 | Ctrl+C | quit |
 
 ## Developing

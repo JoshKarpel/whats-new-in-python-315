@@ -144,13 +144,13 @@ def python(interpreter: Interpreter, name: str, *, label: str | None = None, exp
     )
 
 
-def on_both(name: str, *, new: Expect, old: Expect) -> tuple[Run, Run]:
+def on_both(name: str, *, old: Expect, new: Expect) -> tuple[Run, Run]:
     """
-    The example `name` on 3.15 (`1`) and on 3.14 (`2`), for a change worth seeing on both: behavior that differs,
-    or new syntax that 3.14 rejects. An addition (a new builtin, method or parameter) gets no 3.14 run,
-    since all 3.14 can say is that it doesn't exist.
+    The example `name` on 3.14 (`1`) and on 3.15 (`2`), for a change worth seeing on both: behavior that differs,
+    or new syntax that 3.14 rejects. Old first, so the story runs "this didn't work, and now it does".
+    An addition (a new builtin, method or parameter) gets no 3.14 run, since all 3.14 can say is that it doesn't exist.
     """
-    return (python(Interpreter.PY315, name, expect=new), python(Interpreter.PY314, name, expect=old))
+    return (python(Interpreter.PY314, name, expect=old), python(Interpreter.PY315, name, expect=new))
 
 
 def copy_examples(directory: Path, edits: Mapping[str, str]) -> None:
@@ -179,9 +179,16 @@ def harness(name: str, *arguments: str | Interpreter, label: str, expect: Expect
     return Run(label=label, argv=(Interpreter.PY315, example(f"harness/{name}"), *arguments), expect=expect)
 
 
-def checkers(name: str, *mypy_flags: str, label: str = "mypy, pyright, ty", expect: Expect) -> Run:
-    """mypy, pyright and ty on the example `name`, one after another, as the deck's own environment pins them."""
-    return harness("checkers.py", str(BIN), name, *mypy_flags, label=label, expect=expect)
+def checkers(
+    name: str, *mypy_flags: str, tools: tuple[str, ...] = ("mypy",), label: str | None = None, expect: Expect
+) -> Run:
+    """
+    Type checkers (mypy unless `tools` names others, from mypy, pyright and ty) on the example `name`,
+    one after another, as the deck's own environment pins them, labeled by their names unless `label` is given.
+    """
+    return harness(
+        "checkers.py", str(BIN), ",".join(tools), name, *mypy_flags, label=label or ", ".join(tools), expect=expect
+    )
 
 
 if __name__ == "__main__":

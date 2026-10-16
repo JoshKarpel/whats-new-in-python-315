@@ -2,7 +2,8 @@
 The HTML export: the deck driven headless at the presenting size, one SVG screenshot per reveal step, in one page.
 
 It must be deterministic, or the pre-commit hook that regenerates it would rewrite the file on every commit:
-the clock is frozen and hidden, nothing animates before a key, and nothing runs, since mounting starts nothing.
+the clock is frozen and hidden, and moved on by a fixed amount after each reveal step to finish the step's
+animation, and nothing runs, since mounting starts nothing.
 """
 
 import subprocess
@@ -10,11 +11,13 @@ from collections.abc import Callable
 from collections.abc import Iterator
 from datetime import UTC
 from datetime import datetime
+from datetime import timedelta
 from html import escape
 from pathlib import Path
 
 from counterweight.app import app
 from counterweight.clock import frozen_clock
+from counterweight.controls import AdvanceClock
 from counterweight.controls import AnyControl
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
@@ -23,12 +26,18 @@ from counterweight.events import KeyPressed
 from counterweight.keys import Key
 from counterweight.output import Frame
 
+from whats_new.checkpoint import Checkpoint
 from whats_new.host import Host
 from whats_new.presenter import root
 from whats_new.size import PRESENTING
 from whats_new.slides import Slide
 
 EXPORT_CLOCK = frozen_clock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))
+SETTLE = timedelta(minutes=1)
+"""
+How far the export moves the clock on after each reveal step, which finishes any animation the step started,
+so each screenshot shows where the step ends up rather than its first frame.
+"""
 
 PAGE = """\
 <!doctype html>
@@ -69,6 +78,7 @@ def autopilot(slides: tuple[Slide, ...], collect: list[tuple[str, Frame]]) -> It
             yield Screenshot(handler=collector(collect, caption))
             if step < slide.steps - 1:
                 yield KeyPressed(key=Key.Space)
+                yield AdvanceClock(by=SETTLE)
         yield KeyPressed(key=Key.Right)
     yield Quit()
 
@@ -76,7 +86,7 @@ def autopilot(slides: tuple[Slide, ...], collect: list[tuple[str, Frame]]) -> It
 async def screenshots(slides: tuple[Slide, ...], host: Host) -> list[tuple[str, Frame]]:
     collected: list[tuple[str, Frame]] = []
     await app(
-        root(slides, host, 0, lambda index: None),
+        root(slides, host, Checkpoint(slide=0), lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=autopilot(slides, collected),

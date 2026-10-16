@@ -1,14 +1,21 @@
 """
 Diagrams for the performance section below Python: the frame pointer chain (and what one extension built
 without it does to it), the JIT's pipeline, and the garbage collector's timeline across releases.
+
+The chain and the timeline animate: a reveal step remounts the animated part, which plays it once.
 """
 
+from datetime import timedelta
+
+from counterweight.components import Component
+from counterweight.components import component
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.styles import CellStyle
 from counterweight.styles.utilities import default
 
+from whats_new.components.animation import use_progress
 from whats_new.diagrams.draw import CROSSED
 from whats_new.diagrams.draw import EDGE
 from whats_new.diagrams.draw import HIGHLIGHT
@@ -18,7 +25,8 @@ from whats_new.diagrams.draw import area
 from whats_new.diagrams.draw import ink
 from whats_new.diagrams.draw import node
 
-FRAME_POINTER_STEPS = 2
+FRAME_POINTER_STEPS = 3
+"""The chain; then a walk along it, as perf takes one; then the same walk with one extension built without them."""
 
 # Newest first, as a profiler reads them: each frame's saved rbp names its caller's frame.
 STACK = (
@@ -30,38 +38,71 @@ STACK = (
     ("_start", "libc"),
 )
 EXTENSION = 2
+HOP = timedelta(milliseconds=600)
+"""How long the walk takes to follow one saved rbp."""
+LOST = CellStyle(foreground=EDGE.foreground, dim=True)
+ARROW_X = 37
 
 
-def frame_pointer_chain(step: int) -> Div:
+def frame_pointer_chain(step: int, is_live: bool) -> Div | Component:
     """
-    The stack as a linked list, each frame's saved rbp pointing at its caller's;
-    then the extension built without frame pointers, whose rbp holds data, cuts off everything after it.
+    The stack as a linked list, each frame's saved rbp pointing at its caller's; then a cursor walking it, as perf
+    does; then the walk again, through an extension built without frame pointers, whose rbp holds data, where it
+    stops and everything after it is lost.
     """
-    is_broken = step >= 1
-    parts: list[Text | Div] = [ink("a sample's stack, newest first", 0, 0, NOTE)]
+    if step == 0:
+        return chain(is_broken=False, reached=None)
+    return walk(is_broken=step >= 2, is_live=is_live).with_key(f"walk-{step}")
+
+
+@component
+def walk(is_broken: bool, is_live: bool) -> Div:
+    hops = EXTENSION + 1 if is_broken else len(STACK) - 1
+    progress = use_progress(HOP * hops, is_live)
+    return chain(is_broken=is_broken, reached=int(progress * hops))
+
+
+def chain(is_broken: bool, reached: int | None) -> Div:
+    """
+    The chain, with the walk's cursor on the frame at index `reached` (or none, before a walk), every saved rbp
+    before it followed. Broken, the walk's last hop is the extension's rbp, which leads nowhere.
+    """
+    is_stopped = is_broken and reached == EXTENSION + 1
+    cursor = None if reached is None else min(reached, EXTENSION) if is_broken else reached
+    parts: list[Text | Div] = [ink("a sample's stack, newest first", 2, 0, NOTE)]
     for row, (frame, owner) in enumerate(STACK):
         y = 1 + row * 2
-        is_lost = is_broken and row > EXTENSION
-        box = CellStyle(foreground=EDGE.foreground) if is_lost else HIGHLIGHT if row == 0 else NOTE
-        parts.append(ink(f"│ {frame:<20} {owner:>9} │", 0, y, box))
+        is_lost = is_stopped and row > EXTENSION
+        box = LOST if is_lost else HIGHLIGHT if row == cursor else NOTE
+        if row == cursor:
+            parts.append(ink("▶", 0, y, HIGHLIGHT))
+        parts.append(ink(f"│ {frame:<20} {owner:>9} │", 2, y, box))
         if row == len(STACK) - 1:
             continue
-        if is_broken and row == EXTENSION:
-            parts.append(ink("saved rbp ──▶ ✗ data, not a frame: the walk stops here", 35, y, CROSSED))
+        is_followed = reached is not None and row < reached
+        if is_broken and row == EXTENSION and is_stopped:
+            parts.append(ink("saved rbp ──▶ ✗ not a frame: the walk stops", ARROW_X, y, CROSSED))
         elif is_lost:
-            parts.append(ink("unreachable", 35, y, EDGE))
+            parts.append(ink("unreachable", ARROW_X, y, LOST))
         else:
-            parts.append(ink(f"saved rbp ──▶ {STACK[row + 1][0]}", 35, y, EDGE))
-    caption = (
-        (
+            parts.append(ink(f"saved rbp ──▶ {STACK[row + 1][0]}", ARROW_X, y, HIGHLIGHT if is_followed else EDGE))
+    parts.append(ink(caption(is_broken, reached), 2, 13))
+    return area(80, 14, *parts)
+
+
+def caption(is_broken: bool, reached: int | None) -> tuple[Chunk, ...]:
+    if is_broken and reached == EXTENSION + 1:
+        return (
             Chunk(content="one extension without frame pointers, and ", style=NOTE),
             Chunk(content="its callers vanish", style=CROSSED),
         )
-        if is_broken
-        else (Chunk(content="perf and eBPF walk this list: cheap, and no DWARF tables needed", style=NOTE),)
-    )
-    parts.append(ink(caption, 0, 13))
-    return area(86, 14, *parts)
+    if not is_broken and reached == len(STACK) - 1:
+        return (
+            Chunk(content="every frame, back to ", style=NOTE),
+            Chunk(content="_start", style=HIGHLIGHT),
+            Chunk(content=": one load per frame, no DWARF tables", style=NOTE),
+        )
+    return (Chunk(content="perf and eBPF walk this list: cheap, and no DWARF tables needed", style=NOTE),)
 
 
 def jit_pipeline() -> Div:
@@ -85,7 +126,7 @@ def jit_pipeline() -> Div:
         ink("more constant propagation and refcount elimination", 0, 5, HIGHLIGHT),
         ink("and it tells GDB and backtrace() how to unwind through JIT frames", 0, 7, NOTE),
     ]
-    return area(86, 8, *parts)
+    return area(x, 8, *parts)
 
 
 RELEASES = (
@@ -95,17 +136,37 @@ RELEASES = (
     ("3.14.5", "reverted", "generational"),
     ("3.15", "a PEP to return", "generational"),
 )
+GC_STEPS = len(RELEASES)
+"""One release per step, the timeline drawing itself on to it."""
+RELEASE_WIDTH = 17
+TIMELINE_WIDTH = RELEASE_WIDTH * (len(RELEASES) - 1) + len("a PEP to return")
+EXTEND = timedelta(milliseconds=500)
 
 
-def gc_timeline() -> Div:
-    parts: list[Text | Div] = [ink("─" * 84 + "▶", 0, 1)]
-    for index, (release, event, collector) in enumerate(RELEASES):
-        x = index * 17
-        style = CROSSED if collector == "incremental" else NOTE
+def gc_timeline(step: int, is_live: bool) -> Component:
+    """The releases up to the one at `step`, the axis growing out to the newest, which appears when it arrives."""
+    return growing_timeline(step, is_live).with_key(f"release-{step}")
+
+
+@component
+def growing_timeline(step: int, is_live: bool) -> Div:
+    progress = use_progress(EXTEND, is_live)
+    start = 0 if step == 0 else tick_x(step - 1)
+    head = start + round((tick_x(step) - start) * progress)
+    parts: list[Text | Div] = [ink("─" * head + "▶", 0, 1)]
+    for index, (release, event, collector) in enumerate(RELEASES[: step + 1]):
+        if index == step and progress < 1:
+            continue
+        x = index * RELEASE_WIDTH
         parts += [
-            ink("┬", x + 2, 1),
+            ink("┬", tick_x(index), 1),
             ink(release, x, 0, HIGHLIGHT),
             ink(event, x, 2, EDGE),
-            ink(collector, x, 3, style),
+            ink(collector, x, 3, CROSSED if collector == "incremental" else NOTE),
         ]
-    return area(86, 4, *parts)
+    return area(TIMELINE_WIDTH, 4, *parts)
+
+
+def tick_x(index: int) -> int:
+    """The column of the release at `index`'s tick on the axis."""
+    return index * RELEASE_WIDTH + 2

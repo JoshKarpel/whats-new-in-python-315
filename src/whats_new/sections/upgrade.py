@@ -8,9 +8,11 @@ from whats_new.components.code import code_example
 from whats_new.components.layouts import code_above_runs
 from whats_new.components.layouts import notes_beside_code_above_runs
 from whats_new.components.look import bullets
+from whats_new.components.look import centered
 from whats_new.components.look import code
 from whats_new.components.look import em
 from whats_new.components.look import plain
+from whats_new.components.look import title_card
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
 from whats_new.runs import Run
@@ -18,6 +20,11 @@ from whats_new.runs import example
 from whats_new.runs import on_both
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+
+
+@component
+def section_title(props: SlideProps) -> Div:
+    return centered(title_card("Before you upgrade"))
 
 
 @component
@@ -100,8 +107,9 @@ def latin1(interpreter: Interpreter, expected: str) -> Run:
 
 
 SLIDES = (
+    Slide(title="Before you upgrade", content=section_title, is_title_card=True),
     Slide(
-        title="Before you upgrade",
+        title="Before you upgrade: warnings become errors",
         content=breakage,
         runs=on_both(
             "upgrade/breakage.py",
@@ -123,8 +131,8 @@ SLIDES = (
         content=utf8,
         peps=(686,),
         runs=(
-            latin1(Interpreter.PY315, "file.encoding='utf-8'"),
             latin1(Interpreter.PY314, "file.encoding='ISO-8859-1'"),
+            latin1(Interpreter.PY315, "file.encoding='utf-8'"),
         ),
     ),
     Slide(

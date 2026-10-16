@@ -3,41 +3,88 @@ Tachyon's diagrams: tracing vs sampling on one timeline, py-spy and austin vs Ta
 and the loop the Tachyon stage builds, the deck profiling itself.
 """
 
+from datetime import timedelta
+
+from counterweight.components import Component
+from counterweight.components import component
 from counterweight.elements import Chunk
 from counterweight.elements import Div
+from counterweight.elements import Text
+from counterweight.styles import CellStyle
 
+from whats_new.components.animation import use_progress
 from whats_new.diagrams.draw import CROSSED
 from whats_new.diagrams.draw import EDGE
 from whats_new.diagrams.draw import HIGHLIGHT
 from whats_new.diagrams.draw import HIGHLIGHT_NODE
 from whats_new.diagrams.draw import NOTE
 from whats_new.diagrams.draw import area
+from whats_new.diagrams.draw import centered_ink
+from whats_new.diagrams.draw import centered_node
 from whats_new.diagrams.draw import ink
 from whats_new.diagrams.draw import node
+from whats_new.diagrams.draw import node_width
+from whats_new.tachyon import profiler_argv
 
 CALLS = "main ─ parse ─┬─ load ─┬─ read ── decode ─┬─ render ─┬─ write ──"
 TRACE = "▲▼     ▲▼     ▲▼ ▲▼    ▲▼ ▲▼   ▲▼     ▲▼  ▲▼ ▲▼     ▲▼ ▲▼    ▲▼"
 SAMPLE = "    ●        ●        ●        ●        ●        ●        ●    "
+SAMPLING_STEPS = 2
+TIMELINE = timedelta(seconds=4)
+AHEAD = EDGE | CellStyle(dim=True)
+"""The calls the playhead hasn't reached yet."""
 
 
-def tracing_vs_sampling() -> Div:
+def tracing_vs_sampling(step: int, is_live: bool) -> Div | Component:
+    """
+    The two rows of one program's calls, the hooks each profiler fires along it, and what that costs.
+    At step 1 a playhead runs along the calls, and each row fires as it passes: tracing at every call and return,
+    sampling only at its ticks.
+    """
+    if step == 0:
+        return timeline(0)
+    return playing_timeline(is_live).with_key("playing")
+
+
+@component
+def playing_timeline(is_live: bool) -> Div:
+    return timeline(round(use_progress(TIMELINE, is_live) * len(CALLS)))
+
+
+def timeline(reached: int) -> Div:
+    """The timeline with the playhead `reached` cells along the calls, every hook before it fired; 0 is before it starts."""
+
+    def calls(y: int) -> Text:
+        if not 0 < reached < len(CALLS):
+            return ink(CALLS, 12, y)
+        return ink(
+            (
+                Chunk(content=CALLS[:reached], style=EDGE),
+                Chunk(content=CALLS[reached], style=HIGHLIGHT),
+                Chunk(content=CALLS[reached + 1 :], style=AHEAD),
+            ),
+            12,
+            y,
+        )
+
+    is_done = reached >= len(CALLS)
     return area(
-        86,
+        76,
         9,
         ink("tracing", 0, 0, HIGHLIGHT),
-        ink(TRACE, 12, 0, CROSSED),
-        ink(CALLS, 12, 1),
-        ink("a hook on every call and return: exact, and it slows everything down", 12, 2, NOTE),
+        ink(TRACE[:reached], 12, 0, CROSSED),
+        calls(1),
+        *((ink("a hook on every call and return: exact, and it slows everything", 12, 2, NOTE),) if is_done else ()),
         ink("sampling", 0, 5, HIGHLIGHT),
-        ink(SAMPLE, 12, 5, HIGHLIGHT),
-        ink(CALLS, 12, 6),
-        ink("a stack snapshot every so often, from outside: statistical, and cheap", 12, 7, NOTE),
+        ink(SAMPLE[:reached], 12, 5, HIGHLIGHT),
+        calls(6),
+        *((ink("a snapshot of the stack now and then, from outside: cheap", 12, 7, NOTE),) if is_done else ()),
     )
 
 
 def architectures() -> Div:
     return area(
-        86,
+        80,
         14,
         ink("py-spy, austin", 0, 0, HIGHLIGHT),
         node("profiler", 0, 1),
@@ -53,26 +100,36 @@ def architectures() -> Div:
     )
 
 
-def the_loop() -> Div:
+SCREEN = "its screen comes back through the PTY, and the deck draws it in a pane"
+
+
+def the_loop(pid: int) -> Div:
+    """
+    The deck above the profiler it spawns, with the two arrows between them: down, spawning it on a PTY,
+    and up, the profiler attaching to its parent. Everything is centered on one column, in an area exactly as wide
+    as its widest line, so the slide centers the whole drawing. The profiler's box holds the command the Tachyon
+    stage runs, as the deck builds it, attaching to `pid`, the deck's own process.
+    """
+    profiler = " ".join(("python", *profiler_argv(pid, 0)[1:]))
+    width = max(len(SCREEN), node_width(profiler))
+    middle = width // 2
+    down, up = middle - 3, middle + 3
     return area(
-        86,
+        width,
         13,
-        node("the deck (pid 1234)", 0, 0, style=HIGHLIGHT_NODE),
-        ink("── spawns, on a PTY ──▶", 23, 1),
-        node("Tachyon --live 1234", 47, 0),
-        ink("│", 57, 3),
-        ink("│ attaches to its parent (ptrace: fine without Yama)", 57, 4, NOTE),
-        ink("◀──────────────────────────────────────────────────┘", 6, 5),
-        ink("│", 6, 3),
-        ink("│", 6, 4),
-        ink("its screen comes back through the PTY; the deck emulates it and draws it in a pane", 0, 7, NOTE),
-        ink(
+        centered_node(f"the deck, pid {pid}", middle, 0, style=HIGHLIGHT_NODE),
+        ink("│\n│\n▼", down, 3),
+        ink("▲\n│\n│", up, 3),
+        ink("spawns it, on a PTY", down - 2 - len("spawns it, on a PTY"), 4, NOTE),
+        ink("attaches to its parent", up + 3, 4, NOTE),
+        centered_node(profiler, middle, 6),
+        centered_ink(SCREEN, middle, 10, NOTE),
+        centered_ink(
             (
                 Chunk(content="and drawing that pane is work the deck does, so it's ", style=NOTE),
-                Chunk(content="in the profile it's drawing", style=HIGHLIGHT),
+                Chunk(content="in the profile", style=HIGHLIGHT),
             ),
-            0,
-            9,
+            middle,
+            12,
         ),
-        ink("(maybe: check it live)", 0, 10, EDGE),
     )

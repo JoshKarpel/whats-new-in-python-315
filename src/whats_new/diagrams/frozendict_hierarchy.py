@@ -1,6 +1,7 @@
 """
-Why neither `dict` nor `frozendict` subclasses the other, as `set` and `frozenset` don't:
-the hierarchy, then the tempting edge crossed out, then the reverse edge crossed out, then the consequence.
+Why neither `dict` nor `frozendict` subclasses the other, as `set` and `frozenset` don't, under the ABCs they
+register as: `dict` is a `MutableMapping`, `frozendict` only a `Mapping`. The mappings, then the sets beside them, then the tempting edge crossed out, then the reverse edge crossed out,
+then the consequence. The drawing's area is the same size at every step, so revealing a part moves nothing.
 """
 
 from counterweight.elements import Chunk
@@ -13,50 +14,72 @@ from whats_new.diagrams.draw import HIGHLIGHT
 from whats_new.diagrams.draw import HIGHLIGHT_NODE
 from whats_new.diagrams.draw import NOTE
 from whats_new.diagrams.draw import area
+from whats_new.diagrams.draw import centered_node
+from whats_new.diagrams.draw import fork
 from whats_new.diagrams.draw import ink
+from whats_new.diagrams.draw import middle
 from whats_new.diagrams.draw import node
 
-STEPS = 4
+STEPS = 5
+
+# The boxes' left edges. dict sits under MutableMapping, and frozendict straight under Mapping, level with dict,
+# which leaves room between the two for the crossed-out arrows.
+MUTABLE_MAPPING = 0
+FROZENDICT = 22
+MUTABLE_SET = 48
+FROZENSET = 66
+LOWER = 9
+"""The row the concrete classes' boxes start on, below their Mutable ABCs."""
 
 
 def frozendict_hierarchy(step: int) -> Div:
+    mutable_mapping, frozendict_ = middle(MUTABLE_MAPPING, "MutableMapping"), middle(FROZENDICT, "frozendict")
+    mutable_set, frozenset_ = middle(MUTABLE_SET, "MutableSet"), middle(FROZENSET, "frozenset")
+    mapping, set_ = (mutable_mapping + frozendict_) // 2, (mutable_set + frozenset_) // 2
     parts: list[Text | Div] = [
-        node("Mapping", 15, 0),
-        ink("┌───────┴────────┐", 9, 3),
-        ink("│                │", 9, 4),
-        node("dict", 5, 5),
-        node("frozendict", 20, 5, style=HIGHLIGHT_NODE),
-        node("Set", 62, 0),
-        ink("┌──────┴───────┐", 56, 3),
-        ink("│              │", 56, 4),
-        node("set", 53, 5),
-        node("frozenset", 66, 5),
-        ink("neither subclasses the other", 54, 9, NOTE),
+        centered_node("Mapping", mapping, 0),
+        *fork(mapping, (mutable_mapping, frozendict_), 3),
+        node("MutableMapping", MUTABLE_MAPPING, 5),
+        ink("│", mutable_mapping, 8),
+        centered_node("dict", mutable_mapping, LOWER),
+        ink("│\n│\n│\n│", frozendict_, 5),
+        node("frozendict", FROZENDICT, LOWER, style=HIGHLIGHT_NODE),
     ]
     if step >= 1:
         parts += [
-            ink("◀━✗━━", 14, 5, CROSSED),
-            ink("✗ frozendict(dict)?", 1, 9, CROSSED),
-            ink("  it has fewer methods", 1, 10, EDGE),
+            centered_node("Set", set_, 0),
+            *fork(set_, (mutable_set, frozenset_), 3),
+            node("MutableSet", MUTABLE_SET, 5),
+            ink("│", mutable_set, 8),
+            centered_node("set", mutable_set, LOWER),
+            ink("│\n│\n│\n│", frozenset_, 5),
+            node("frozenset", FROZENSET, LOWER),
+            ink("neither subclasses the other", MUTABLE_SET, 13, NOTE),
         ]
     if step >= 2:
         parts += [
-            ink("━━✗━▶", 14, 7, CROSSED),
-            ink("✗ dict(frozendict)?", 25, 9, CROSSED),
-            ink("  a dict breaks", 25, 10, EDGE),
-            ink("  never-changes and", 25, 11, EDGE),
-            ink("  is-hashable (Liskov)", 25, 12, EDGE),
+            ink("◀━✗━━", 15, LOWER, CROSSED),
+            ink("✗ frozendict(dict)?", 0, 13, CROSSED),
+            ink("  it has fewer methods", 0, 14, EDGE),
         ]
     if step >= 3:
+        parts += [
+            ink("━━✗━▶", 15, LOWER + 2, CROSSED),
+            ink("✗ dict(frozendict)?", 22, 13, CROSSED),
+            ink("  a dict breaks", 22, 14, EDGE),
+            ink("  never-changes and", 22, 15, EDGE),
+            ink("  is-hashable (Liskov)", 22, 16, EDGE),
+        ]
+    if step >= 4:
         parts.append(
             ink(
                 (
                     Chunk(content="so accept ", style=NOTE),
                     Chunk(content="Mapping", style=HIGHLIGHT),
-                    Chunk(content=", not dict", style=NOTE),
+                    Chunk(content=", not dict, unless you mutate it", style=NOTE),
                 ),
                 10,
-                14,
+                18,
             )
         )
-    return area(86, 15, *parts)
+    return area(80, 19, *parts)

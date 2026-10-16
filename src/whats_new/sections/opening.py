@@ -10,6 +10,7 @@ from whats_new.components.look import bullets
 from whats_new.components.look import centered
 from whats_new.components.look import dim
 from whats_new.components.look import em
+from whats_new.components.look import made_with_claude
 from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.slides import Slide
@@ -21,6 +22,7 @@ def title(props: SlideProps) -> Div:
     return centered(
         title_card("What's New in Python 3.15", "Josh Karpel"),
         Text(content="a whirlwind tour of how Python is getting better", style=dim),
+        made_with_claude(),
     )
 
 
@@ -47,6 +49,6 @@ def agenda(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="What's New in Python 3.15", content=title, has_heading=False),
+    Slide(title="What's New in Python 3.15", content=title, is_title_card=True),
     Slide(title="A whirlwind tour", content=agenda),
 )

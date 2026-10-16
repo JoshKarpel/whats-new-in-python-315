@@ -26,7 +26,7 @@ def repl_pane(props: SlideProps) -> Div:
     `s` starts `python3.15` in a pane and hands it the keyboard; Ctrl+B takes the keyboard back,
     and `s` again (from the deck) starts a fresh one. Leaving the slide hangs it up.
     """
-    focus = use_focus(auto_focus=props.is_live, is_focusable=props.is_live)
+    focus = use_focus(auto_focus=props.is_live, handle=props.slide_focus, is_focusable=props.is_live)
     pane, _ = use_state(FocusHandle)
     session, set_session = use_state(0)
 
@@ -61,4 +61,5 @@ def repl_pane(props: SlideProps) -> Div:
             style=dim | border | border_lightrounded | border_color("slate", 600) | fill(1) | text_justify_center,
         )
     )
-    return Div(style=col | fill(1), on_input=on_input, children=(child,))
+    # Across the slide: a terminal takes no width from its program, so in a centered column it would get none.
+    return Div(style=col | fill(1) | align_self_stretch, on_input=on_input, children=(child,))

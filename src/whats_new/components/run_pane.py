@@ -7,13 +7,17 @@ starts the program, so a thumbnail or the export, which never press a key, never
 """
 
 import asyncio
+import math
 from dataclasses import dataclass
 from datetime import timedelta
 
 from counterweight.commands import CommandOutputStyles
+from counterweight.commands import Running
+from counterweight.commands import Starting
 from counterweight.commands import outcome_text
 from counterweight.commands import use_command
 from counterweight.components import component
+from counterweight.controls import ScrollBy
 from counterweight.elements import Canvas
 from counterweight.elements import Chunk
 from counterweight.elements import Div
@@ -23,16 +27,21 @@ from counterweight.events import InputResponse
 from counterweight.events import KeyPressed
 from counterweight.events import Receiver
 from counterweight.hooks import ElementHandle
+from counterweight.hooks import use_clock
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_focus
 from counterweight.hooks import use_rects
 from counterweight.hooks import use_state
 from counterweight.keys import Key
 from counterweight.styles import CellStyle
+from counterweight.styles import Color
+from counterweight.styles import Style
 from counterweight.styles.utilities import *
 from counterweight.widgets import ScrollAreaStyles
 from counterweight.widgets import scroll_area
 
+from whats_new.components.animation import FRAME
+from whats_new.components.animation import IDLE
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.runs import Run
@@ -42,6 +51,13 @@ from whats_new.slides import SlideProps
 
 RUN_TIMEOUT = timedelta(seconds=90)
 NUMBER_KEYS = tuple(str(n) for n in range(1, 10))
+
+PULSE = timedelta(milliseconds=1200)
+"""How long one breath of the box's border takes while a run is in progress."""
+RESTING = Color.from_hex("#475569")
+"""The box's border between runs: Tailwind's slate 600, as the other boxes on a slide."""
+LIT = Color.from_hex("#93c5fd")
+"""The border at the top of each breath while a run is in progress: Tailwind's blue 300."""
 
 OUTPUT_STYLES = CommandOutputStyles(
     area=ScrollAreaStyles(
@@ -68,6 +84,8 @@ def run_pane(props: SlideProps) -> Div:
     The slide's runs, named in a line above one box: `1` runs the first in the box, `2` the next, and so on,
     replacing whatever the box showed, and the line marks which one it shows, with how it's going at its right end.
     Pressing a run's key again runs it again. Escape stops the run in progress.
+    While one is in progress, the box's border pulses, so a slow run doesn't look like a dead key.
+    Up and Down scroll the output, so a long traceback can be read without reaching for the mouse.
     Every run executes a copy of `examples/` with the slide's edits written over it.
     Only a live slide's pane takes focus, which is how its keys reach it.
     """
@@ -75,8 +93,8 @@ def run_pane(props: SlideProps) -> Div:
     if len(runs) > len(NUMBER_KEYS):
         raise ValueError(f"a slide can bind at most {len(NUMBER_KEYS)} runs, not {len(runs)}")
 
-    # Out of the focus order, so Tab moves among the slide's editors only.
-    use_focus(auto_focus=props.is_live, handle=props.runs_focus, is_focusable=props.is_live, in_focus_order=False)
+    # In the focus order, after the slide's editors, so Tab from the last editor comes back here.
+    use_focus(auto_focus=props.is_live, handle=props.slide_focus, is_focusable=props.is_live)
     nothing_requested: Request | None = None
     request, set_request = use_state(nothing_requested)
     cancels, set_cancels = use_state(0)
@@ -113,10 +131,17 @@ def run_pane(props: SlideProps) -> Div:
             case KeyPressed(key=Key.Escape):
                 set_cancels(lambda n: n + 1)
                 return ()
+            case KeyPressed(key=Key.Up):
+                return (ScrollBy(target=viewport, y=-1),)
+            case KeyPressed(key=Key.Down):
+                return (ScrollBy(target=viewport, y=1),)
             case _:
                 return None
 
     latest = command.latest
+    is_running = latest is not None and isinstance(latest.outcome, Starting | Running)
+    breath = use_clock(FRAME if is_running and props.is_live else IDLE).since_mount / PULSE
+    border = RESTING.blend(LIT, (1 - math.cos(2 * math.pi * breath)) / 2) if is_running else RESTING
     return Div(
         # Across the slide, in a column that centers its other children.
         style=col | fill(1) | align_self_stretch,
@@ -144,7 +169,10 @@ def run_pane(props: SlideProps) -> Div:
                 children=() if latest is None else (Canvas(painter=latest.output),),
                 stick_to_end=True,
                 style=fill(1),
-                styles=OUTPUT_STYLES.area,
+                styles=ScrollAreaStyles(
+                    box=OUTPUT_STYLES.area.box | Style(border_style=CellStyle(foreground=border)),
+                    focused_box=OUTPUT_STYLES.area.focused_box if not is_running else default,
+                ),
                 viewport=viewport,
                 is_focusable=props.is_live,
                 in_focus_order=False,

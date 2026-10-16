@@ -1,7 +1,7 @@
 """
 Code on screen, read from the example files the runs execute, so display and execution can't drift.
 
-An example is also an editor: `e` moves into it, and the slide's runs execute the edited text.
+An example is also an editor, on a slide with runs: Tab moves into it, and the slide's runs execute the edited text.
 """
 
 import warnings
@@ -30,6 +30,8 @@ from counterweight.styles import CellStyle
 from counterweight.styles import Style
 from counterweight.styles.utilities import *
 from counterweight.widgets import TextFieldStyles
+from pygments.styles import get_all_styles
+from pygments.styles import get_style_by_name
 
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import code_border
@@ -38,7 +40,22 @@ from whats_new.runs import EXAMPLES
 from whats_new.slides import SlideProps
 
 CODE_THEME = "github-dark"
-"""The Pygments style every code block is highlighted in, edited or not."""
+"""The Pygments style code is highlighted in until F4 picks another."""
+
+
+def has_dark_background(theme: str) -> bool:
+    """
+    Whether the Pygments style `theme` has a dark background, by its relative luminance (as WCAG defines it).
+    Pygments' styles split cleanly: the dark ones are at most 0.05, the light ones at least 0.8.
+    """
+    hex_color = get_style_by_name(theme).background_color.lstrip("#")
+    channels = [int(hex_color[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2] < 0.5
+
+
+CODE_THEMES = tuple(sorted(theme for theme in get_all_styles() if has_dark_background(theme)))
+"""The Pygments styles F4's picker offers: the dark ones, since the deck is dark."""
 
 CURSOR = TextFieldStyles().cursor
 
@@ -118,7 +135,9 @@ def code_example(
         props.edits.get(name, source),
         props.edit,
         props.leave_editor,
-        props.is_live,
+        # Editing a slide with nothing to run would change nothing, and it would have no run pane to Tab back to.
+        props.is_live and bool(props.runs),
+        props.code_theme,
         style,
     )
 
@@ -129,37 +148,38 @@ def code_editor(
     source: str,
     edit: Callable[[str, Callable[[str], str]], None],
     leave: AnyControl,
-    is_live: bool,
+    is_editable: bool,
+    theme: str,
     style: Style,
 ) -> Div:
     """
     The shown lines of `source`, the example's text, which typing edits while the editor is focused,
     with a yellow border while it is, and a red one whenever the whole file, hidden lines included, isn't valid Python.
-    Ctrl+X does `leave`. Escape and Tab aren't edits, so they bubble out of it, to leave it or move to the next one;
-    Ctrl+X is the way out that works in a browser, which keeps Escape for itself.
+    Escape does `leave`. Tab isn't an edit, so it bubbles out, to move focus on to the next editor or the run pane;
+    it's the way out that works in a browser, which keeps Escape for itself.
     """
     shown = excerpt.shown(source)
 
     def set_shown(change: Callable[[str], str]) -> None:
         edit(excerpt.name, lambda latest: excerpt.replaced(latest, change(excerpt.shown(latest))))
 
-    field = use_text_area(shown, set_shown, width=UNWRAPPED, enter_inserts_newline=True, is_focusable=is_live)
+    field = use_text_area(shown, set_shown, width=UNWRAPPED, enter_inserts_newline=True, is_focusable=is_editable)
 
     def on_leave(event: InputEvent, receiver: Receiver) -> InputResponse:
-        if receiver.is_focused and isinstance(event, KeyPressed) and event.key == Key.ControlX:
+        if receiver.is_focused and isinstance(event, KeyPressed) and event.key == Key.Escape:
             return leave
         return None
 
     is_focused = field.focus.is_focused
-    chunks = highlight(shown, "python", CODE_THEME)
+    chunks = highlight(shown, "python", theme)
     border = INVALID_BORDER if not compiles(source) else EDITING_BORDER if is_focused else default
     return Div(
-        style=code_style(CODE_THEME) | code_border | pad_x(1) | shrink(0) | style | border,
+        style=code_style(theme) | code_border | pad_x(1) | shrink(0) | style | border,
         on_input=first(on_leave, field.on_input, field.on_press),
         children=(
             Text(
                 content=with_cursor(chunks, field.cursor, field.at_cursor) if is_focused else chunks,
-                style=code_style(CODE_THEME) | text_wrap_none,
+                style=code_style(theme) | text_wrap_none,
             ),
         ),
     )
@@ -204,9 +224,11 @@ def compiles(source: str) -> bool:
     return True
 
 
-def code_snippet(text: str, style: Style = default, language: str = "python") -> Text:
+def code_snippet(props: SlideProps, text: str, style: Style = default, language: str = "python") -> Text:
     """`text` highlighted as `language`, in the deck's code border: for code that isn't run, such as a shell line."""
-    return code_block(text, language, CODE_THEME, style=code_border | pad_x(1) | shrink(0) | text_wrap_none | style)
+    return code_block(
+        text, language, props.code_theme, style=code_border | pad_x(1) | shrink(0) | text_wrap_none | style
+    )
 
 
 def labeled(label: str, block: Text | Component) -> Div:

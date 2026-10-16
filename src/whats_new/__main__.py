@@ -15,8 +15,12 @@ from tempfile import gettempdir
 from counterweight.app import app
 
 from whats_new import export
+from whats_new.checkpoint import Checkpoint
 from whats_new.deck import SLIDES
+from whats_new.frame_time import FrameTimer
+from whats_new.frame_time import timed_output
 from whats_new.host import EXPORT_FLAMEGRAPH_SITE
+from whats_new.host import EXPORT_PID
 from whats_new.host import FlamegraphSite
 from whats_new.host import Host
 from whats_new.presenter import root
@@ -25,19 +29,19 @@ from whats_new.runs import ROOT
 from whats_new.runs import Interpreters
 from whats_new.runs import MissingInterpreter
 
-INDEX_FILE = Path(gettempdir()) / "whats-new-in-python-315-slide-index"
-"""The current slide index, so a restart (live reload, or a crash on stage) lands on the same slide."""
+CHECKPOINT_FILE = Path(gettempdir()) / "whats-new-in-python-315-checkpoint"
+"""The deck's checkpoint, so a restart (live reload, or a crash on stage) lands on the same slide, in the same theme."""
 
 
-def load_index() -> int:
+def load_checkpoint() -> Checkpoint:
     try:
-        return int(INDEX_FILE.read_text())
-    except FileNotFoundError, ValueError:
-        return 0
+        return Checkpoint.parse(CHECKPOINT_FILE.read_text())
+    except FileNotFoundError:
+        return Checkpoint(slide=0)
 
 
-def save_index(index: int) -> None:
-    INDEX_FILE.write_text(str(index))
+def save_checkpoint(checkpoint: Checkpoint) -> None:
+    CHECKPOINT_FILE.write_text(checkpoint.serialized())
 
 
 def main() -> None:
@@ -63,7 +67,10 @@ def main() -> None:
         match arguments.command:
             case "export":
                 host = Host(
-                    interpreters=interpreters, flamegraph=EXPORT_FLAMEGRAPH_SITE, examples_copy=Path(examples_copy)
+                    interpreters=interpreters,
+                    flamegraph=EXPORT_FLAMEGRAPH_SITE,
+                    pid=EXPORT_PID,
+                    examples_copy=Path(examples_copy),
                 )
                 frames = asyncio.run(export.screenshots(SLIDES, host))
                 html = export.page(frames)
@@ -75,9 +82,19 @@ def main() -> None:
                 host = Host(
                     interpreters=interpreters,
                     flamegraph=FlamegraphSite.resolve(os.environ),
+                    pid=os.getpid(),
                     examples_copy=Path(examples_copy),
                 )
-                asyncio.run(app(root(SLIDES, host, load_index(), save_index), title="What's New in Python 3.15"))
+                timer = FrameTimer()
+                with timed_output(sys.stdout, timer) as output:
+                    asyncio.run(
+                        app(
+                            root(SLIDES, host, load_checkpoint(), save_checkpoint, last_frame=lambda: timer.last),
+                            output_stream=output,
+                            clock=timer.clock,
+                            title="What's New in Python 3.15",
+                        )
+                    )
             case unknown:
                 parser.error(f"unknown command {unknown!r}")
 

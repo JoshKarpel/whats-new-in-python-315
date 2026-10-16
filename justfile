@@ -29,7 +29,7 @@ present:
 
 alias p := present
 
-# The deck remembers its slide in a temp file, so each restart lands on the slide it left.
+# The deck checkpoints its slide and code theme to a temp file, so each restart lands where it left off.
 [doc('Present the deck, restarting it whenever a source or example file changes')]
 watch:
     exec uv run --frozen watchfiles --verbosity warning 'python -m whats_new' src/ examples/

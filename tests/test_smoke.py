@@ -19,12 +19,14 @@ from counterweight.events import KeyPressed
 from counterweight.keys import Key
 from counterweight.output import Frame
 
+from whats_new.checkpoint import Checkpoint
 from whats_new.components.grid import COLUMNS
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
 from whats_new.presenter import root
 from whats_new.size import PRESENTING
+from whats_new.slides import sections
 
 PEP_MENTION = re.compile(r"PEP (\d+)")
 SETTLE_CYCLES = 4
@@ -73,9 +75,9 @@ def walk(frames: list[tuple[int, Frame]], spawned: set[int] | None = None) -> It
             for _ in range(SETTLE_CYCLES):
                 yield Screenshot(handler=lambda frame: sample_children(spawned))
         yield KeyPressed(key=Key.Right)
-    # The grid opens on the last slide; walk the selection back up through every row.
+    # The grid opens on the last slide; walk the selection back up through every row of every section.
     yield KeyPressed(key="d")
-    for _ in range(len(SLIDES) // COLUMNS + 1):
+    for _ in range(sum(-(-len(section) // COLUMNS) for section in sections(SLIDES))):
         yield Screenshot(handler=recorder(frames, -1))
         yield KeyPressed(key=Key.Up)
     yield KeyPressed(key=Key.Escape)
@@ -88,7 +90,7 @@ async def test_every_slide_renders_and_starts_nothing(host: Host) -> None:
     spawned: set[int] = set()
 
     await app(
-        root(SLIDES, host, 0, lambda index: None),
+        root(SLIDES, host, Checkpoint(slide=0), lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=walk(frames, spawned),
@@ -103,7 +105,7 @@ async def test_every_cited_pep_is_linked(host: Host) -> None:
     frames: list[tuple[int, Frame]] = []
 
     await app(
-        root(SLIDES, host, 0, lambda index: None),
+        root(SLIDES, host, Checkpoint(slide=0), lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=walk(frames),
@@ -128,7 +130,7 @@ async def test_no_box_is_cut_off(host: Host) -> None:
     frames: list[tuple[int, Frame]] = []
 
     await app(
-        root(SLIDES, host, 0, lambda index: None),
+        root(SLIDES, host, Checkpoint(slide=0), lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=walk(frames),

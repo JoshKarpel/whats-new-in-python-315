@@ -14,11 +14,13 @@ from whats_new.runs import Interpreters
 
 MANUAL = (
     "every deck key arrives through the browser and zellij's locked mode (Ctrl+G), Escape and Enter included",
-    "F1 and F2 reach the deck; F2 is green at the presenting zoom",
+    "F1 through F4 reach the deck; F2 is green at the presenting zoom",
+    "Tab and Shift+Tab reach the deck: they move between a slide's code and its runs, "
+    "and Tab takes the keyboard back from Tachyon's pane (f)",
     "clicking a thumbnail in the slide grid (d) reaches the deck",
     "the flamegraph URL on the Tachyon slide opens from a click",
     "PEP links open from a click",
-    "the grapheme slide's n̈ draws as one cell, and its naive reversal puts the umlaut on the a",
+    "the Unicode slides draw cleanly: they avoid combining marks, which zellij drops (zellij-org/zellij#5500)",
     "the Tachyon pane redraws smoothly enough over the venue network",
 )
 

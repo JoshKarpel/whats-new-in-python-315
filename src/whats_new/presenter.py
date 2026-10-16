@@ -8,28 +8,34 @@ so "the grid is open" and "what it has selected" can't disagree.
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import replace
+from datetime import timedelta
 from datetime import tzinfo
 from zoneinfo import ZoneInfo
 
 from counterweight.components import Component
 from counterweight.components import component
+from counterweight.controls import FocusOn
 from counterweight.elements import AnyElement
 from counterweight.elements import Div
 from counterweight.events import InputEvent
 from counterweight.events import InputResponse
 from counterweight.events import KeyPressed
 from counterweight.events import Receiver
+from counterweight.focus import FocusHandle
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_rects
 from counterweight.hooks import use_state
 from counterweight.keys import Key
 from counterweight.styles.utilities import *
 
+from whats_new.checkpoint import Checkpoint
 from whats_new.components.frame import footer
 from whats_new.components.frame import heading
-from whats_new.components.grid import COLUMNS
+from whats_new.components.grid import above
+from whats_new.components.grid import below
 from whats_new.components.grid import grid
 from whats_new.components.slide_body import slide_body
+from whats_new.components.theme_picker import theme_picker
 from whats_new.host import Host
 from whats_new.slides import Slide
 
@@ -72,15 +78,20 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
         case int(selected), Key.Left:
             return replace(position, selected=clamp(selected - 1, 0, last))
         case int(selected), Key.Down:
-            return replace(position, selected=clamp(selected + COLUMNS, 0, last))
+            return replace(position, selected=below(selected, slides))
         case int(selected), Key.Up:
-            return replace(position, selected=clamp(selected - COLUMNS, 0, last))
-        case int(selected), Key.Enter:
+            return replace(position, selected=above(selected, slides))
+        case int(selected), Key.Enter | "d":
             return Position(index=selected)
-        case int(), Key.Escape | "d":
+        case int(), Key.Escape:
             return replace(position, selected=None)
         case _:
             return None
+
+
+def never_measured() -> timedelta | None:
+    """The frame time where nothing measures it, as in the export and the tests."""
+    return None
 
 
 CHICAGO = ZoneInfo("America/Chicago")
@@ -91,24 +102,32 @@ CHICAGO = ZoneInfo("America/Chicago")
 def root(
     slides: tuple[Slide, ...],
     host: Host,
-    start_index: int,
-    remember_index: Callable[[int], None],
+    start: Checkpoint,
+    remember: Callable[[Checkpoint], None],
     timezone: tzinfo = CHICAGO,
+    last_frame: Callable[[], timedelta | None] = never_measured,
 ) -> Div:
     """
-    The deck. It starts on `start_index` and calls `remember_index` with the index after every move,
-    so a restart (live reload, or a crash on stage) can come back to the same slide.
-    The footer's clock reads the time in `timezone`.
+    The deck. It starts from `start` and calls `remember` with a new checkpoint whenever the slide or the code theme
+    changes, so a restart (live reload, or a crash on stage) comes back to the same slide, in the same theme.
+    The footer's clock reads the time in `timezone`, and its frame time (F3) is whatever `last_frame` reports.
+    F4 opens the code theme picker (see `theme_picker`), and closes it unchanged.
     """
-    position, set_position = use_state(Position(index=clamp(start_index, 0, len(slides) - 1)))
+    position, set_position = use_state(Position(index=clamp(start.slide, 0, len(slides) - 1)))
     show_clock, set_show_clock = use_state(False)
     show_size, set_show_size = use_state(False)
+    show_frame_time, set_show_frame_time = use_state(False)
+    code_theme, set_code_theme = use_state(start.code_theme)
+    is_picking_theme, set_picking_theme = use_state(False)
+    # Owned here rather than by the slide, so closing the picker can give focus back to whatever takes the slide's keys.
+    slide_focus, _ = use_state(FocusHandle)
+    picker_focus, _ = use_state(FocusHandle)
     screen = use_rects().border
 
-    async def remember() -> None:
-        remember_index(position.index)
+    async def checkpoint() -> None:
+        remember(Checkpoint(slide=position.index, code_theme=code_theme))
 
-    use_effect(remember, deps=(position.index,))
+    use_effect(checkpoint, deps=(position.index, code_theme))
 
     def jump(index: int) -> None:
         set_position(Position(index=index))
@@ -123,6 +142,14 @@ def root(
             case Key.F2:
                 set_show_size(lambda shown: not shown)
                 return ()
+            case Key.F3:
+                set_show_frame_time(lambda shown: not shown)
+                return ()
+            case Key.F4:
+                set_picking_theme(not is_picking_theme)
+                return (FocusOn(slide_focus if is_picking_theme else picker_focus),)
+            case _:
+                pass
         moved = navigate(position, event.key, slides)
         if moved is None:
             return None
@@ -132,25 +159,48 @@ def root(
     slide = slides[position.index]
     if position.selected is None:
         body: tuple[Component | AnyElement, ...] = (
-            *((heading(slide.title, slide.peps),) if slide.has_heading else ()),
+            *((heading(slide.title, slide.peps),) if not slide.is_title_card else ()),
             Div(
                 style=col | fill(1) | pad_x(1),
                 # Keyed by index and generation: navigating away and back, or pressing r, mounts the slide fresh.
                 children=(
-                    slide_body(slide, position.step, True, host).with_key(
+                    slide_body(slide, position.step, True, host, code_theme, slide_focus).with_key(
                         f"slide-{position.index}-{position.generation}"
                     ),
                 ),
             ),
         )
     else:
-        body = (grid(slides, position.selected, jump, host).with_key("grid"),)
+        body = (grid(slides, position.selected, jump, host, code_theme).with_key("grid"),)
 
     return Div(
-        style=col | full,
+        style=col | full | position_relative,
         on_input=on_input,
         children=(
             *body,
-            footer(position.index, len(slides), show_clock, show_size, screen.width, screen.height, timezone),
+            footer(
+                position.index,
+                len(slides),
+                show_clock,
+                show_size,
+                screen.width,
+                screen.height,
+                timezone,
+                last_frame if show_frame_time else None,
+            ),
+            # Last, so it paints over the slide.
+            *(
+                (
+                    theme_picker(
+                        code_theme,
+                        set_code_theme,
+                        lambda: set_picking_theme(False),
+                        FocusOn(slide_focus),
+                        picker_focus,
+                    ).with_key("theme-picker"),
+                )
+                if is_picking_theme
+                else ()
+            ),
         ),
     )

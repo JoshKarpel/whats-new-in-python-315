@@ -1,8 +1,8 @@
 import threading
 
 class LockedIterator:
-    def __init__(self, iterable):
-        self.iterator = iter(iterable)
+    def __init__(self, items):
+        self.iterator = iter(items)
         self.lock = threading.Lock()
 
     def __iter__(self):

@@ -1,4 +1,4 @@
-"""8. Closing: the features are unusually thorough, a question about why, and where to read more."""
+"""8. Closing: the features are unusually thorough, and where to read more."""
 
 from counterweight.components import component
 from counterweight.elements import Div
@@ -8,8 +8,10 @@ from counterweight.styles.utilities import *
 from whats_new.components.layouts import stack
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
+from whats_new.components.look import claude_mascot
 from whats_new.components.look import code
-from whats_new.components.look import em
+from whats_new.components.look import link
+from whats_new.components.look import made_with_claude
 from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.slides import Slide
@@ -31,12 +33,6 @@ def thoroughness(props: SlideProps) -> Div:
     return stack(
         Text(content="Features arrived as toolkits, not single functions:"),
         bullets(*TOOLKITS),
-        Text(
-            content=(
-                plain("Do coding agents make this kind of completeness cheaper? "),
-                em("A question, not a claim."),
-            ),
-        ),
     )
 
 
@@ -45,14 +41,15 @@ def thanks(props: SlideProps) -> Div:
     return centered(
         title_card("Thanks!"),
         bullets(
-            "docs.python.org/3.15/whatsnew/3.15.html",
-            "github.com/JoshKarpel/whats-new-in-python-315",
-            "github.com/JoshKarpel/counterweight",
+            (plain("this talk:      "), link("https://github.com/JoshKarpel/whats-new-in-python-315")),
+            (plain("what's new:     "), link("https://docs.python.org/3.15/whatsnew/3.15.html")),
+            (plain("counterweight:  "), link("https://github.com/JoshKarpel/counterweight")),
         ),
+        Div(style=row | gap_width(2) | align_children_center, children=(claude_mascot(), made_with_claude())),
     )
 
 
 SLIDES = (
     Slide(title="Unusually thorough", content=thoroughness),
-    Slide(title="Thanks", content=thanks, has_heading=False),
+    Slide(title="Thanks", content=thanks, is_title_card=True),
 )

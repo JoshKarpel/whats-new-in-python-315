@@ -15,7 +15,9 @@ from whats_new.components.look import em
 from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.diagrams import frozendict_hierarchy
+from whats_new.diagrams.graphemes import LAYER_STEPS
 from whats_new.diagrams.graphemes import band_code_points
+from whats_new.diagrams.graphemes import layers
 from whats_new.diagrams.take_bytes import take_bytes_memory
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
@@ -41,6 +43,17 @@ def frozendict_basics(props: SlideProps) -> Div:
             (plain("a builtin, immutable "), em("mapping")),
             (plain("hashable when its values are")),
             (plain("no literal syntax (yet)")),
+        ),
+    )
+
+
+@component
+def mutable_default(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        code_example(props, "small/mutable_default.py"),
+        bullets(
+            (plain("the default is "), em("one"), plain(" dict, made once, shared by every call")),
         ),
     )
 
@@ -94,12 +107,33 @@ def unpacking(props: SlideProps) -> Div:
     )
 
 
-UNPACK_FILES = ("small/unpack_pages.py", "small/unpack_sources.py", "small/unpack_sources_nested.py")
+@component
+def unpacking_pages(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        code_example(props, "small/unpack_pages.py", start="async def"),
+        bullets("an async stream of sync batches: a paginated API"),
+    )
 
 
 @component
-def unpacking_async(props: SlideProps) -> Div:
-    return code_above_runs(props, code_example(props, UNPACK_FILES[props.step], start="async def"))
+def unpacking_sources(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        code_example(props, "small/unpack_sources.py", start="async def"),
+        bullets(
+            (plain("what's after "), code("*"), plain(" must be a "), em("sync"), plain(" iterable")),
+        ),
+    )
+
+
+@component
+def unpacking_nested(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        code_example(props, "small/unpack_sources_nested.py", start="async def"),
+        bullets("flattening async sources takes two async fors, as it did before 3.15"),
+    )
 
 
 @component
@@ -120,8 +154,19 @@ def take_bytes_peak(props: SlideProps) -> Div:
 
 
 @component
+def text_layers(props: SlideProps) -> Div:
+    return stack(layers(props.step))
+
+
+@component
 def graphemes(props: SlideProps) -> Div:
-    return code_above_runs(props, code_example(props, "small/graphemes.py"))
+    return code_above_runs(
+        props,
+        code_example(props, "small/graphemes.py"),
+        bullets(
+            (code("!a"), plain(" prints the umlaut as "), code("\\u0308"), plain(": see the next slide for why")),
+        ),
+    )
 
 
 @component
@@ -129,18 +174,23 @@ def grapheme_picture(props: SlideProps) -> Div:
     return stack(
         band_code_points(),
         bullets(
-            "counterweight segments text with iter_graphemes: this deck is the code under discussion",
             (
-                plain("and still measures width with "),
+                plain("zellij, which this talk runs through, "),
+                em("drops"),
+                plain(" combining marks (zellij#5500): segmentation is hard"),
+            ),
+            (
+                plain("counterweight, which draws this deck, segments with "),
+                code("iter_graphemes"),
+                plain(" and measures with "),
                 code("wcwidth"),
-                plain(": the stdlib doesn't measure terminal cells"),
             ),
         ),
     )
 
 
 SLIDES = (
-    Slide(title="Small things you'll use tomorrow", content=section_title, has_heading=False),
+    Slide(title="Small things you'll use tomorrow", content=section_title, is_title_card=True),
     Slide(
         title="frozendict",
         content=frozendict_basics,
@@ -150,6 +200,17 @@ SLIDES = (
                 Interpreter.PY315,
                 "small/frozendict_basics.py",
                 expect=Expect(status=1, output="'frozendict' object does not support item assignment"),
+            ),
+        ),
+    ),
+    Slide(
+        title="The mutable default argument",
+        content=mutable_default,
+        runs=(
+            python(
+                PY315,
+                "small/mutable_default.py",
+                expect=Expect(status=0, output="DEFAULTS={'retries': 3, 'timeout': 10.0, 'url': 'https://python.org'}"),
             ),
         ),
     ),
@@ -201,25 +262,33 @@ SLIDES = (
         peps=(798,),
         runs=on_both(
             "small/unpack.py",
-            new=Expect(status=0, output="{'debug': True, 'port': 80}"),
             old=Expect(status=1, output="SyntaxError: iterable unpacking cannot be used in comprehension"),
+            new=Expect(status=0, output="{'debug': True, 'port': 80}"),
         ),
     ),
     Slide(
         title="Unpacking in async comprehensions",
-        content=unpacking_async,
+        content=unpacking_pages,
         peps=(798,),
-        steps=len(UNPACK_FILES),
+        runs=(python(PY315, "small/unpack_pages.py", expect=Expect(status=0, output="[1, 2, 3, 4, 5, 6]")),),
+    ),
+    Slide(
+        title="Unpacking async sources: not like that",
+        content=unpacking_sources,
+        peps=(798,),
         runs=(
-            python(PY315, UNPACK_FILES[0], label="pages", expect=Expect(status=0, output="[1, 2, 3, 4, 5, 6]")),
             python(
                 PY315,
-                UNPACK_FILES[1],
-                label="sources",
+                "small/unpack_sources.py",
                 expect=Expect(status=1, output="Value after * must be an iterable, not async_generator"),
             ),
-            python(PY315, UNPACK_FILES[2], label="nested", expect=Expect(status=0, output="[0, 1, 0, 1, 2]")),
         ),
+    ),
+    Slide(
+        title="Unpacking async sources: like this",
+        content=unpacking_nested,
+        peps=(798,),
+        runs=(python(PY315, "small/unpack_sources_nested.py", expect=Expect(status=0, output="[0, 1, 0, 1, 2]")),),
     ),
     Slide(
         title="Counter ^ Counter",
@@ -231,6 +300,7 @@ SLIDES = (
         content=take_bytes_peak,
         runs=(python(PY315, "small/take_bytes_memory.py", expect=Expect(status=0, output="take_bytes: peak 50 MiB")),),
     ),
+    Slide(title="Text, in layers", content=text_layers, steps=LAYER_STEPS),
     Slide(
         title="unicodedata.iter_graphemes",
         content=graphemes,
@@ -238,7 +308,7 @@ SLIDES = (
             python(
                 Interpreter.PY315,
                 "small/graphemes.py",
-                expect=Expect(status=0, output="len(list(iter_graphemes(band)))=10"),
+                expect=Expect(status=0, output="band[::-1]='paT la\\u0308nipS'"),
             ),
         ),
     ),

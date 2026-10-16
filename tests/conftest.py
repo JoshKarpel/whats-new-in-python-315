@@ -3,6 +3,7 @@ import subprocess
 import pytest
 
 from whats_new.host import EXPORT_FLAMEGRAPH_SITE
+from whats_new.host import EXPORT_PID
 from whats_new.host import Host
 from whats_new.runs import Capability
 from whats_new.runs import Interpreters
@@ -18,6 +19,7 @@ def host(interpreters: Interpreters, tmp_path_factory: pytest.TempPathFactory) -
     return Host(
         interpreters=interpreters,
         flamegraph=EXPORT_FLAMEGRAPH_SITE,
+        pid=EXPORT_PID,
         examples_copy=tmp_path_factory.mktemp("examples"),
     )
 

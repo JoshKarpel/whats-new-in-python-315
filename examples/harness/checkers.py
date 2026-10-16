@@ -1,10 +1,11 @@
 """
-Runs mypy, pyright and ty on one example, each under a header, with only the lines that carry its verdict.
+Runs type checkers on one example, each under a header, with only the lines that carry its verdict.
 
-    checkers.py BIN EXAMPLE [MYPY_FLAG...]
+    checkers.py BIN CHECKERS EXAMPLE [MYPY_FLAG...]
 
-BIN is the deck's environment's scripts directory, which holds the checkers. Each runs with no project
-configuration, as on a file outside any project, for Python 3.15.
+BIN is the deck's environment's scripts directory, which holds the checkers, and CHECKERS is a comma-separated
+list of mypy, pyright and ty. Each runs with no project configuration, as on a file outside any project,
+for Python 3.15.
 """
 
 import subprocess
@@ -14,7 +15,7 @@ from pathlib import Path
 EXAMPLES = Path(__file__).resolve().parents[1]
 BOLD, RESET = "\x1b[1m", "\x1b[0m"
 
-bin_directory, name, *mypy_flags = Path(sys.argv[1]), *sys.argv[2:]
+bin_directory, chosen, name, *mypy_flags = Path(sys.argv[1]), *sys.argv[2:]
 path = EXAMPLES / name
 
 CHECKERS = {
@@ -23,7 +24,8 @@ CHECKERS = {
     "ty": [bin_directory / "ty", "check", "--python-version", "3.15", "--output-format", "concise", "--no-progress", path],
 }
 
-for checker, argv in CHECKERS.items():
+for checker in chosen.split(","):
+    argv = CHECKERS[checker]
     result = subprocess.run(argv, capture_output=True, text=True, cwd=path.parent)
     lines = [line.replace(f"{path}", path.name) for line in (result.stdout + result.stderr).splitlines()]
     verdict = [line.strip() for line in lines if f"{path.name}:" in line and "undefined-reveal" not in line]

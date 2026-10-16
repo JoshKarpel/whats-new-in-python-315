@@ -1,5 +1,6 @@
 """The deck's palette and the small styled pieces every section uses: headings, bullets, title cards."""
 
+from counterweight.components import Component
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
@@ -10,6 +11,12 @@ from counterweight.styles.utilities import *
 
 PYTHON_BLUE = Color.from_hex("#4B8BBE")
 PYTHON_YELLOW = Color.from_hex("#FFD43B")
+CLAUDE_ORANGE = Color.from_hex("#D77757")
+"""The orange Claude Code draws its spark and mascot in."""
+
+CLAUDE_SPARK = "✻"
+CLAUDE_MASCOT = " ▐▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
+"""Claude Code's mascot, as its welcome screen draws it."""
 
 bold = Style(text_style=CellStyle(bold=True))
 dim = text_color("slate", 400)
@@ -42,7 +49,7 @@ def title_card(title: str, subtitle: str = "") -> Div:
     )
 
 
-def centered(*children: Text | Div) -> Div:
+def centered(*children: Component | Text | Div) -> Div:
     """`children` stacked in the middle of the slide."""
     return Div(style=col | fill(1) | center_children | gap_height(1), children=children)
 
@@ -75,3 +82,27 @@ def plain(text: str) -> Chunk:
 
 def em(text: str) -> Chunk:
     return Chunk(content=text, style=CellStyle(foreground=PYTHON_YELLOW, bold=True))
+
+
+def link(url: str) -> Chunk:
+    """`url` without its scheme, as an OSC 8 hyperlink to it, for a terminal that opens links."""
+    return Chunk(
+        content=url.removeprefix("https://"),
+        style=CellStyle(foreground=PYTHON_BLUE, underline=True, link=url),
+    )
+
+
+def made_with_claude() -> Text:
+    """The disclosure that this deck was built with help from Claude Code, under Claude's spark, in its orange."""
+    return Text(
+        content=(
+            Chunk(content=f"{CLAUDE_SPARK} ", style=CellStyle(foreground=CLAUDE_ORANGE, bold=True)),
+            Chunk(content="built with help from Claude Code", style=CellStyle(foreground=CLAUDE_ORANGE)),
+        ),
+    )
+
+
+def claude_mascot() -> Text:
+    return Text(
+        content=CLAUDE_MASCOT, style=Style(text_style=CellStyle(foreground=CLAUDE_ORANGE)) | text_wrap_none | shrink(0)
+    )

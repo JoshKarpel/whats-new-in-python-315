@@ -44,11 +44,16 @@ class FlamegraphSite:
 EXPORT_FLAMEGRAPH_SITE = FlamegraphSite(base_url="http://127.0.0.1:8315", bind="127.0.0.1")
 """For headless renders (the export, the smoke test), which never serve or show a flamegraph."""
 
+EXPORT_PID = 1234
+"""The process ID headless renders draw, since the export must come out the same every time it's run."""
+
 
 @dataclass(frozen=True, slots=True)
 class Host:
     interpreters: Interpreters
     flamegraph: FlamegraphSite
+    pid: int
+    """The deck's process ID, which the Tachyon diagrams show: the process the profiler attaches to."""
     examples_copy: Path
     """
     Where each run copies `examples/` to, with the slide's edits written over their files, and runs from.

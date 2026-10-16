@@ -45,9 +45,9 @@ Several features arrive as complete toolkits rather than a single function:
 - "More color" reaches about 20 command-line interfaces, from argparse and
   `python --help` to sqlite3, timeit, pickletools and unraisable exceptions.
 
-Collect these as the talk goes, and close by asking whether coding agents make this
-kind of completeness cheaper. Pose it as a question, not a claim: there's no
-evidence here about how any of these were written.
+Collect these as the talk goes, and close with them. Whether coding agents make this
+kind of completeness cheaper is a question to ask aloud, not one to put on the slide:
+there's no evidence here about how any of these were written.
 
 ## Running order
 
@@ -79,6 +79,9 @@ also means trimming some of the std items.
 - Don't announce that the deck is a Python 3.15 program. The first run box gives
   it away, and the audience working that out is part of the fun.
 - A quick glance at the 3.15 changelog's size, to set up the "thorough" observation.
+- Disclose that the deck was built with help from Claude Code: a
+  `✻ built with help from Claude Code` line under the title, in Claude Code's
+  orange. The Thanks slide repeats it beside Claude Code's mascot.
 
 ### 1. Small things you'll use tomorrow
 
@@ -88,9 +91,11 @@ also means trimming some of the std items.
   - It is _not_ a dict subclass: `isinstance(fd, dict)` is False, so use `Mapping`.
   - Hashing is order-insensitive, and it is hashable only if all its values are.
   - `fd | {...}` returns a frozendict.
-- Example: the mutable-default-argument footgun, fixed with `options=frozendict(...)`.
+- Example: the mutable-default-argument footgun, shown first with a `dict` default
+  that one call mutates for every later call, then fixed with
+  `options=frozendict(...)` in a file shaped the same way.
 - Example: `functools.cache` rejects a dict argument (`unhashable type: 'dict'`) and
-  accepts a frozendict.
+  accepts a frozendict. The cached function prints `cache miss...` when it runs.
 - The sad note: no literal syntax. The PEP defers it ("can be added later").
 - Why not a subclass? The common first guess is that `frozendict` should subclass
   `dict`. That's backwards: `frozendict` has _fewer_ methods, so if anything `dict`
@@ -98,10 +103,13 @@ also means trimming some of the std items.
   on it never changing and being hashable, and a `dict` standing in for one breaks
   both promises, which violates Liskov substitution. So neither subclasses the
   other, exactly as with `set` and `frozenset`.
-- Diagram: the class hierarchy, with `frozendict` beside `dict` under `Mapping`,
-  next to `frozenset` beside `set`. Draw the tempting `frozendict → dict` edge and
-  cross it out, then the reversed `dict → frozendict` edge and cross that out too.
-  "Use `Mapping`" then reads as a consequence rather than a gotcha.
+- Diagram: the class hierarchy as the ABCs register it. `dict` sits under
+  `MutableMapping` under `Mapping`, and `frozendict` directly under `Mapping`, level
+  with `dict`. The sets mirror it: `set` under `MutableSet` under `Set`, `frozenset`
+  directly under `Set`. Reveal the mappings, then the sets, then draw the tempting
+  `frozendict → dict` edge and cross it out, then the reversed `dict → frozendict`
+  edge and cross that out too. "Use `Mapping`" then reads as a consequence rather
+  than a gotcha. The drawing keeps one size at every step, so a reveal moves nothing.
 
 #### json `array_hook` (core, paired with frozendict)
 - New `array_hook=` on `load`, `loads` and `JSONDecoder`.
@@ -113,6 +121,8 @@ also means trimming some of the std items.
 - `[*row for row in rows]` replaces `list(chain.from_iterable(rows))`.
 - `{**d for d in dicts}` merges dicts, last key wins.
 - Async version: `[*page async for page in pages()]` flattens a paginated async API.
+  The async examples get a slide each (pages, the `TypeError`, the nested form), so
+  each run executes the code on screen.
 - Correction to the original premise: this does _not_ replace an async
   `chain`. The inner value must be a _sync_ iterable, so
   `[*src async for src in sources()]` over async generators raises
@@ -156,17 +166,29 @@ also means trimming some of the std items.
 - The rationale is that "match" means "search" in most other regex engines.
 
 #### `unicodedata.iter_graphemes` (std)
-- `"Spin̈al Tap"` is 11 code points but 10 graphemes: its n̈ is `n` and
-  U+0308 COMBINING DIAERESIS, with no precomposed form, so NFC can't fold it away.
-- Reversing it naively moves the umlaut onto the `a` (`paT länipS`).
-  Reversing by grapheme gets it right.
-- A combining mark, not emoji: xterm.js draws ZWJ sequences and flags at
-  inconsistent widths, and a combining mark is zero-width everywhere.
+- Background first, since much of the audience won't have thought about Unicode or
+  text rendering: a "Text, in layers" diagram, revealed a layer at a time. "café"
+  spelled with a combining accent is 4 graphemes (what a reader counts), 5 code
+  points (what a `str` holds and `len()` counts), and 6 UTF-8 bytes (what a file or
+  socket holds). Then what a font does (draws a grapheme as one glyph) and a terminal
+  (gives it cells, by `wcwidth`), and that `é` has a one-code-point spelling NFC
+  picks while many graphemes have none.
+- `"Spinal Tap"` with an umlaut on its n is 11 code points but 10 graphemes: the n̈
+  is `n` and U+0308 COMBINING DIAERESIS, with no precomposed form, so NFC can't fold
+  it away.
+- Reversing it naively moves the umlaut onto the `a`. Reversing by grapheme gets it
+  right.
+- No combining mark ever reaches the terminal. zellij 0.45.1 drops every zero-width
+  code point, combining marks included
+  ([zellij-org/zellij#5500](https://github.com/zellij-org/zellij/pull/5500), open,
+  fixes it), so the n̈ showed as a plain n on stage. The example spells the mark
+  `\N{COMBINING DIAERESIS}` and prints with `!a`, so the output reads
+  `'paT la\u0308nipS'`, and the diagrams draw a mark as its spacing look-alike
+  (`¨`, `´`). zellij dropping the marks becomes a talking point: segmentation is hard.
 - Personal hook: counterweight uses it
   ([#392](https://github.com/JoshKarpel/counterweight/issues/392), PR #398) for
   segmentation. Width still comes from `wcwidth`, because the stdlib segments
   graphemes but doesn't measure terminal cells.
-- Self-referential demo: the deck rendering that string is the code under discussion.
 - Diagram: the string's code points under grapheme brackets, with one bracket
   spanning the `n` and its combining diaeresis.
 
@@ -183,7 +205,8 @@ also means trimming some of the std items.
   `PYTHON_LAZY_IMPORTS` and `sys.set_lazy_imports` do the same.
   `sys.set_lazy_imports_filter` decides per import.
 - Failure mode: a typo in a lazy import surfaces at first use, with a chained
-  traceback pointing at both lines. Show it.
+  traceback pointing at both lines. Show it. The example prints one line before the
+  failing use, so the print and the whole traceback fit the run box together.
 - Gotchas worth a line each:
   - `try` blocks go both ways. Writing `lazy import` inside one is a `SyntaxError`
     (observed: `lazy import not allowed inside try/except blocks`), and a plain
@@ -192,6 +215,9 @@ also means trimming some of the std items.
   - `lazy from x import *` and lazy `__future__` imports are `SyntaxError`s too.
   - import-time side effects (plugin registration) break under laziness
   - `__lazy_modules__` is the 3.14-compatible spelling
+  - The gotchas slide shows two examples side by side, each labeled ("left: lazy
+    import inside try", "right: the 3.14-compatible spelling"), and its runs say
+    which they run where: "left on 3.15", "right on 3.14", "right on 3.15".
 - Framing: mostly a CLI win, but the global switch makes it a one-flag experiment
   for any app.
 - Dogfood: the deck itself can `lazy import` its heavy demo dependencies (numpy).
@@ -238,8 +264,9 @@ also means trimming some of the std items.
     workers die and one does all the work.
   - Hand-written `__next__` on a free-threaded build: silently hands out
     duplicates (observed 540k dupes in 1.5M items on 3.14t). The 3.15t build does this too.
-- Old safe patterns (both correct): a lock-wrapping iterator class, or a feeder
-  thread pushing into a `queue.Queue` with a stop marker.
+- Old safe patterns (both correct), side by side on one slide: a lock-wrapping
+  iterator class, and a feeder thread pushing into a `queue.Queue` with a stop
+  marker, which workers drain with `for item in iter(q.get, DONE)`.
 - New: `threading.serialize_iterator(it)`, `@threading.synchronized_iterator`, and
   `threading.concurrent_tee(it, n)` (every consumer sees every item).
 - Honest caveat: production stays serial, since the lock is held across
@@ -271,8 +298,12 @@ also means trimming some of the std items.
 
 ### 4. Typing
 
-Run all checkers live from the slide: mypy, pyright and ty, as one key each or one
-key for all three. Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.87.
+Run mypy live from the slide, and say once, on the section's title card, that pyright
+and ty agree unless a slide says otherwise. Three checkers' output on every run
+crowded the box and repeated one verdict. Where they differ, the slide says so:
+`extra_items` runs pyright beside mypy, since mypy rejects valid code there, and the
+disjoint-bases slide notes that pyright and ty flag the class but don't narrow.
+Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.87.
 
 #### Sentinels, PEP 661 (core)
 - The runtime: builtin `sentinel("MISSING")`.
@@ -343,11 +374,15 @@ frame earns a slide or just a sentence.
    internal codename and gives no reason.
 2. Why sampling? Production performance problems show up in situ and can't be
    deduced ahead of time, so measure before optimizing.
-   - Overhead demo: run a CPU benchmark plain, under `profiling.tracing` (cProfile's
-     new home), and under `profiling.sampling`, and show the three timings live.
-     Don't assert a number before measuring it on the presenting VM.
+   - Overhead demo, on its own slide with the program shown: `fib(32)`, timing itself,
+     run plain, under `profiling.tracing` (cProfile's new home), and under
+     `profiling.sampling run`, best of three each. The program reports its own time,
+     because timing the whole command charges the sampler's start-up and report to
+     it, and on a short program that made sampling look slower than tracing.
+     Observed: 0.19 s plain, 1.33 s tracing, 0.20 s sampling.
    - Diagram: one timeline of a program's calls, drawn twice. Tracing puts a hook on
      every call and return. Sampling takes a stack snapshot at fixed intervals.
+     A playhead runs along the calls on Space, and each row fires as it passes.
      Then a bar chart of the three overhead timings.
 3. Why in CPython? py-spy and austin read interpreter memory from outside, so each
    new CPython release needs them to catch up.
@@ -364,10 +399,11 @@ frame earns a slide or just a sentence.
 4. Profile the running talk. The headline demo, built on counterweight's embedded
    terminals ([#423](https://github.com/JoshKarpel/counterweight/pull/423)).
    See [The Tachyon stage](#the-tachyon-stage) below for how it's built.
-   - Diagram, shown before the live demo: the loop. The deck spawns the profiler as
-     a child, the profiler attaches back to its parent, its screen comes back
-     through the PTY, and the deck draws it in its own pane. The ptrace point fits
-     on the same picture.
+   - Diagram, shown before the live demo: the loop. The deck, labeled with its real
+     PID, spawns the profiler as a child; the profiler's box holds the exact command
+     the stage runs, built by the same function; the profiler attaches back to its
+     parent, its screen comes back through the PTY, and the deck draws it in its own
+     pane. The ptrace permissions (Yama) stay off the slide.
    - The deck runs Tachyon's live TUI _inside itself_, attached to its own PID.
    - Workload keys make the deck do expensive things at a few intensities
      (light, medium, heavy), and the profiler shows each one as it happens:
@@ -388,11 +424,12 @@ frame earns a slide or just a sentence.
      the render loop waits for it, which is also why the deck stutters.
    - The mirror moment: drawing the profiler's screen is itself work the deck
      does (the #423 plan measures 3 to 10 ms per emulator snapshot of a busy colored
-     screen), so it may show up in the profile it's drawing. Check it on the real
-     deck before building a beat around it.
+     screen), and it shows up in the profile it's drawing. Observed on the real
+     deck: counterweight's `layout.place` and `Emulator.convert_row` were the top
+     two functions in Tachyon's live view.
    - The presenter can hand the keyboard to the pane and use Tachyon's own keys
      (`s` sort, `t` mode, `x` trends, arrows for threads, `h` help), then take it
-     back with a prefix key.
+     back with Tab.
 5. Tachyon's own flamegraph (cut-first). A key runs
    `attach -d 10 --flamegraph -o out/deck-flamegraph.html` against the deck in a
    second embedded pane while a workload runs. The output is a self-contained HTML
@@ -461,8 +498,10 @@ frame earns a slide or just a sentence.
   debuggers and crash handlers unwind through JIT frames instead of stopping at
   them. One line, and it belongs to the observability frame.
 - uv builds ship it compiled-in but off (`yes-off`). `PYTHON_JIT=1` turns it on, and
-  `sys._jit.is_enabled()` proves it.
-- Live demo: an nbody/float loop, 3.14 vs 3.15 × JIT off/on, under hyperfine.
+  `sys._jit.is_enabled()` proves it. Said in a bullet: running a script just to
+  print that showed code that wasn't on screen and proved little.
+- Live demo: an nbody/float loop, 3.14 vs 3.15 × JIT off/on, under hyperfine, with
+  the loop's hot part on screen.
   Observed about 1.5x for 3.15+JIT, while the 3.14 JIT was flat or slower. The VM
   is noisy, so use hyperfine's warmup and runs rather than one shot.
 - Diagrams:
@@ -475,26 +514,33 @@ frame earns a slide or just a sentence.
   were rewritten in C (58–140x observed).
 - LLM angle: a JSON request body with a 5 MB base64 PDF went from about 23 to about
   15 ms. Real, but small next to network latency, so say so.
+- One run puts 3.14 and 3.15 side by side: a harness runs the script on each and
+  draws a pair of bars per timing, with how much faster 3.15 is. Observed 3.1x
+  encode, 3.0x decode and 55x for b85.
 - The padding change lives in [Before you upgrade](#6-before-you-upgrade-std), so
   it stays in the talk if this item is cut.
 
 #### The GC story (std)
+- It opens with its own title card, "The garbage collector saga": a story inside
+  the performance section.
 - Incremental GC:
   - landed for 3.13 and was rolled back before 3.13.0
   - shipped in 3.14.0
   - production memory-growth reports followed
   - the SC-backed revert came in 3.14.5 _and_ 3.15 (announced 2026-04-16)
 - 3.15 ships the generational GC. Reintroducing incremental GC now needs a PEP.
-- Live demo: the same cycle-churn script across 3.13, 3.14.4, 3.14.7 and 3.15.
+- Live demo, with the workload on screen: the same cycle-churn script (pairs of
+  objects in a reference cycle, churned beside a long-lived heap) across 3.13,
+  3.14.4, 3.14.7 and 3.15.
   Observed peak RSS was 65 / 233 / 65 / 66 MiB.
   - `gc.get_threshold()` (`(2000, 10, 0)` on the incremental builds) is a one-line
     test for which collector a 3.14.x has.
   - Caveat to say aloud: this workload reproduces the memory complaint but not the
     incremental GC's pause benefit, so it isn't a general verdict.
-- Bonus: 3.15 adds `candidates` and `duration` to `gc.get_stats()`.
 - Diagrams:
   - a timeline: the 3.13 rollback, 3.14.0 shipping it, 3.14.4, the 3.14.5 revert,
-    and 3.15. Mark which collector each release has.
+    and 3.15. Mark which collector each release has. It's its own slide, one
+    release per Space, the axis drawing itself out to each.
   - a bar chart of peak RSS per interpreter, laid out to match the timeline.
 
 ### 6. Before you upgrade (std)
@@ -546,6 +592,8 @@ Each item gets one runnable line where possible:
 - The REPL, live in the embedded REPL pane: tab completions are colored by object
   kind, `from x import <Tab>` completes the module's attributes, and pdb uses the
   new REPL.
+  - The pane stretches across the slide: a terminal takes no width from its
+    program, so in a centered column it would get none.
 - `pprint(..., expand=True)` gives JSON-style output.
 - A context manager used as a decorator (`@contextmanager`, `@asynccontextmanager`
   or any `ContextDecorator`) on a generator, coroutine or async generator function
@@ -575,9 +623,10 @@ Each item gets one runnable line where possible:
 
 ### 8. Closing (core)
 
-- The thoroughness observation, with the examples collected along the way, and the
-  open question about agents.
-- Links: the whatsnew, the PEPs, and this repo.
+- The thoroughness observation, with the examples collected along the way.
+- Links, each labeled and a clickable OSC 8 hyperlink: this talk's repository
+  (public by the time of the talk), the whatsnew, and counterweight.
+- The Claude Code disclosure from the opening, again, beside Claude Code's mascot.
 
 ## Deck architecture
 
@@ -645,11 +694,17 @@ Dockerfile           the image others run the deck from
   failing on 3.14.)
 - Examples are editable on stage, so an audience question becomes an edit and a
   run.
-  - `e` or Ctrl+X moves into the slide's first example, Tab to the next, and
-    Ctrl+X gives the keys back to the run box. The browser keeps Escape, so it
-    can't be the way out, and Ctrl+X is free in the editor, which uses the Emacs
-    keys (Ctrl+A, Ctrl+E, ...) for moving. While editing, every other key types,
-    so the deck's own keys wait until Ctrl+X.
+  - Tab cycles focus through the slide: its examples in order, then the run box,
+    then back to the first example; Shift+Tab goes the other way. The run box is
+    the stop that means "nothing being edited": it comes after the code in every
+    layout and holds the slide's own keys. The slide's element handles Tab with
+    counterweight's `tab_focus`, scoped to the slide, and neither an editor nor the
+    run box claims Tab. The browser keeps Escape, so it can't be the only way out
+    (it leaves an editor outside a browser), and Tab is free in the editor, which
+    doesn't insert tabs. While editing, every other key types, so the deck's own
+    keys wait until Tab.
+  - Only a slide with runs makes its examples editable: an edit there would
+    change nothing, and there'd be no run box to Tab back to.
   - The code stays highlighted while it's edited. The border is yellow while
     editing, and red whenever the whole file, hidden lines included, doesn't
     `compile()` on the deck's 3.15. That's the grammar the run will see, so a
@@ -674,6 +729,16 @@ Dockerfile           the image others run the deck from
     and appends lines to a pane styled `overflow_y_scroll | stick_to_end_y`. A
     headless probe confirmed this works end to end.
   - Slides only see `run_pane(runs)`, so swapping the inside changes no slide.
+  - A run executes code the slide shows. A harness that drives a demo (hyperfine,
+    the checkers, the overhead or version comparisons) runs the example on screen,
+    never one the audience hasn't seen.
+  - Where a slide runs the same thing on 3.14 and 3.15, 3.14 comes first, so the
+    story runs "this didn't work, and now it does". `on_both` binds `1` to 3.14
+    and `2` to 3.15, and hand-built run lists follow the same order.
+  - While a run is in progress, the box's border pulses (slate to blue and back,
+    1.2 s a breath), so a slow run doesn't look like a dead key.
+  - Up and Down scroll the box's output a line at a time, since the run pane is
+    the slide's focus stop anyway, so a long traceback reads without the touchpad.
 - Resolve interpreters once, at startup. Resolve each interpreter path
   (`uv python find 3.14`, etc.) into a typed `Interpreters` value and fail loudly if
   one is missing. That turns a missing interpreter into a startup error, not a dead
@@ -703,14 +768,24 @@ Dockerfile           the image others run the deck from
   - Left/Right: navigate.
   - Space: reveal.
   - `1`–`9`: run.
-  - `e` or Ctrl+X: edit the slide's code; Ctrl+X stops editing. The Tachyon stage claims
-    `e` for its exception workload first, since a slide's own keys win.
+  - Up/Down: scroll the run box's output.
+  - Tab / Shift+Tab: move between the slide's code and its runs, to edit the code.
   - `r`: reset the current slide, by remounting via `.with_key`.
   - `d`: open the slide grid, as spiel's deck view does. See
     [The slide grid](#the-slide-grid).
   - F1: toggle the clock, as in the reference talk. F1 opens help in some
     browsers, but not in the laptop's.
   - F2: the size check. See [Presenting resolution](#presenting-resolution).
+  - F3: how long the last frame took to render, in the footer. counterweight
+    doesn't report it, so the deck measures it through the clock and the output
+    stream it hands `app()`: from the render's clock read to the frame's flush.
+  - F4: the code theme picker, an autocomplete field as in counterweight's
+    autocomplete cookbook. Typing narrows the list (the typed letters in order),
+    Down and Up move the highlight, and Enter or Tab sets that Pygments style on
+    every slide and thumbnail. F4 or Escape closes it unchanged. Either way focus
+    goes back to whatever takes the slide's keys, through a focus handle the root
+    owns. It offers only the dark styles, by their background's luminance; the
+    light ones would clash with the deck. The deck starts in `github-dark`.
   - Slide-specific keys on Tachyon slides only.
 
   See [Presenting over zellij web](#presenting-over-zellij-web) for which keys the
@@ -734,16 +809,21 @@ Dockerfile           the image others run the deck from
   The reference talk's `border_bottom_right` and `border_contract_1` utilities no
   longer exist. #426 shows the other shade kinds (`▒`, `▓`, and a half-block
   shadow from `border_thick`) if light shade turns out too faint on the laptop.
+
+  Every section opens with a title card, and so does the GC saga inside
+  Performance.
 - Live reload during development: see [Live reload](#live-reload).
 - Export: a committed `slides.html`, regenerated by a pre-commit hook. See
   [HTML export](#html-export).
-- Mounting a slide starts nothing. Subprocesses, profilers, animations and
-  focus grabs start from a key press, never from mount.
-  - On stage, the presenter decides when something moves. A demo or animation
-    that starts on arrival competes with whatever the presenter is saying as the
-    slide comes up.
-  - Before the key, a `use_clock`-driven animation draws its first frame and
-    holds it, so it also costs nothing in a thumbnail or the export.
+- Mounting a slide starts nothing. Subprocesses, profilers, explanatory
+  animations and focus grabs start from a key press, never from mount.
+  - On stage, the presenter decides when something moves. A demo or an
+    animation that explains something, started on arrival, competes with
+    whatever the presenter is saying as the slide comes up.
+  - A `use_clock`-driven animation draws its first frame until its key, and ticks
+    no clock off the live slide, so it costs nothing in a thumbnail.
+  - The exception is a decorative animation, there only to look nice: it can
+    start as the live slide mounts. See [Animations](#animations).
   - The slide grid mounts up to nine slides at once to draw their thumbnails, and
     the smoke test and export mount every slide. A slide that spawns on mount
     would spawn in all of them.
@@ -762,6 +842,12 @@ Diagrams are drawn by hand, as counterweight elements rather than text files.
   `cw_shadows.py` probe does.
 - Border healing only joins corners, so an edge leaving the middle of a border
   draws its own tee, matched to the border's weight (`┯` under a heavy border).
+- A box sits centered on the connector that meets it. `draw.py` places boxes from
+  connector columns (`centered_node`, `fork`) rather than from hand-picked left
+  edges, so moving a box keeps its connector.
+- Nothing in a diagram wraps, so anything wider than the slide's 88 content
+  columns is clipped. A test draws each diagram, at every reveal step, on a screen
+  far wider than the slide and asserts it fits.
 - What elements cost over a text file: positions are fiddlier to edit. What they
   buy:
   - color and shadows that match the rest of the deck
@@ -776,7 +862,59 @@ Diagrams are drawn by hand, as counterweight elements rather than text files.
   from this run rather than numbers typed in beforehand.
 - Animations draw at double vertical resolution with half blocks (`▀` with
   separate foreground and background colors), as the reference talk's `canvas`
-  does.
+  does. See [Animations](#animations) for the candidates.
+
+### Animations
+
+They come in two kinds, which start differently. `components/animation.py` holds
+the two hooks, `use_progress` and `use_loop`.
+
+Every animation runs on `use_clock`, ticking at 20 frames a second while it plays
+and not at all otherwise. Off the live slide (a thumbnail) nothing ticks: an
+explanatory animation shows its last frame, a still of where it ends, and a
+decorative one its first. Nine thumbnails animating at once would cost frame time
+for nothing. The export moves its frozen clock on by a minute after each reveal
+step (counterweight's `AdvanceClock`), so each screenshot shows where the step's
+animation ends, and the export stays deterministic.
+
+#### Explanatory: started by a key
+
+An animation that explains something starts on a key press, so the presenter can
+play it at the moment the explanation needs it: Space, where it stands in for
+reveal steps. The animated part of a diagram is a component keyed on the step, so
+Space remounts it, which plays it; until then the slide holds a still. It plays
+once and stops on its last frame, so nothing moves while the presenter talks over
+it.
+
+1. First mirror wins (`TaskGroup.cancel()`). Three bars grow at the mirrors'
+   relative speeds (0.3, 0.1 and 0.5 s, the race slowed to 2 s). `eu` reaches the
+   end first, and the other two stop partway and turn red. The race shows that
+   cancellation lands mid-flight. It replaces the diagram's first two reveal
+   steps: the tree, the race, then the clean exit.
+2. One source, four threads. Numbered items rise from the source and drop to
+   T1–T4, 2 s an item: dealt one per thread for `serialize_iterator`, copied to all
+   four for `concurrent_tee`, and for the bare generator, three threads dying with
+   the `ValueError` as the second item arrives. The generator's panel shows still,
+   then each Space plays the next panel, revealing it.
+3. Frame pointers. A cursor walks the saved-`rbp` chain frame by frame, as
+   `perf` does, back to `_start`. On the next step it walks again, reaches
+   `churn.so`, follows its `rbp` to data that isn't a frame, and stops, and the
+   frames below it dim.
+4. Tracing vs sampling. A playhead moves along the call line on Space. The tracing
+   row fires a hook (`▲▼`) at every call and return it passes, the sampling row
+   only at its fixed ticks (`●`), so the overhead difference reads as how busy each
+   row is.
+5. The GC saga's timeline, one release per Space, the axis drawing itself out to
+   each before its labels appear.
+
+#### Decorative: free to start on arrival
+
+An animation that's only there to look nice can start as soon as its slide is
+the live one, with no key, since there's no moment in the explanation to wait
+for. It loops, as ambience for as long as the slide is up.
+
+- The Tachyon title card: a particle streaking across ahead of its own trail, for
+  the faster-than-light name.
 
 ### Presenting resolution
 
@@ -827,8 +965,8 @@ Its footer checked for exactly 90 columns, and its export rendered at 90x30.
   target width and red otherwise, so a wrong width is visible before the first
   diagram. At the venue, press F2 and adjust browser zoom until it goes green.
   - The readout shows the rows too. They turn red only below the floor.
-  - F1 and F2 aren't among the keys the browser keeps (see
-    [Presenting over zellij web](#presenting-over-zellij-web)), but confirm both
+  - F1 through F4, Tab and Shift+Tab aren't among the keys the browser keeps (see
+    [Presenting over zellij web](#presenting-over-zellij-web)), but confirm they
     reach the deck through zellij web. `just rehearse` covers it.
   - It's off by default, so the export renders without it.
 
@@ -838,9 +976,12 @@ The reference talk did this with two pieces, and the deck keeps both:
 
 - `just watch` runs the deck under `watchfiles`, which restarts it whenever a file
   under `src/` or `examples/` changes. `watchfiles` goes in the dev dependency group.
-- The deck writes the current slide index to a file in the temp directory on every
-  navigation, and reads it at startup, clamped to the deck's length. A restart
-  lands on the same slide. Reveal steps and run output start fresh.
+- The deck writes a checkpoint to a file in the temp directory whenever the slide
+  or the code theme changes, and reads it at startup: the slide's index, clamped
+  to the deck's length, and the theme F4 picked. A restart lands on the same
+  slide, in the same theme. Reveal steps and run output start fresh. A checkpoint
+  that doesn't parse starts over from the first slide, since a deck relaunched on
+  stage mustn't refuse to start.
 
 Differences from the reference talk:
 
@@ -848,8 +989,8 @@ Differences from the reference talk:
   counterweight is a locked git source, so edits in a local checkout don't reach
   the deck. Co-developing counterweight needs a temporary local path source; work
   out the exact uv mechanism when it's first needed.
-- Its HTML export reset the index file to 0. Export here leaves it alone, so
-  exporting doesn't throw the dev session back to the title slide.
+- Its HTML export reset the index file to 0. Export here leaves the checkpoint
+  alone, so exporting doesn't throw the dev session back to the title slide.
 - A restart must leave nothing behind. A run pane's subprocess or the Tachyon
   profiler outliving the old deck would pile up across reloads. Check this once
   run panes exist.
@@ -888,10 +1029,11 @@ screenshots each slide as SVG, and writes the page.
 
 ### The slide grid
 
-`d` replaces the current slide with a grid of thumbnails of the whole deck, as
+`d` replaces the current slide with a grid of thumbnails, as
 [spiel's deck view](https://github.com/JoshKarpel/spiel/blob/main/spiel/widgets/minislides.py)
-does. Arrows move the selection, Enter jumps to the selected slide, and `d` or
-Escape goes back to the slide it was opened from. Clicking a thumbnail jumps to it.
+does, one section of the deck at a time. Arrows move the selection, Enter or `d`
+jumps to the selected slide, and Escape goes back to the slide it was opened from.
+Clicking a thumbnail jumps to it.
 
 A headless probe against counterweight `main` drew a 3x3 grid of 14 slides at
 90x30 and windowed it, and both Enter and a click jumped to the right slide. It
@@ -910,19 +1052,27 @@ Design:
 
 - Deck state is the current index plus `selected: int | None`. `None` means the
   slide is showing, so "the grid is open" and "what's selected" can't disagree.
-  Enter sets the current index to `selected` and clears it. Escape only clears it.
+  Enter or `d` sets the current index to `selected` and clears it. Escape only
+  clears it.
 - Slides become `Slide(title, content, peps)` values, since the thumbnail needs a
   title. The footer can use the same title, and `peps` prefixes the heading with PEP links.
-- Three columns, each a third of the presenting width. Show three rows,
-  windowed around the selected row as spiel does, rather than mounting the whole
-  deck in a scroll area. Thumbnails are keyed by slide index, so moving the
+- Sections divide at title cards: `Slide.is_title_card` marks one, and each starts
+  a section that runs to the next. The grid shows only the selected slide's
+  section, under a line naming it ("Concurrency  section 4 of 11"), with each
+  section's slides starting a fresh grid rather than continuing the last one's
+  row. Left and Right step through the deck in order, across sections; Up and
+  Down move a row, from a section's last row into the next section's first and
+  back, keeping the column where the row allows.
+- Three columns, each a third of the presenting width. Show three rows of the
+  section, windowed around the selected row as spiel does, rather than mounting
+  the whole deck in a scroll area. Thumbnails are keyed by slide index, so moving the
   selection down a row mounts one new row and keeps the other two.
 - The grid replaces the slide; it isn't an overlay on it. Leaving the slide
   unmounts it, so it comes back fresh, with its reveals and run output reset.
   That's the same as navigating away and back. An overlay would keep the slide
   mounted underneath, including a live Tachyon pane still costing frame time.
 - The Tachyon stage leaves the grid while its pane has focus: there, `d` goes to
-  the profiler. Take focus back with the prefix key first.
+  the profiler. Take focus back with Tab first.
 
 ### The Tachyon stage
 
@@ -932,6 +1082,10 @@ every navigation and restart the profiler.
 
 - Layout: the profiler pane takes the full width at the bottom, and a strip on top
   holds the current talking point and which workload is running.
+  - Each talking point fits on one line, so the pane doesn't move between steps; a
+    test holds every point to the slide's width. The line under it, the mode and
+    what's running, wraps rather than clipping when two long-named workloads run
+    at once.
   - Tachyon's live TUI needs at least 60x12. Below that it shows a "Terminal too
     small!" screen (observed).
   - Stack the panes unless the presenting width leaves the slide a useful
@@ -949,11 +1103,15 @@ every navigation and restart the profiler.
     pane, which hangs up the PTY and ends the profiler.
 - Focus: keys go to the deck by default, so workload keys work.
   - A key hands focus to the pane, and the presenter drives Tachyon's own keys.
-  - A prefix key (Ctrl+B, as in #423's multiplexer example) takes it back.
+  - Tab takes it back. Tachyon's TUI binds letters, arrows, `/`, `+` and `-`,
+    but not Tab. Ctrl+B, the prefix from #423's multiplexer example, works too
+    where zellij lets it through.
   - #423's phase 2 covers both halves: focusing a pane that mounts in the same
     update, and reading modal prefix state synchronously.
   - Raw input mode isn't needed, since Ctrl+C never has to reach the profiler.
-- ptrace: the profiler is the deck's _child_, attaching to its parent.
+- ptrace: the profiler is the deck's _child_, attaching to its parent. The deck's
+  PID comes from the `Host`, resolved at startup like the interpreters, so the loop
+  diagram shows the real one (the export pins one, to stay deterministic).
   - The presenting VM has no Yama LSM, so the attach works, as observed.
   - Under Yama's `ptrace_scope` 1 (stock Ubuntu) it would be refused, because
     scope 1 only lets a process trace its own descendants. If the deck ever moves
@@ -976,8 +1134,10 @@ browser on my laptop showing zellij web.
 
 - Keys pass through two layers before the deck sees them.
   - zellij's normal mode takes Ctrl+B, Ctrl+G, Ctrl+P, Ctrl+T, Ctrl+N, Ctrl+H,
-    Ctrl+S, Ctrl+O and Ctrl+Q, so the Tachyon stage's Ctrl+B prefix wouldn't reach
-    the deck. Present in locked mode (Ctrl+G), where zellij passes every key through.
+    Ctrl+S, Ctrl+O and Ctrl+Q. The Tachyon stage gives the keyboard back on Tab,
+    which zellij leaves alone, but the embedded REPL still needs Ctrl+B, since Tab
+    completes there. Present in locked mode (Ctrl+G), where zellij passes every key
+    through.
   - The browser keeps some keys whatever zellij does: F5 (reload), F11, and
     Ctrl+W/T/N. The deck binds none of them. F1 opens help in some browsers, but
     the laptop's passes it through.
@@ -986,8 +1146,11 @@ browser on my laptop showing zellij web.
 - The cell count comes from the browser window and its zoom. See
   [Presenting resolution](#presenting-resolution).
 - Terminal rendering is xterm.js, not a native terminal. It draws ZWJ sequences
-  and flags at inconsistent widths, so the grapheme slide uses a combining mark
-  instead. Check that the n̈ draws as one cell.
+  and flags at inconsistent widths. Before it, zellij 0.45.1 drops every
+  zero-width code point, combining marks included
+  ([zellij-org/zellij#5500](https://github.com/zellij-org/zellij/pull/5500) is
+  open), so nothing the deck draws may rely on one: the Unicode slides print marks
+  as `\u` escapes and draw them as spacing look-alikes.
 - Clickable links come from xterm.js's link addon, which zellij web bundles (found
   in the zellij 0.45.1 binary). That's untested end to end.
 - The network sits between the deck and the projector. The live Tachyon pane
@@ -1063,8 +1226,9 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
 - No context or `use_reducer`. Pass the slide index and flags down as props.
 - No built-in timer or footer. `use_clock` makes these easy.
 - Rendering cost: the embedded pane costs real frame time (the emulator snapshot),
-  on top of whatever workload is running. Watch the frame rate on the Tachyon stage
-  as the audience sees it, through zellij web.
+  on top of whatever workload is running. F3 shows the last frame's render time on
+  the Tachyon stage; also watch the frame rate as the audience sees it, through
+  zellij web.
 
 ## Verification
 
@@ -1082,6 +1246,11 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
     enforces that mounting a slide starts nothing.
   - On each slide, every `PEP <n>` in the rendered text must appear in that
     slide's `peps`, so a slide can't cite a PEP without linking it.
+- Diagram fit: every diagram, at every reveal step, drawn on a screen far wider
+  than the slide, must fit the slide's content width, and every Tachyon talking
+  point must fit on one line. From the screen alone, text clipped at the edge
+  looks the same as text that ends there, so the test measures drawings where
+  nothing clips them.
 - The export hook: a commit that changes the render without regenerating
   `slides.html` fails. See [HTML export](#html-export).
 - The image: CI runs the smoke test and the example check inside the image, on
@@ -1099,9 +1268,11 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   from the presenting browser:
   - every deck key arrives through the browser and zellij's locked mode,
     Escape and Enter included
+  - F1 through F4, Tab and Shift+Tab reach the deck; Tab moves between a slide's
+    code and its runs, and takes the keyboard back from Tachyon's pane
   - clicking a thumbnail in the slide grid reaches the deck
   - the flamegraph URL opens from a click
-  - the grapheme slide renders as intended
+  - the Unicode slides draw cleanly, with no stray or missing marks
 
   The intent is to find problems the day before, not to keep a canned-output
   fallback path in the deck.

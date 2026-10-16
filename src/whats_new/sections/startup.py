@@ -65,6 +65,7 @@ def lazy_everything(props: SlideProps) -> Div:
     return code_above_runs(
         props,
         code_snippet(
+            props,
             "python -X lazy_imports=all cli_eager.py  # the unmodified file\n"
             "PYTHON_LAZY_IMPORTS=all python cli_eager.py\n"
             'sys.set_lazy_imports("all")\n'
@@ -92,9 +93,12 @@ def lazy_typo(props: SlideProps) -> Div:
 def lazy_gotchas(props: SlideProps) -> Div:
     return code_above_runs(
         props,
-        side_by_side(code_example(props, "startup/lazy_try.py"), code_example(props, "startup/lazy_compat.py")),
+        side_by_side(
+            labeled("left: lazy import inside try", code_example(props, "startup/lazy_try.py")),
+            labeled("right: the 3.14-compatible spelling", code_example(props, "startup/lazy_compat.py")),
+        ),
         bullets(
-            (plain("a plain import in "), code("try"), plain(" stays eager, even in "), code("all")),
+            (plain("a plain import in "), code("try"), plain(" stays eager, even in "), code("all"), plain(" mode")),
             (code("lazy from x import *"), plain(" is a "), code("SyntaxError")),
             (plain("import-time side effects (plugin registration) break")),
         ),
@@ -106,9 +110,9 @@ def start_files(props: SlideProps) -> Div:
     return code_above_runs(
         props,
         side_by_side(
-            labeled("greet.pth", code_snippet('import sys; print("hello from greet.pth")', language="text")),
-            labeled("greet.start", code_snippet("greet:hello", language="text")),
-            labeled("greet/__init__.py", code_snippet('def hello():\n    print("hello from greet.start")')),
+            labeled("greet.pth", code_snippet(props, 'import sys; print("hello from greet.pth")', language="text")),
+            labeled("greet.start", code_snippet(props, "greet:hello", language="text")),
+            labeled("greet/__init__.py", code_snippet(props, 'def hello():\n    print("hello from greet.start")')),
         ),
     )
 
@@ -135,13 +139,13 @@ def start_flow(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Startup and imports", content=section_title, has_heading=False),
+    Slide(title="Startup and imports", content=section_title, is_title_card=True),
     Slide(
         title="Lazy imports",
         content=lazy_basics,
         peps=(810,),
         runs=on_both(
-            "startup/lazy_basics.py", new=Expect(status=0, output="<lazy_import 'json'>"), old=LAZY_SYNTAX_ERROR
+            "startup/lazy_basics.py", old=LAZY_SYNTAX_ERROR, new=Expect(status=0, output="<lazy_import 'json'>")
         ),
     ),
     Slide(
@@ -202,20 +206,20 @@ SLIDES = (
             python(
                 PY315,
                 "startup/lazy_try.py",
-                label="try",
+                label="left on 3.15",
                 expect=Expect(status=1, output="lazy import not allowed inside try/except blocks"),
-            ),
-            python(
-                PY315,
-                "startup/lazy_compat.py",
-                label="compat 3.15",
-                expect=Expect(status=0, output='"json" in sys.modules=False'),
             ),
             python(
                 PY314,
                 "startup/lazy_compat.py",
-                label="compat 3.14",
+                label="right on 3.14",
                 expect=Expect(status=0, output='"json" in sys.modules=True'),
+            ),
+            python(
+                PY315,
+                "startup/lazy_compat.py",
+                label="right on 3.15",
+                expect=Expect(status=0, output='"json" in sys.modules=False'),
             ),
         ),
     ),
@@ -225,8 +229,8 @@ SLIDES = (
         peps=(829,),
         runs=on_both(
             "startup/start_files.py",
-            new=Expect(status=0, output="suppressed due to matching greet.start file"),
             old=Expect(status=0, output="hello from greet.pth"),
+            new=Expect(status=0, output="suppressed due to matching greet.start file"),
         ),
     ),
     Slide(title=".start files: what site.py does", content=start_flow, peps=(829,)),

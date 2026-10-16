@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 from counterweight.components import Component
 from counterweight.controls import AnyControl
-from counterweight.controls import ClearFocus
 from counterweight.controls import FocusOn
 from counterweight.focus import FocusHandle
 
@@ -32,6 +31,9 @@ class SlideProps:
 
     host: Host
 
+    code_theme: str
+    """The Pygments style the slide's code is highlighted in, which F4 picks."""
+
     runs: tuple[Run, ...]
     """The slide's runs, which its run pane binds to the number keys."""
 
@@ -44,13 +46,16 @@ class SlideProps:
     edit: Callable[[str, Callable[[str], str]], None]
     """Edits the example `name`, with a function from its latest text, edited or not, to its new text."""
 
-    runs_focus: FocusHandle
-    """The run pane's focus handle, which leaving an editor focuses, so the number keys run again."""
+    slide_focus: FocusHandle
+    """
+    The focus handle of whatever takes the live slide's own keys: its run pane, or a stage (Tachyon's, the REPL's).
+    Leaving an editor or the theme picker focuses it, so those keys work again.
+    """
 
     @property
     def leave_editor(self) -> AnyControl:
-        """What leaving an editor does: focus the run pane, or clear focus, giving the keys to the deck, on a slide with no runs."""
-        return FocusOn(self.runs_focus) if self.runs else ClearFocus()
+        """What leaving an editor does: focus the run pane, so the number keys run again (only a slide with runs edits)."""
+        return FocusOn(self.slide_focus)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,12 +71,21 @@ class Slide:
     What the slide runs, bound to `1` through `9` in order.
     Declared on the slide rather than inside its content, so the example check can find and run every one.
     """
-    has_heading: bool = True
-    """Whether the frame draws the title above the content; title cards carry their own."""
+    is_title_card: bool = False
+    """
+    Whether the slide is a title card, which carries its own title, so the frame draws no heading over it.
+    Each title card starts a section of the deck, which the slide grid shows as a grid of its own.
+    """
 
     def __post_init__(self) -> None:
         if self.steps < 1:
             raise ValueError(f"slide {self.title!r} needs at least one step, not {self.steps}")
+
+
+def sections(slides: tuple[Slide, ...]) -> tuple[range, ...]:
+    """The indexes of each section of `slides`: a run of slides starting at each title card (or the first slide)."""
+    starts = [index for index, slide in enumerate(slides) if index == 0 or slide.is_title_card]
+    return tuple(range(start, stop) for start, stop in zip(starts, (*starts[1:], len(slides)), strict=True))
 
 
 def pep_url(number: int) -> str:

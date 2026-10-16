@@ -40,7 +40,10 @@ OLD_MYPY = Run(
 
 @component
 def section_title(props: SlideProps) -> Div:
-    return centered(title_card("Typing"), bullets("every checker, run live: mypy, pyright and ty"))
+    return centered(
+        title_card("Typing"),
+        bullets("run live with mypy: pyright and ty agree, except where a slide says otherwise"),
+    )
 
 
 @component
@@ -69,11 +72,7 @@ def sentinel_naive(props: SlideProps) -> Div:
 
 @component
 def sentinel_enum(props: SlideProps) -> Div:
-    return code_above_runs(
-        props,
-        code_example(props, "typing/sentinel_enum.py"),
-        bullets("works everywhere, if you know the trick"),
-    )
+    return code_above_runs(props, code_example(props, "typing/sentinel_enum.py"))
 
 
 @component
@@ -137,7 +136,7 @@ def extra_items(props: SlideProps) -> Div:
         code_example(props, "typing/extra_items.py"),
         bullets(
             (code("extra_items=str"), plain(": any other key, as long as its value is a "), code("str")),
-            "mypy 2.4 doesn't support it yet, and rejects valid code",
+            "mypy doesn't support it yet, and rejects valid code; pyright and ty do",
         ),
     )
 
@@ -146,16 +145,17 @@ def extra_items(props: SlideProps) -> Div:
 def disjoint(props: SlideProps) -> Div:
     return notes_beside_code_above_runs(
         props,
-        code_example(props, "typing/disjoint.py"),
+        code_example(props, "typing/disjoint.py", start="@dataclass"),
         bullets(
-            (plain("checkers know "), code("slots=True"), plain(" classes can't share a subclass")),
-            (plain("the decorator, "), code("@disjoint_base"), plain(", is mostly for stubs")),
+            (code("slots=True"), plain(" classes can't share a subclass")),
+            "pyright and ty flag the class, not the branch",
+            (code("@disjoint_base"), plain(" is mostly for stubs")),
         ),
     )
 
 
 SLIDES = (
-    Slide(title="Typing", content=section_title, has_heading=False),
+    Slide(title="Typing", content=section_title, is_title_card=True),
     Slide(
         title="Sentinels",
         content=sentinel_runtime,
@@ -184,7 +184,7 @@ SLIDES = (
         title="Sentinels, now",
         content=sentinel_builtin,
         peps=(661,),
-        runs=(checkers("typing/sentinel.py", expect=Expect(status=0, output='expected "str | MISSING"')), OLD_MYPY),
+        runs=(OLD_MYPY, checkers("typing/sentinel.py", expect=Expect(status=0, output='expected "str | MISSING"'))),
     ),
     Slide(
         title="TypeForm",
@@ -206,13 +206,18 @@ SLIDES = (
         title="Closed TypedDicts",
         content=closed_typeddict,
         peps=(728,),
-        runs=(checkers("typing/closed.py", expect=Expect(status=0, output='Type of "item" is "Book"')),),
+        runs=(checkers("typing/closed.py", expect=Expect(status=0, output='Revealed type is "TypedDict(closed.Book')),),
     ),
     Slide(
         title="Closed TypedDicts: no extra keys",
         content=closed_assignment,
         peps=(728,),
-        runs=(checkers("typing/closed_assign.py", expect=Expect(status=0, output='"Hardback" is not assignable')),),
+        runs=(
+            checkers(
+                "typing/closed_assign.py",
+                expect=Expect(status=0, output='expression has type "Hardback", variable has'),
+            ),
+        ),
     ),
     Slide(
         title="TypedDict extra_items",
@@ -222,6 +227,11 @@ SLIDES = (
             checkers(
                 "typing/extra_items.py", expect=Expect(status=0, output='Unexpected keyword argument "extra_items"')
             ),
+            checkers(
+                "typing/extra_items.py",
+                tools=("pyright",),
+                expect=Expect(status=0, output="Could not assign item in TypedDict"),
+            ),
         ),
     ),
     Slide(
@@ -229,9 +239,16 @@ SLIDES = (
         content=disjoint,
         peps=(800,),
         runs=(
+            python(
+                Interpreter.PY315,
+                "typing/disjoint.py",
+                label="at runtime",
+                expect=Expect(status=1, output="multiple bases have instance lay-out conflict"),
+            ),
             checkers(
                 "typing/disjoint.py",
                 "--warn-unreachable",
+                label="mypy --warn-unreachable",
                 expect=Expect(status=0, output="Statement is unreachable"),
             ),
             checkers(
@@ -239,12 +256,6 @@ SLIDES = (
                 "--warn-unreachable",
                 label="without slots=True",
                 expect=Expect(status=0, output="no issues"),
-            ),
-            python(
-                Interpreter.PY315,
-                "typing/disjoint.py",
-                label="at runtime",
-                expect=Expect(status=1, output="multiple bases have instance lay-out conflict"),
             ),
         ),
     ),
