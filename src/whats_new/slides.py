@@ -6,6 +6,7 @@ Sections build tuples of these; the deck concatenates them, and the presenter, t
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 
 from counterweight.components import Component
 from counterweight.controls import AnyControl
@@ -58,6 +59,15 @@ class SlideProps:
         return FocusOn(self.slide_focus)
 
 
+class TitleCard(Enum):
+    """A slide that carries its own title, so the frame draws no heading over it, and what it opens."""
+
+    SECTION = "section"
+    """Opens a section of the deck, which the slide grid shows as a grid of its own."""
+    SUBSECTION = "subsection"
+    """Opens a topic within the section it's in, such as Tachyon within Performance."""
+
+
 @dataclass(frozen=True, slots=True)
 class Slide:
     title: str
@@ -71,11 +81,8 @@ class Slide:
     What the slide runs, bound to `1` through `9` in order.
     Declared on the slide rather than inside its content, so the example check can find and run every one.
     """
-    is_title_card: bool = False
-    """
-    Whether the slide is a title card, which carries its own title, so the frame draws no heading over it.
-    Each title card starts a section of the deck, which the slide grid shows as a grid of its own.
-    """
+    title_card: TitleCard | None = None
+    """What kind of title card the slide is, or `None` for a slide the frame draws a heading over."""
 
     def __post_init__(self) -> None:
         if self.steps < 1:
@@ -83,9 +90,25 @@ class Slide:
 
 
 def sections(slides: tuple[Slide, ...]) -> tuple[range, ...]:
-    """The indexes of each section of `slides`: a run of slides starting at each title card (or the first slide)."""
-    starts = [index for index, slide in enumerate(slides) if index == 0 or slide.is_title_card]
+    """
+    The indexes of each section of `slides`: a run of slides starting at each section's title card
+    (or the first slide).
+    """
+    starts = [index for index, slide in enumerate(slides) if index == 0 or slide.title_card is TitleCard.SECTION]
     return tuple(range(start, stop) for start, stop in zip(starts, (*starts[1:], len(slides)), strict=True))
+
+
+def next_section(index: int, slides: tuple[Slide, ...]) -> int:
+    """The first slide of the section after the one `index` is in, or the deck's last slide from the last section."""
+    return next((section.start for section in sections(slides) if section.start > index), len(slides) - 1)
+
+
+def previous_section(index: int, slides: tuple[Slide, ...]) -> int:
+    """
+    The first slide of the section `index` is in, or of the section before it from a section's first slide,
+    as a media player's "previous" restarts the track before it skips back.
+    """
+    return max((section.start for section in sections(slides) if section.start < index), default=0)
 
 
 def pep_url(number: int) -> str:

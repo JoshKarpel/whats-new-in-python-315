@@ -25,13 +25,14 @@ from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 
 PY315 = Interpreter.PY315
 
 
 @component
 def section_title(props: SlideProps) -> Div:
-    return centered(title_card("Small things you'll use tomorrow"))
+    return centered(title_card("Small things you'll use tomorrow", is_live=props.is_live))
 
 
 @component
@@ -42,7 +43,7 @@ def frozendict_basics(props: SlideProps) -> Div:
         bullets(
             (plain("a builtin, immutable "), em("mapping")),
             (plain("hashable when its values are")),
-            (plain("no literal syntax (yet)")),
+            (plain("no literal syntax (yet) 😭")),
         ),
     )
 
@@ -190,7 +191,7 @@ def grapheme_picture(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Small things you'll use tomorrow", content=section_title, is_title_card=True),
+    Slide(title="Small things you'll use tomorrow", content=section_title, title_card=TitleCard.SECTION),
     Slide(
         title="frozendict",
         content=frozendict_basics,

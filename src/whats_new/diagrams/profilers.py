@@ -27,8 +27,33 @@ from whats_new.diagrams.draw import node_width
 from whats_new.tachyon import profiler_argv
 
 CALLS = "main ─ parse ─┬─ load ─┬─ read ── decode ─┬─ render ─┬─ write ──"
-TRACE = "▲▼     ▲▼     ▲▼ ▲▼    ▲▼ ▲▼   ▲▼     ▲▼  ▲▼ ▲▼     ▲▼ ▲▼    ▲▼"
+"""The program's calls, in order; each `┬` is where the call before it calls a helper, drawn on the line below."""
+HELPERS = ("strip", "len", "get", "append")
+"""The quick helper calls hanging off each `┬`, left to right: most calls in a real program are tiny ones like these."""
+
+
+def helper_line() -> str:
+    """The line under `CALLS`: each helper's name, hanging off its `┬`."""
+    line = [" "] * len(CALLS)
+    branches = [column for column, mark in enumerate(CALLS) if mark == "┬"]
+    for column, name in zip(branches, HELPERS, strict=True):
+        line[column : column + len(name) + 2] = f"└ {name}"
+    return "".join(line)
+
+
+def trace_line() -> str:
+    """A tracing hook's `▲▼` (the call, then the return) at the start of every call, the helpers' included."""
+    line = [" "] * len(CALLS)
+    for column, mark in enumerate(CALLS):
+        if mark == "┬" or (mark.isalpha() and (column == 0 or CALLS[column - 1] == " ")):
+            line[column : column + 2] = "▲▼"
+    return "".join(line)
+
+
+CALLED = helper_line()
+TRACE = trace_line()
 SAMPLE = "    ●        ●        ●        ●        ●        ●        ●    "
+"""A sample every 9 cells, on a clock rather than on calls, so it never lands on one of the quick helpers."""
 SAMPLING_STEPS = 2
 TIMELINE = timedelta(seconds=4)
 AHEAD = EDGE | CellStyle(dim=True)
@@ -37,7 +62,8 @@ AHEAD = EDGE | CellStyle(dim=True)
 
 def tracing_vs_sampling(step: int, is_live: bool) -> Div | Component:
     """
-    The two rows of one program's calls, the hooks each profiler fires along it, and what that costs.
+    The two rows of one program's calls (with the quick helpers some of them call hanging beneath),
+    the hooks each profiler fires along it, and what that costs.
     At step 1 a playhead runs along the calls, and each row fires as it passes: tracing at every call and return,
     sampling only at its ticks.
     """
@@ -54,14 +80,15 @@ def playing_timeline(is_live: bool) -> Div:
 def timeline(reached: int) -> Div:
     """The timeline with the playhead `reached` cells along the calls, every hook before it fired; 0 is before it starts."""
 
-    def calls(y: int) -> Text:
+    def played(line: str, y: int) -> Text:
+        """`line` (the calls, or the helpers under them) lit up to the playhead, and dim past it."""
         if not 0 < reached < len(CALLS):
-            return ink(CALLS, 12, y)
+            return ink(line, 12, y)
         return ink(
             (
-                Chunk(content=CALLS[:reached], style=EDGE),
-                Chunk(content=CALLS[reached], style=HIGHLIGHT),
-                Chunk(content=CALLS[reached + 1 :], style=AHEAD),
+                Chunk(content=line[:reached], style=EDGE),
+                Chunk(content=line[reached], style=HIGHLIGHT),
+                Chunk(content=line[reached + 1 :], style=AHEAD),
             ),
             12,
             y,
@@ -73,12 +100,14 @@ def timeline(reached: int) -> Div:
         9,
         ink("tracing", 0, 0, HIGHLIGHT),
         ink(TRACE[:reached], 12, 0, CROSSED),
-        calls(1),
-        *((ink("a hook on every call and return: exact, and it slows everything", 12, 2, NOTE),) if is_done else ()),
+        played(CALLS, 1),
+        played(CALLED, 2),
+        *((ink("a hook on every call and return: exact, and it slows everything", 12, 3, NOTE),) if is_done else ()),
         ink("sampling", 0, 5, HIGHLIGHT),
         ink(SAMPLE[:reached], 12, 5, HIGHLIGHT),
-        calls(6),
-        *((ink("a snapshot of the stack now and then, from outside: cheap", 12, 7, NOTE),) if is_done else ()),
+        played(CALLS, 6),
+        played(CALLED, 7),
+        *((ink("a snapshot of the stack now and then, from outside: cheap", 12, 8, NOTE),) if is_done else ()),
     )
 
 

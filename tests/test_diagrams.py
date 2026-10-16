@@ -6,6 +6,7 @@ and measured.
 
 from collections.abc import Callable
 from functools import partial
+from itertools import pairwise
 
 import pytest
 from counterweight.app import app
@@ -113,3 +114,12 @@ def test_fork_rises_at_the_parent_and_drops_at_each_child(
 
 def text_of(ink: Text) -> str:
     return "".join(chunk if isinstance(chunk, str) else chunk.content for chunk in ink.content)
+
+
+@pytest.mark.parametrize("thread", range(fan_out.THREADS))
+def test_fan_out_items_move_one_cell_at_a_time(thread: int) -> None:
+    """An item in flight steps to a neighboring cell on each move, so it glides along the lines rather than jumping."""
+    route = fan_out.route(thread)
+
+    assert all(abs(x - nx) + abs(y - ny) == 1 for (x, y), (nx, ny) in pairwise(route))
+    assert route[-1] == (fan_out.DROPS[thread], fan_out.LABELS - 1)

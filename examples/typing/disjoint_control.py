@@ -7,13 +7,10 @@ class Point:
 
 @dataclass
 class Color:
-    r: int
-    g: int
-    b: int
+    hex: str
 
 def draw(p: Point) -> None:
     if isinstance(p, Color):
         print("a colored point!")
 
-class ColoredPoint(Point, Color):
-    pass
+class ColoredPoint(Point, Color): ...

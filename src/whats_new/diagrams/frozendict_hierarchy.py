@@ -1,12 +1,20 @@
 """
 Why neither `dict` nor `frozendict` subclasses the other, as `set` and `frozenset` don't, under the ABCs they
-register as: `dict` is a `MutableMapping`, `frozendict` only a `Mapping`. The mappings, then the sets beside them, then the tempting edge crossed out, then the reverse edge crossed out,
-then the consequence. The drawing's area is the same size at every step, so revealing a part moves nothing.
+register as: `dict` is a `MutableMapping`, `frozendict` only a `Mapping`. The mappings, then the sets beside them,
+then the tempting edge crossed out, then the reverse edge crossed out, then the consequence.
+The drawing's area is the same size at every step, so revealing a part moves nothing.
+
+The ABCs are drawn in light rounded boxes with italic names, as UML marks abstract classes,
+and the classes you instantiate in the heavy boxes every other diagram uses, with a key saying which is which.
 """
 
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
+from counterweight.styles import CellStyle
+from counterweight.styles import Color
+from counterweight.styles import Style
+from counterweight.styles.utilities import *
 
 from whats_new.diagrams.draw import CROSSED
 from whats_new.diagrams.draw import EDGE
@@ -21,6 +29,11 @@ from whats_new.diagrams.draw import middle
 from whats_new.diagrams.draw import node
 
 STEPS = 5
+
+ABSTRACT_KEY = CellStyle(foreground=Color.from_hex("#94a3b8"))
+CONCRETE_KEY = CellStyle(foreground=Color.from_hex("#cbd5e1"))
+"""The key's swatches, in the colors of the boxes they stand for."""
+ABSTRACT = border_lightrounded | border_color("slate", 400) | Style(text_style=CellStyle(italic=True))
 
 # The boxes' left edges. dict sits under MutableMapping, and frozendict straight under Mapping, level with dict,
 # which leaves room between the two for the crossed-out arrows.
@@ -37,19 +50,23 @@ def frozendict_hierarchy(step: int) -> Div:
     mutable_set, frozenset_ = middle(MUTABLE_SET, "MutableSet"), middle(FROZENSET, "frozenset")
     mapping, set_ = (mutable_mapping + frozendict_) // 2, (mutable_set + frozenset_) // 2
     parts: list[Text | Div] = [
-        centered_node("Mapping", mapping, 0),
+        centered_node("Mapping", mapping, 0, style=ABSTRACT),
         *fork(mapping, (mutable_mapping, frozendict_), 3),
-        node("MutableMapping", MUTABLE_MAPPING, 5),
+        node("MutableMapping", MUTABLE_MAPPING, 5, style=ABSTRACT),
         ink("│", mutable_mapping, 8),
         centered_node("dict", mutable_mapping, LOWER),
         ink("│\n│\n│\n│", frozendict_, 5),
         node("frozendict", FROZENDICT, LOWER, style=HIGHLIGHT_NODE),
+        ink("╭─╮\n╰─╯", MUTABLE_SET, 14, ABSTRACT_KEY),
+        ink("abstract base class\n(collections.abc)", MUTABLE_SET + 4, 14, NOTE | CellStyle(italic=True)),
+        ink("┏━┓\n┗━┛", MUTABLE_SET, 16, CONCRETE_KEY),
+        ink("concrete class\n(builtins)", MUTABLE_SET + 4, 16, NOTE),
     ]
     if step >= 1:
         parts += [
-            centered_node("Set", set_, 0),
+            centered_node("Set", set_, 0, style=ABSTRACT),
             *fork(set_, (mutable_set, frozenset_), 3),
-            node("MutableSet", MUTABLE_SET, 5),
+            node("MutableSet", MUTABLE_SET, 5, style=ABSTRACT),
             ink("│", mutable_set, 8),
             centered_node("set", mutable_set, LOWER),
             ink("│\n│\n│\n│", frozenset_, 5),

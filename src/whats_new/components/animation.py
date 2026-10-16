@@ -9,6 +9,7 @@ Two kinds, which start differently:
 
 Neither runs off the live slide: a thumbnail shows an explanatory animation's last frame and a decorative one's
 first, and ticks no clock for either, since nine thumbnails animating at once would cost frame time for nothing.
+The one exception is a title card's pulsing border (see `title_card`), which pulses in the slide grid too.
 """
 
 from dataclasses import dataclass

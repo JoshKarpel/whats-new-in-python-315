@@ -4,6 +4,7 @@ from counterweight.keys import Key
 from whats_new.presenter import Position
 from whats_new.presenter import navigate
 from whats_new.slides import Slide
+from whats_new.slides import TitleCard
 from whats_new.slides import sections
 
 
@@ -42,8 +43,8 @@ def test_navigate_leaves_unused_keys_to_the_slide(position: Position) -> None:
     assert navigate(position, "1", SLIDES) is None
 
 
-def title_card(n: int) -> Slide:
-    return Slide(title=f"section {n}", content=blank, is_title_card=True)  # type: ignore[arg-type]
+def title_card(n: int, card: TitleCard = TitleCard.SECTION) -> Slide:
+    return Slide(title=f"section {n}", content=blank, title_card=card)  # type: ignore[arg-type]
 
 
 def plain(n: int) -> Slide:
@@ -60,6 +61,37 @@ def test_sections_split_at_title_cards() -> None:
 
 def test_sections_start_at_the_first_slide_without_a_title_card() -> None:
     assert sections((plain(0), title_card(1), plain(2))) == (range(1), range(1, 3))
+
+
+def test_sections_run_on_through_a_subsection_card() -> None:
+    assert sections((title_card(0), plain(1), title_card(2, TitleCard.SUBSECTION), plain(3))) == (range(4),)
+
+
+@pytest.mark.parametrize(
+    ("position", "key", "expected"),
+    [
+        (Position(index=2, step=0), Key.PageDown, Position(index=5)),
+        (Position(index=5), Key.PageDown, Position(index=7)),
+        (Position(index=8), Key.PageDown, Position(index=10)),
+        (Position(index=6, step=1), Key.PageUp, Position(index=5)),
+        (Position(index=5), Key.PageUp, Position(index=0)),
+        (Position(index=0), Key.PageUp, Position(index=0)),
+        (Position(index=0, selected=3), Key.PageDown, Position(index=0, selected=5)),
+        (Position(index=0, selected=7), Key.PageUp, Position(index=0, selected=5)),
+    ],
+    ids=[
+        "down to the next section's first slide",
+        "down from a section's first slide",
+        "down from the last section to the last slide",
+        "up to the first slide of its own section",
+        "up from a section's first slide to the previous section's",
+        "up at the first slide",
+        "the grid's selection down a section",
+        "the grid's selection up a section",
+    ],
+)
+def test_page_keys_move_between_sections(position: Position, key: str, expected: Position) -> None:
+    assert navigate(position, key, SECTIONED) == expected
 
 
 @pytest.mark.parametrize(

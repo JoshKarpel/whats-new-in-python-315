@@ -15,14 +15,16 @@ from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 
 
 @component
 def title(props: SlideProps) -> Div:
     return centered(
-        title_card("What's New in Python 3.15", "Josh Karpel"),
+        title_card("What's New in Python 3.15", "Josh Karpel", "MadPy, November 2026", is_live=props.is_live),
         Text(content="a whirlwind tour of how Python is getting better", style=dim),
-        made_with_claude(),
+        # Further down than the rest, set apart as a footnote to the title rather than part of it.
+        Div(style=margin_top(2), children=(made_with_claude(props.is_live),)),
     )
 
 
@@ -49,6 +51,6 @@ def agenda(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="What's New in Python 3.15", content=title, is_title_card=True),
+    Slide(title="What's New in Python 3.15", content=title, title_card=TitleCard.SECTION),
     Slide(title="A whirlwind tour", content=agenda),
 )

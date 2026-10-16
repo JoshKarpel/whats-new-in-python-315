@@ -40,6 +40,7 @@ What doesn't work in a default container:
 | Key | Does |
 |---|---|
 | Left / Right | previous / next slide |
+| Page Up / Page Down | the start of this section (or the previous one, from its start) / the next section |
 | Space | reveal the next step |
 | `1`–`9` | run the slide's programs, with any edits to its code |
 | Escape | stop the run in progress |

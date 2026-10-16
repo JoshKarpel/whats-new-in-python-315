@@ -38,6 +38,8 @@ from whats_new.components.slide_body import slide_body
 from whats_new.components.theme_picker import theme_picker
 from whats_new.host import Host
 from whats_new.slides import Slide
+from whats_new.slides import next_section
+from whats_new.slides import previous_section
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +69,10 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
             return Position(index=min(position.index + 1, last))
         case None, Key.Left:
             return Position(index=max(position.index - 1, 0))
+        case None, Key.PageDown:
+            return Position(index=next_section(position.index, slides))
+        case None, Key.PageUp:
+            return Position(index=previous_section(position.index, slides))
         case None, Key.Space:
             return replace(position, step=min(position.step + 1, slides[position.index].steps - 1))
         case None, "r":
@@ -81,6 +87,10 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
             return replace(position, selected=below(selected, slides))
         case int(selected), Key.Up:
             return replace(position, selected=above(selected, slides))
+        case int(selected), Key.PageDown:
+            return replace(position, selected=next_section(selected, slides))
+        case int(selected), Key.PageUp:
+            return replace(position, selected=previous_section(selected, slides))
         case int(selected), Key.Enter | "d":
             return Position(index=selected)
         case int(), Key.Escape:
@@ -159,7 +169,7 @@ def root(
     slide = slides[position.index]
     if position.selected is None:
         body: tuple[Component | AnyElement, ...] = (
-            *((heading(slide.title, slide.peps),) if not slide.is_title_card else ()),
+            *((heading(slide.title, slide.peps),) if slide.title_card is None else ()),
             Div(
                 style=col | fill(1) | pad_x(1),
                 # Keyed by index and generation: navigating away and back, or pressing r, mounts the slide fresh.

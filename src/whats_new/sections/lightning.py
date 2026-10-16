@@ -21,11 +21,12 @@ from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 
 
 @component
 def section_title(props: SlideProps) -> Div:
-    return centered(title_card("Lightning round"))
+    return centered(title_card("Lightning round", is_live=props.is_live))
 
 
 @component
@@ -94,7 +95,7 @@ def quickfire(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Lightning round", content=section_title, is_title_card=True),
+    Slide(title="Lightning round", content=section_title, title_card=TitleCard.SECTION),
     Slide(
         title="Lightning: did you mean?",
         content=did_you_mean,

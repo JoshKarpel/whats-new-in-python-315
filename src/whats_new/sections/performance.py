@@ -32,6 +32,7 @@ from whats_new.runs import Run
 from whats_new.runs import harness
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 from whats_new.tachyon import STEPS as TACHYON_STEPS
 from whats_new.tachyon import tachyon_stage
 
@@ -42,7 +43,7 @@ PY314 = Interpreter.PY314
 @component
 def section_title(props: SlideProps) -> Div:
     return centered(
-        title_card("Performance"),
+        title_card("Performance", is_live=props.is_live),
         bullets(
             "an observability release: how do I see what Python is doing?",
             "Tachyon, frame pointers, JIT unwind info, gc.get_stats(), faulthandler",
@@ -84,7 +85,7 @@ def streak(is_live: bool) -> Text:
 @component
 def tachyon_name(props: SlideProps) -> Div:
     return centered(
-        title_card("Tachyon", "profiling.sampling"),
+        title_card("Tachyon", "profiling.sampling", is_live=props.is_live),
         streak(props.is_live),
         bullets(
             (plain("a hypothetical "), em("faster-than-light"), plain(' particle ("tachy": swift)')),
@@ -180,7 +181,7 @@ def base64_speed(props: SlideProps) -> Div:
 
 @component
 def gc_title(props: SlideProps) -> Div:
-    return centered(title_card("The garbage collector saga"))
+    return centered(title_card("The garbage collector saga", is_live=props.is_live))
 
 
 @component
@@ -214,8 +215,8 @@ FRAME_POINTER_DEMO = Run(
 )
 
 SLIDES = (
-    Slide(title="Performance", content=section_title, is_title_card=True),
-    Slide(title="Tachyon", content=tachyon_name, is_title_card=True),
+    Slide(title="Performance", content=section_title, title_card=TitleCard.SECTION),
+    Slide(title="Tachyon", content=tachyon_name, title_card=TitleCard.SUBSECTION),
     Slide(title="Why sampling?", content=why_sampling, peps=(799,), steps=profilers.SAMPLING_STEPS),
     Slide(
         title="Tracing vs sampling: the overhead",
@@ -289,7 +290,7 @@ SLIDES = (
             ),
         ),
     ),
-    Slide(title="The garbage collector saga", content=gc_title, is_title_card=True),
+    Slide(title="The garbage collector saga", content=gc_title, title_card=TitleCard.SUBSECTION),
     Slide(title="The garbage collector", content=gc_story, steps=low_level.GC_STEPS),
     Slide(
         title="The garbage collector: peak memory",

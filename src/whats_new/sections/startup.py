@@ -25,6 +25,7 @@ from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 
 PY315 = Interpreter.PY315
 PY314 = Interpreter.PY314
@@ -33,7 +34,7 @@ LAZY_SYNTAX_ERROR = Expect(status=1, output="SyntaxError: invalid syntax")
 
 @component
 def section_title(props: SlideProps) -> Div:
-    return centered(title_card("Startup and imports"))
+    return centered(title_card("Startup and imports", is_live=props.is_live))
 
 
 @component
@@ -139,7 +140,7 @@ def start_flow(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Startup and imports", content=section_title, is_title_card=True),
+    Slide(title="Startup and imports", content=section_title, title_card=TitleCard.SECTION),
     Slide(
         title="Lazy imports",
         content=lazy_basics,

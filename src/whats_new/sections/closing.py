@@ -16,6 +16,7 @@ from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 
 TOOLKITS = (
     (code("threading"), plain(": serialize_iterator, synchronized_iterator, concurrent_tee")),
@@ -39,17 +40,20 @@ def thoroughness(props: SlideProps) -> Div:
 @component
 def thanks(props: SlideProps) -> Div:
     return centered(
-        title_card("Thanks!"),
+        title_card("Thanks!", is_live=props.is_live),
         bullets(
             (plain("this talk:      "), link("https://github.com/JoshKarpel/whats-new-in-python-315")),
             (plain("what's new:     "), link("https://docs.python.org/3.15/whatsnew/3.15.html")),
             (plain("counterweight:  "), link("https://github.com/JoshKarpel/counterweight")),
         ),
-        Div(style=row | gap_width(2) | align_children_center, children=(claude_mascot(), made_with_claude())),
+        Div(
+            style=row | gap_width(2) | align_children_center | margin_top(2),
+            children=(claude_mascot(), made_with_claude(props.is_live)),
+        ),
     )
 
 
 SLIDES = (
     Slide(title="Unusually thorough", content=thoroughness),
-    Slide(title="Thanks", content=thanks, is_title_card=True),
+    Slide(title="Thanks", content=thanks, title_card=TitleCard.SECTION),
 )

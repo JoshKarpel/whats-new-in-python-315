@@ -20,11 +20,12 @@ from whats_new.runs import example
 from whats_new.runs import on_both
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 
 
 @component
 def section_title(props: SlideProps) -> Div:
-    return centered(title_card("Before you upgrade"))
+    return centered(title_card("Before you upgrade", is_live=props.is_live))
 
 
 @component
@@ -107,7 +108,7 @@ def latin1(interpreter: Interpreter, expected: str) -> Run:
 
 
 SLIDES = (
-    Slide(title="Before you upgrade", content=section_title, is_title_card=True),
+    Slide(title="Before you upgrade", content=section_title, title_card=TitleCard.SECTION),
     Slide(
         title="Before you upgrade: warnings become errors",
         content=breakage,

@@ -55,7 +55,7 @@ async def test_up_scrolls_the_output_back_a_line(host: Host) -> None:
     frames: list[Frame] = []
     await drive(
         host,
-        "Disjoint bases",
+        "Unpacking async sources: not like that",
         (
             KeyPressed(key="1"),
             *(Screenshot(handler=settle) for _ in range(20)),

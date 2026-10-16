@@ -21,6 +21,7 @@ from whats_new.runs import example
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
+from whats_new.slides import TitleCard
 
 OLD_MYPY = Run(
     label="mypy 2.3.1",
@@ -41,7 +42,7 @@ OLD_MYPY = Run(
 @component
 def section_title(props: SlideProps) -> Div:
     return centered(
-        title_card("Typing"),
+        title_card("Typing", is_live=props.is_live),
         bullets("run live with mypy: pyright and ty agree, except where a slide says otherwise"),
     )
 
@@ -148,14 +149,14 @@ def disjoint(props: SlideProps) -> Div:
         code_example(props, "typing/disjoint.py", start="@dataclass"),
         bullets(
             (code("slots=True"), plain(" classes can't share a subclass")),
-            "pyright and ty flag the class, not the branch",
+            "pyright and ty flag only the class",
             (code("@disjoint_base"), plain(" is mostly for stubs")),
         ),
     )
 
 
 SLIDES = (
-    Slide(title="Typing", content=section_title, is_title_card=True),
+    Slide(title="Typing", content=section_title, title_card=TitleCard.SECTION),
     Slide(
         title="Sentinels",
         content=sentinel_runtime,
