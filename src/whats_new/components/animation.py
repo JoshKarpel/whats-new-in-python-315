@@ -9,7 +9,8 @@ Two kinds, which start differently:
 
 Neither runs off the live slide: a thumbnail shows an explanatory animation's last frame and a decorative one's
 first, and ticks no clock for either, since nine thumbnails animating at once would cost frame time for nothing.
-The one exception is a title card's pulsing border (see `title_card`), which pulses in the slide grid too.
+The one exception is a title card's pulsing border (see `title_card`), which pulses in the slide grid too,
+counted from the app's start rather than arrival, so every card in view pulses in step.
 """
 
 from dataclasses import dataclass
@@ -54,6 +55,15 @@ def use_loop(period: timedelta, is_playing: bool) -> float:
     if not is_playing:
         return 0.0
     return (tick.since_mount % period) / period
+
+
+def use_synced_loop(period: timedelta) -> float:
+    """
+    Where in a loop `period` long the app is, from 0 up to (not including) 1: counted from the app's start
+    rather than the calling component's mount, so every component looping on `period` is in step with the rest.
+    """
+    tick = use_clock(FRAME)
+    return (tick.since_start % period) / period
 
 
 def between(progress: float, start: float, stop: float) -> float:

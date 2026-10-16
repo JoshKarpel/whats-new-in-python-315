@@ -110,6 +110,8 @@ also means trimming some of the std items.
   `frozendict → dict` edge and cross it out, then the reversed `dict → frozendict`
   edge and cross that out too. "Use `Mapping`" then reads as a consequence rather
   than a gotcha. The drawing keeps one size at every step, so a reveal moves nothing.
+  The key to the box styles sits alone in the bottom right corner, away from the
+  argument's text.
 
 #### json `array_hook` (core, paired with frozendict)
 - New `array_hook=` on `load`, `loads` and `JSONDecoder`.
@@ -624,8 +626,8 @@ Each item gets one runnable line where possible:
 ### 8. Closing (core)
 
 - The thoroughness observation, with the examples collected along the way.
-- Links, each labeled and a clickable OSC 8 hyperlink: this talk's repository
-  (public by the time of the talk), the whatsnew, and counterweight.
+- Links, each labeled and a clickable OSC 8 hyperlink: the whatsnew, this talk's
+  repository (public by the time of the talk), and counterweight.
 - The Claude Code disclosure from the opening, again, beside Claude Code's mascot.
 
 ## Deck architecture
@@ -867,7 +869,9 @@ Diagrams are drawn by hand, as counterweight elements rather than text files.
 ### Animations
 
 They come in two kinds, which start differently. `components/animation.py` holds
-the two hooks, `use_progress` and `use_loop`.
+their hooks, `use_progress` and `use_loop`, and `use_synced_loop` for the title
+card's border, which counts from the app's start rather than the card's mount, so
+every card in view pulses in step.
 
 Every animation runs on `use_clock`, ticking at 20 frames a second while it plays
 and not at all otherwise. Off the live slide (a thumbnail) nothing ticks: an

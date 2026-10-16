@@ -43,7 +43,7 @@ def frozendict_basics(props: SlideProps) -> Div:
         bullets(
             (plain("a builtin, immutable "), em("mapping")),
             (plain("hashable when its values are")),
-            (plain("no literal syntax (yet) 😭")),
+            (plain("no literal syntax 😭 (yet?)")),
         ),
     )
 

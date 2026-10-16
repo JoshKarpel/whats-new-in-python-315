@@ -42,8 +42,8 @@ def thanks(props: SlideProps) -> Div:
     return centered(
         title_card("Thanks!", is_live=props.is_live),
         bullets(
-            (plain("this talk:      "), link("https://github.com/JoshKarpel/whats-new-in-python-315")),
             (plain("what's new:     "), link("https://docs.python.org/3.15/whatsnew/3.15.html")),
+            (plain("this talk:      "), link("https://github.com/JoshKarpel/whats-new-in-python-315")),
             (plain("counterweight:  "), link("https://github.com/JoshKarpel/counterweight")),
         ),
         Div(

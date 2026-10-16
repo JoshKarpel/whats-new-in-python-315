@@ -14,10 +14,12 @@ from counterweight.controls import AdvanceClock
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.elements import Div
+from counterweight.hooks import use_clock
 from counterweight.output import Frame
 from counterweight.styles import Color
 from counterweight.styles.utilities import *
 
+from whats_new.components.animation import FRAME
 from whats_new.components.look import CARD_EDGE
 from whats_new.components.look import PULSE_PERIOD
 from whats_new.components.look import PYTHON_BLUE
@@ -114,6 +116,18 @@ async def test_a_title_cards_border_pulses(is_live: bool) -> None:
     card = title_card("Typing", is_live=is_live)
 
     assert await card_colors(card, PULSE_PERIOD / 8, "━┃┏┓┗┛") != await card_colors(card, PULSE_PERIOD / 4, "━┃┏┓┗┛")
+
+
+async def test_a_title_card_mounted_late_pulses_in_step_with_one_mounted_at_the_start() -> None:
+    by = PULSE_PERIOD / 8
+
+    @component
+    def late() -> Div:
+        tick = use_clock(FRAME)
+        return Div(style=row | full, children=(title_card("Typing", is_live=True),) if tick.since_start >= by else ())
+
+    border = "━┃┏┓┗┛"
+    assert await card_colors(late(), by, border) == await card_colors(title_card("Typing", is_live=True), by, border)
 
 
 @pytest.mark.parametrize(("is_live", "is_shining"), [(True, True), (False, False)], ids=["live", "a thumbnail"])

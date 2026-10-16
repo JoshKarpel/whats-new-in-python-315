@@ -5,7 +5,8 @@ then the tempting edge crossed out, then the reverse edge crossed out, then the 
 The drawing's area is the same size at every step, so revealing a part moves nothing.
 
 The ABCs are drawn in light rounded boxes with italic names, as UML marks abstract classes,
-and the classes you instantiate in the heavy boxes every other diagram uses, with a key saying which is which.
+and the classes you instantiate in the heavy boxes every other diagram uses, with a key saying which is which,
+alone in the bottom right corner so it doesn't read as part of the argument.
 """
 
 from counterweight.elements import Chunk
@@ -43,6 +44,10 @@ MUTABLE_SET = 48
 FROZENSET = 66
 LOWER = 9
 """The row the concrete classes' boxes start on, below their Mutable ABCs."""
+WIDTH, HEIGHT = 80, 24
+KEY_WIDTH = len("╭─╮ abstract base class")
+KEY = (WIDTH - KEY_WIDTH, HEIGHT - 4)
+"""The top-left corner of the key, which ends flush with the drawing's bottom right corner."""
 
 
 def frozendict_hierarchy(step: int) -> Div:
@@ -57,10 +62,10 @@ def frozendict_hierarchy(step: int) -> Div:
         centered_node("dict", mutable_mapping, LOWER),
         ink("│\n│\n│\n│", frozendict_, 5),
         node("frozendict", FROZENDICT, LOWER, style=HIGHLIGHT_NODE),
-        ink("╭─╮\n╰─╯", MUTABLE_SET, 14, ABSTRACT_KEY),
-        ink("abstract base class\n(collections.abc)", MUTABLE_SET + 4, 14, NOTE | CellStyle(italic=True)),
-        ink("┏━┓\n┗━┛", MUTABLE_SET, 16, CONCRETE_KEY),
-        ink("concrete class\n(builtins)", MUTABLE_SET + 4, 16, NOTE),
+        ink("╭─╮\n╰─╯", KEY[0], KEY[1], ABSTRACT_KEY),
+        ink("abstract base class\n(collections.abc)", KEY[0] + 4, KEY[1], NOTE | CellStyle(italic=True)),
+        ink("┏━┓\n┗━┛", KEY[0], KEY[1] + 2, CONCRETE_KEY),
+        ink("concrete class\n(builtins)", KEY[0] + 4, KEY[1] + 2, NOTE),
     ]
     if step >= 1:
         parts += [
@@ -99,4 +104,4 @@ def frozendict_hierarchy(step: int) -> Div:
                 18,
             )
         )
-    return area(80, 19, *parts)
+    return area(WIDTH, HEIGHT, *parts)
