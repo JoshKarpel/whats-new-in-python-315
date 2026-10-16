@@ -11,10 +11,13 @@ on a machine without Yama (Yama's `ptrace_scope` 1 would refuse it).
 import asyncio
 import subprocess
 import sys
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
 
+from counterweight.autopilot import AutopilotStep
+from counterweight.autopilot import Wait
 from counterweight.commands import Exited
 from counterweight.commands import command_output
 from counterweight.commands import use_command
@@ -49,6 +52,8 @@ from whats_new.components.run_pane import OUTPUT_STYLES
 from whats_new.host import FlamegraphSite
 from whats_new.runs import ROOT
 from whats_new.slides import SlideProps
+from whats_new.tours import showing
+from whats_new.workloads import SECONDS
 from whats_new.workloads import WORKLOADS_BY_KEY
 from whats_new.workloads import Workload
 from whats_new.workloads import perform
@@ -274,3 +279,50 @@ async def serve_flamegraphs(site: FlamegraphSite) -> None:
         if server.returncode is None:
             server.terminate()
             await server.wait()
+
+
+WORKLOAD = Wait(timedelta(seconds=SECONDS + 1))
+"""Long enough for a workload to finish, in real time, with the profiler watching."""
+LOOK = Wait(timedelta(seconds=3))
+
+
+def press(*keys: str) -> list[AutopilotStep]:
+    return [KeyPressed(key=key) for key in keys]
+
+
+def to_mode(start: int, name: str) -> list[AutopilotStep]:
+    """`m` as many times as it takes to get from the mode at index `start` of `MODES` to the one called `name`."""
+    target = next(index for index, (mode, _) in enumerate(MODES) if mode == name)
+    return press(*["m"] * ((target - start) % len(MODES)))
+
+
+def tachyon_tour(step: int) -> Iterable[AutopilotStep]:
+    """
+    What each talking point says to do, done: attach, start each workload and let it finish under the profiler,
+    move through the modes the points name, hand Tachyon the keyboard to sort its table, and dump every thread.
+    The flamegraph (`F`) is left out: it serves a page the recording can't show.
+    """
+    match step:
+        case 0:
+            return [*press("p"), showing("Tachyon Profiler"), LOOK]
+        case 1:
+            return [*press("c"), WORKLOAD]
+        case 2:
+            # Freezes the deck, so the autopilot too: the wait ends once the deck draws again.
+            return [*press("C"), WORKLOAD, LOOK]
+        case 3:
+            return [*press("n"), WORKLOAD]
+        case 4:
+            return [*press("i"), LOOK, *to_mode(0, "cpu"), WORKLOAD]
+        case 5:
+            return [*to_mode(1, "async-aware"), *press("a"), WORKLOAD]
+        case 6:
+            return [*press("g"), WORKLOAD]
+        case 7:
+            return [*to_mode(4, "exception"), *press("e"), WORKLOAD]
+        case 9:
+            return [*press("f"), LOOK, *press("s"), LOOK, KeyPressed(key=Key.Tab)]
+        case 10:
+            return [*press("D"), showing("exited"), LOOK]
+        case _:
+            return []

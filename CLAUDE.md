@@ -23,6 +23,8 @@ Each module's docstring says what role it plays; read those before adding a file
 - `just export` regenerates `slides.html`.
   A pre-commit hook does the same on any change under `src/` or `examples/` and fails the commit
   when the file changes, so include the regenerated `slides.html` with the change rather than editing it.
+- `just record` regenerates `slides.cast`, the deck presented by an autopilot with every run and slide `tour`.
+  It takes minutes of real time and differs on every run, so no hook regenerates it.
 - `pre-commit-autofix` (or `just pre-commit`) runs ruff and the other hooks.
 
 counterweight comes from git `main`, pinned by `uv.lock`, and moves fast.
@@ -35,7 +37,7 @@ not from memory or its docs site.
   a title, a content component taking `SlideProps`, a reveal-step count, cited PEPs, and `runs`.
   `deck.py` concatenates the sections into `SLIDES`, in running order.
 - Everything walks that one tuple: the presenter (`presenter.py`, the root component),
-  the slide grid, the export, the smoke test, and the example check.
+  the slide grid, the export, the recording, the smoke test, and the example check.
 - A slide's code comes from `examples/` through `components/code.py`,
   and its `runs` are `Run` values (`runs.py`, built with helpers like `python` and `on_both`)
   carrying an `Expect`.

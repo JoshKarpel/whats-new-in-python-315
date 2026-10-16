@@ -35,6 +35,7 @@ from whats_new.slides import SlideProps
 from whats_new.slides import TitleCard
 from whats_new.tachyon import STEPS as TACHYON_STEPS
 from whats_new.tachyon import tachyon_stage
+from whats_new.tachyon import tachyon_tour
 
 PY315 = Interpreter.PY315
 PY314 = Interpreter.PY314
@@ -245,7 +246,7 @@ SLIDES = (
         ),
     ),
     Slide(title="Profiling the talk, from inside the talk", content=the_loop, peps=(799,)),
-    Slide(title="Tachyon, live", content=tachyon_stage, peps=(799,), steps=TACHYON_STEPS),
+    Slide(title="Tachyon, live", content=tachyon_stage, peps=(799,), steps=TACHYON_STEPS, tour=tachyon_tour),
     Slide(title="Tachyon: and also", content=more_tachyon, peps=(799,)),
     Slide(
         title="Frame pointers",

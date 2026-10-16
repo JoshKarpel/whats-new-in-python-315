@@ -16,7 +16,7 @@ from html import escape
 from pathlib import Path
 
 from counterweight.app import app
-from counterweight.clock import frozen_clock
+from counterweight.clock import FrozenClock
 from counterweight.controls import AdvanceClock
 from counterweight.controls import AnyControl
 from counterweight.controls import Quit
@@ -32,7 +32,7 @@ from whats_new.presenter import root
 from whats_new.size import PRESENTING
 from whats_new.slides import Slide
 
-EXPORT_CLOCK = frozen_clock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))
+EXPORT_CLOCK = FrozenClock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))
 SETTLE = timedelta(minutes=1)
 """
 How far the export moves the clock on after each reveal step, which finishes any animation the step started,

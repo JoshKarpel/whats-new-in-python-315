@@ -8,8 +8,9 @@ repos:
         name: check for added large files
         entry: uv run --frozen check-added-large-files
         language: unsupported
-        # The export is one page of SVGs, which outgrows the default limit as the deck grows.
-        exclude: ^slides\.html$
+        # The export is one page of SVGs, and the recording every frame of the deck presented,
+        # which both outgrow the default limit as the deck grows.
+        exclude: ^slides\.(html|cast)$
       - id: check-case-conflict
         name: check for case conflicts
         entry: uv run --frozen check-case-conflict

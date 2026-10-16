@@ -4,7 +4,9 @@ A whirlwind tour of how Python is getting better, as an executable deck:
 the slides are [counterweight](https://github.com/JoshKarpel/counterweight) components,
 and the code on screen is the code that runs, live, on 3.15 and on 3.14.
 
-[`slides.html`](slides.html) is a static copy of every slide.
+[`slides.html`](slides.html) is a static copy of every slide,
+and [`slides.cast`](slides.cast) is a recording of the deck presented, every demo run,
+which [asciinema](https://asciinema.org/) plays with `asciinema play slides.cast`.
 
 ## Running it yourself
 
@@ -48,7 +50,7 @@ What doesn't work in a default container:
 | Tab / Shift+Tab | move between the slide's code and its runs: in the code, every key types until Tab |
 | `r` | reset the slide, undoing its edits |
 | `d` | the slide grid, one section at a time: arrows move, Enter or `d` jumps, Escape goes back |
-| F1 / F2 / F3 | the clock / the size check / how long the last frame took to render |
+| F1 / F2 | the clock / the size check |
 | F4 | pick the code theme: type to narrow the list, Up and Down move, Enter chooses, F4 closes |
 | Ctrl+C | quit |
 

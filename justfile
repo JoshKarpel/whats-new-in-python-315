@@ -40,6 +40,11 @@ alias w := watch
 export:
     uv run --frozen python -m whats_new export
 
+# Not a pre-commit hook as the export is: it runs every demo, which takes minutes and comes out different every time.
+[doc('Record slides.cast: the whole deck presented by an autopilot, running every demo')]
+record:
+    uv run --frozen python -m whats_new record
+
 [doc('Run every run declared on every slide and check its outcome')]
 check-examples *ARGS:
     uv run --frozen pytest tests/test_examples.py {{ ARGS }}

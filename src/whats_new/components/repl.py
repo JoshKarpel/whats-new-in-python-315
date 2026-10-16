@@ -1,5 +1,9 @@
 """A live Python 3.15 REPL embedded in a slide, started by a key, for the new REPL's colors and completions."""
 
+from datetime import timedelta
+
+from counterweight.autopilot import AutopilotStep
+from counterweight.autopilot import Wait
 from counterweight.components import component
 from counterweight.controls import FocusOn
 from counterweight.elements import Div
@@ -18,6 +22,11 @@ from counterweight.widgets import terminal
 from whats_new.components.look import dim
 from whats_new.runs import Interpreter
 from whats_new.slides import SlideProps
+from whats_new.tours import showing
+from whats_new.tours import typed
+
+LOOK = Wait(timedelta(seconds=2))
+"""How long the tour lets the REPL's answer sit, in real time, since the REPL draws it in real time too."""
 
 
 @component
@@ -63,3 +72,31 @@ def repl_pane(props: SlideProps) -> Div:
     )
     # Across the slide: a terminal takes no width from its program, so in a centered column it would get none.
     return Div(style=col | fill(1) | align_self_stretch, on_input=on_input, children=(child,))
+
+
+def repl_tour(step: int) -> list[AutopilotStep]:
+    """
+    Starts the REPL, lists a module's names with `from x import <Tab><Tab>` and a class's attributes,
+    each colored by its kind, completes one and calls it, then takes the keyboard back.
+    A second Tab lists the names, where the first only says they're not unique.
+    """
+    return [
+        KeyPressed(key="s"),
+        showing(">>> "),
+        *typed("from collections import "),
+        KeyPressed(key=Key.Tab),
+        KeyPressed(key=Key.Tab),
+        LOOK,
+        *typed("Ord"),
+        KeyPressed(key=Key.Tab),
+        *typed("\nOrderedDict."),
+        KeyPressed(key=Key.Tab),
+        KeyPressed(key=Key.Tab),
+        LOOK,
+        *typed("fromk"),
+        KeyPressed(key=Key.Tab),
+        # Completing a method types its opening parenthesis.
+        *typed("'abc')\n"),
+        LOOK,
+        KeyPressed(key=Key.ControlB),
+    ]

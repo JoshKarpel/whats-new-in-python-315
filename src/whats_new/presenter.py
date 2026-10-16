@@ -8,7 +8,6 @@ so "the grid is open" and "what it has selected" can't disagree.
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import replace
-from datetime import timedelta
 from datetime import tzinfo
 from zoneinfo import ZoneInfo
 
@@ -99,11 +98,6 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
             return None
 
 
-def never_measured() -> timedelta | None:
-    """The frame time where nothing measures it, as in the export and the tests."""
-    return None
-
-
 CHICAGO = ZoneInfo("America/Chicago")
 """Where the talk is given, so the clock reads the room's time, not the VM's UTC."""
 
@@ -115,18 +109,16 @@ def root(
     start: Checkpoint,
     remember: Callable[[Checkpoint], None],
     timezone: tzinfo = CHICAGO,
-    last_frame: Callable[[], timedelta | None] = never_measured,
 ) -> Div:
     """
     The deck. It starts from `start` and calls `remember` with a new checkpoint whenever the slide or the code theme
     changes, so a restart (live reload, or a crash on stage) comes back to the same slide, in the same theme.
-    The footer's clock reads the time in `timezone`, and its frame time (F3) is whatever `last_frame` reports.
+    The footer's clock reads the time in `timezone`.
     F4 opens the code theme picker (see `theme_picker`), and closes it unchanged.
     """
     position, set_position = use_state(Position(index=clamp(start.slide, 0, len(slides) - 1)))
     show_clock, set_show_clock = use_state(False)
     show_size, set_show_size = use_state(False)
-    show_frame_time, set_show_frame_time = use_state(False)
     code_theme, set_code_theme = use_state(start.code_theme)
     is_picking_theme, set_picking_theme = use_state(False)
     # Owned here rather than by the slide, so closing the picker can give focus back to whatever takes the slide's keys.
@@ -151,9 +143,6 @@ def root(
                 return ()
             case Key.F2:
                 set_show_size(lambda shown: not shown)
-                return ()
-            case Key.F3:
-                set_show_frame_time(lambda shown: not shown)
                 return ()
             case Key.F4:
                 set_picking_theme(not is_picking_theme)
@@ -196,7 +185,6 @@ def root(
                 screen.width,
                 screen.height,
                 timezone,
-                last_frame if show_frame_time else None,
             ),
             # Last, so it paints over the slide.
             *(

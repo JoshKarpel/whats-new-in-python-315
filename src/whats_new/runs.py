@@ -107,6 +107,12 @@ class Capability(Enum):
     """Sampling with `perf_event_open`, which Docker's default seccomp profile blocks."""
 
 
+def available_capabilities() -> frozenset[Capability]:
+    """What this machine allows, probed rather than assumed: a container usually can't run perf."""
+    perf = subprocess.run(["perf", "record", "-q", "-o", "/dev/null", "--", "true"], capture_output=True, check=False)
+    return frozenset({Capability.PERF} if perf.returncode == 0 else set())
+
+
 @dataclass(frozen=True, slots=True)
 class Run:
     """

@@ -1,5 +1,6 @@
 """
-The deck's entry point: `python -m whats_new` presents it, and `python -m whats_new export` writes `slides.html`.
+The deck's entry point: `python -m whats_new` presents it, `python -m whats_new export` writes `slides.html`,
+and `python -m whats_new record` writes `slides.cast`.
 
 Interpreters are resolved here, once, before anything draws, so a missing one fails at launch, not on stage.
 """
@@ -15,10 +16,9 @@ from tempfile import gettempdir
 from counterweight.app import app
 
 from whats_new import export
+from whats_new import recording
 from whats_new.checkpoint import Checkpoint
 from whats_new.deck import SLIDES
-from whats_new.frame_time import FrameTimer
-from whats_new.frame_time import timed_output
 from whats_new.host import EXPORT_FLAMEGRAPH_SITE
 from whats_new.host import EXPORT_PID
 from whats_new.host import FlamegraphSite
@@ -28,6 +28,7 @@ from whats_new.rehearse import rehearse
 from whats_new.runs import ROOT
 from whats_new.runs import Interpreters
 from whats_new.runs import MissingInterpreter
+from whats_new.runs import available_capabilities
 
 CHECKPOINT_FILE = Path(gettempdir()) / "whats-new-in-python-315-checkpoint"
 """The deck's checkpoint, so a restart (live reload, or a crash on stage) lands on the same slide, in the same theme."""
@@ -52,6 +53,10 @@ def main() -> None:
     export_parser = commands.add_parser("export", help="write the HTML export")
     export_parser.add_argument(
         "--output", type=Path, help="write the page here instead of the repository's tracked slides.html"
+    )
+    record_parser = commands.add_parser("record", help="record the deck presented by an autopilot, runs and all")
+    record_parser.add_argument(
+        "--output", type=Path, default=ROOT / "slides.cast", help="write the recording here instead of slides.cast"
     )
     arguments = parser.parse_args()
 
@@ -78,6 +83,15 @@ def main() -> None:
                     export.write_tracked(ROOT / "slides.html", html)
                 else:
                     arguments.output.write_text(html)
+            case "record":
+                host = Host(
+                    interpreters=interpreters,
+                    flamegraph=EXPORT_FLAMEGRAPH_SITE,
+                    # The real one, since the Tachyon stage's tour attaches the profiler to the deck.
+                    pid=os.getpid(),
+                    examples_copy=Path(examples_copy),
+                )
+                asyncio.run(recording.record(SLIDES, host, available_capabilities(), arguments.output))
             case "present" | None:
                 host = Host(
                     interpreters=interpreters,
@@ -85,16 +99,12 @@ def main() -> None:
                     pid=os.getpid(),
                     examples_copy=Path(examples_copy),
                 )
-                timer = FrameTimer()
-                with timed_output(sys.stdout, timer) as output:
-                    asyncio.run(
-                        app(
-                            root(SLIDES, host, load_checkpoint(), save_checkpoint, last_frame=lambda: timer.last),
-                            output_stream=output,
-                            clock=timer.clock,
-                            title="What's New in Python 3.15",
-                        )
+                asyncio.run(
+                    app(
+                        root(SLIDES, host, load_checkpoint(), save_checkpoint),
+                        title="What's New in Python 3.15",
                     )
+                )
             case unknown:
                 parser.error(f"unknown command {unknown!r}")
 

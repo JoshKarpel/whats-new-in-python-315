@@ -671,8 +671,11 @@ Each item gets one runnable line where possible:
 ### Layout
 ```text
 src/whats_new/
-  __main__.py        app entry: root component, navigation, export
+  __main__.py        app entry: root component, navigation, export, recording
   deck.py            SLIDES = (*OPENING, *SMALL_THINGS, ..., *CLOSING)
+  export.py          slides.html: a screenshot per reveal step
+  recording.py       slides.cast: the deck presented by an autopilot
+  tours.py           autopilot steps for slides' tours: hold, type, wait for the screen
   sections/          one module per running-order section, each exporting a tuple of slides
   components/        title card, drop shadow, footer, slide grid, code_example, run_pane,
                      split layouts, bar chart
@@ -780,9 +783,6 @@ Dockerfile           the image others run the deck from
   - F1: toggle the clock, as in the reference talk. F1 opens help in some
     browsers, but not in the laptop's.
   - F2: the size check. See [Presenting resolution](#presenting-resolution).
-  - F3: how long the last frame took to render, in the footer. counterweight
-    doesn't report it, so the deck measures it through the clock and the output
-    stream it hands `app()`: from the render's clock read to the frame's flush.
   - F4: the code theme picker, an autocomplete field as in counterweight's
     autocomplete cookbook. Typing narrows the list (the typed letters in order),
     Down and Up move the highlight, and Enter or Tab sets that Pygments style on
@@ -1043,6 +1043,35 @@ screenshots each slide as SVG, and writes the page.
   when it first works.
 - pre-commit itself goes in the uv dev group, as do the hooks' tools.
 
+### Asciicast recording
+
+`slides.cast` is the moving copy: the whole deck presented by an autopilot,
+as an [asciicast v3](https://docs.asciinema.org/manual/asciicast/v3/) that
+asciinema-player plays back. `just record` writes it, through counterweight's
+`Recording`, headless at the presenting size.
+
+- Where the export shows each slide before anything runs, the recording runs
+  everything: every reveal step, then every run on the slide, in order, each held on
+  once it ends. A run that needs a capability the machine lacks (`perf`) is left out,
+  as the example check skips it.
+- A slide's `tour` carries what a presenter does on a stage the run pane doesn't
+  drive, by reveal step: the REPL slide starts the REPL and shows its completions,
+  and the Tachyon stage attaches the profiler, starts each workload its talking
+  points name, moves through the modes, and dumps every thread. The flamegraph (`F`)
+  stays out, since it serves a page the recording can't show. The recording's `Host`
+  carries the real PID, so Tachyon attaches to the recording process itself.
+- Time is split by what it's waiting for. Reveals hold on the frozen clock, one
+  animation frame at a time, so animations play out and a hold lasts the same on
+  every recording. Runs, the REPL and Tachyon take real time, which the autopilot
+  waits out with `Wait` and `WaitFor` on the frame on screen. A run is waited for in
+  two parts, until the run pane shows it in progress and then until it shows an
+  outcome, since the previous run's outcome shows until the new run starts.
+- Each slide is a chapter (a `Marker`), and the keys pressed are recorded, so the
+  player can jump between slides and show the keystrokes.
+- The player's idle limit cuts a run's silences down to the length of a hold.
+- Real time makes the recording differ on every run, so no hook regenerates it as
+  one does the export: re-record by hand when the deck changes.
+
 ### The slide grid
 
 `d` replaces the current slide with a grid of thumbnails, as
@@ -1244,9 +1273,8 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
 - No context or `use_reducer`. Pass the slide index and flags down as props.
 - No built-in timer or footer. `use_clock` makes these easy.
 - Rendering cost: the embedded pane costs real frame time (the emulator snapshot),
-  on top of whatever workload is running. F3 shows the last frame's render time on
-  the Tachyon stage; also watch the frame rate as the audience sees it, through
-  zellij web.
+  on top of whatever workload is running. Watch the frame rate on the Tachyon
+  stage as the audience sees it, through zellij web.
 
 ## Verification
 
@@ -1321,6 +1349,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   lands during the build.
 - Title cards get drop shadows.
 - A committed `slides.html` export, kept current by a pre-commit hook.
+- A `slides.cast` recording of the deck presented, runs and all, recorded by hand.
 - Color: the embed (#423) renders program output with its colors. If that falls
   through, the deck stays plain text and color becomes later work.
 - No speedscope. The point is Tachyon, so the browser step (if kept) shows

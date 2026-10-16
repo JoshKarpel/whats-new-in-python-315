@@ -1,13 +1,16 @@
 """
-What a slide is: a title, the component that draws it, how many reveal steps it has, and the PEPs it cites.
+What a slide is: a title, the component that draws it, how many reveal steps it has, the PEPs it cites,
+what it runs, and what the recording does on it.
 
 Sections build tuples of these; the deck concatenates them, and the presenter, the grid and the export all walk them.
 """
 
 from collections.abc import Callable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 
+from counterweight.autopilot import AutopilotStep
 from counterweight.components import Component
 from counterweight.controls import AnyControl
 from counterweight.controls import FocusOn
@@ -68,6 +71,11 @@ class TitleCard(Enum):
     """Opens a topic within the section it's in, such as Tachyon within Performance."""
 
 
+def no_tour(step: int) -> Iterable[AutopilotStep]:
+    """The tour of a slide that shows everything through its reveal steps and runs."""
+    return ()
+
+
 @dataclass(frozen=True, slots=True)
 class Slide:
     title: str
@@ -83,6 +91,11 @@ class Slide:
     """
     title_card: TitleCard | None = None
     """What kind of title card the slide is, or `None` for a slide the frame draws a heading over."""
+    tour: Callable[[int], Iterable[AutopilotStep]] = no_tour
+    """
+    What the recording does on each reveal step, by the step, beyond showing it and running the slide's runs:
+    the keys a presenter would press on a stage the run pane doesn't drive, such as the REPL's.
+    """
 
     def __post_init__(self) -> None:
         if self.steps < 1:

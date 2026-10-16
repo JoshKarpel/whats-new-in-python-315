@@ -15,6 +15,7 @@ from whats_new.components.look import code
 from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.components.repl import repl_pane
+from whats_new.components.repl import repl_tour
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
 from whats_new.runs import on_both
@@ -105,7 +106,7 @@ SLIDES = (
             old=Expect(status=0, output="has no attribute 'push'"),
         ),
     ),
-    Slide(title="Lightning: the REPL", content=repl),
+    Slide(title="Lightning: the REPL", content=repl, tour=repl_tour),
     Slide(
         title="Lightning: context managers on generators",
         content=context_managers,
