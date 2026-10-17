@@ -56,6 +56,8 @@ SAMPLE = "    ●        ●        ●        ●        ●        ●        
 """A sample every 9 cells, on a clock rather than on calls, so it never lands on one of the quick helpers."""
 SAMPLING_STEPS = 2
 TIMELINE = timedelta(seconds=4)
+TRACING_COST = "a hook on every call and return: exact, and it slows everything"
+"""What tracing costs, which appears once the playhead reaches the end of the calls."""
 AHEAD = EDGE | CellStyle(dim=True)
 """The calls the playhead hasn't reached yet."""
 
@@ -70,6 +72,11 @@ def tracing_vs_sampling(step: int, is_live: bool) -> Div | Component:
     if step == 0:
         return timeline(0)
     return playing_timeline(is_live).with_key("playing")
+
+
+def ends_showing(step: int) -> str | None:
+    """What tracing costs, once the playhead has run the length of the calls at step 1."""
+    return TRACING_COST if step == 1 else None
 
 
 @component
@@ -102,7 +109,7 @@ def timeline(reached: int) -> Div:
         ink(TRACE[:reached], 12, 0, CROSSED),
         played(CALLS, 1),
         played(CALLED, 2),
-        *((ink("a hook on every call and return: exact, and it slows everything", 12, 3, NOTE),) if is_done else ()),
+        *((ink(TRACING_COST, 12, 3, NOTE),) if is_done else ()),
         ink("sampling", 0, 5, HIGHLIGHT),
         ink(SAMPLE[:reached], 12, 5, HIGHLIGHT),
         played(CALLS, 6),

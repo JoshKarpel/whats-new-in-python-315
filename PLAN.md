@@ -1064,11 +1064,18 @@ asciinema-player plays back. `just record` writes it, through counterweight's
   stays out, since it serves a page the recording can't show. The recording's `Host`
   carries the real PID, so Tachyon attaches to the recording process itself.
 - Time is split by what it's waiting for. Reveals hold on the frozen clock, one
-  animation frame at a time, so animations play out and a hold lasts the same on
-  every recording. Runs, the REPL and Tachyon take real time, which the autopilot
-  waits out with `Wait` and `WaitFor` on the frame on screen. A run is waited for in
-  two parts, until the run pane shows it in progress and then until it shows an
-  outcome, since the previous run's outcome shows until the new run starts.
+  animation frame at a time, so a hold lasts the same on every recording. Runs,
+  the REPL and Tachyon take real time, which the autopilot waits out with `Wait`
+  and `WaitFor` on the frame on screen. A run is waited for in two parts, until
+  the run pane shows it in progress and then until it shows an outcome, since the
+  previous run's outcome shows until the new run starts.
+- Animations are waited out the same way, since they can outlast a hold: the
+  fan-outs take 12.6 s a panel against a 3 s hold. A slide declares, per reveal
+  step, text that only its animation's last frame draws (`Slide.ends_showing`),
+  and the autopilot waits for it before holding, so every animation is seen to
+  its end. A frozen clock runs in real time during a `WaitFor`, so the animation
+  plays while it waits. A test holds each declared text to the animation: absent
+  on the step's first frame, present once it has played.
 - Each slide is a chapter (a `Marker`), and the keys pressed are recorded, so the
   player can jump between slides and show the keystrokes.
 - The player's idle limit cuts a run's silences down to the length of a hold.

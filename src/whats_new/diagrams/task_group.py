@@ -36,12 +36,19 @@ RACE = timedelta(seconds=2)
 """How long the race takes on screen: the winner's 0.1 s, slowed down enough to follow."""
 RACING = 0.8
 """The part of the race spent racing; the rest holds the moment of cancellation before the marks appear."""
+WON = "✓ tg.cancel()"
+"""The winner's mark, which appears as the race ends."""
 
 
 def task_group(step: int, is_live: bool) -> Div | Component:
     if step == 0:
         return tree(step, finished=None)
     return race(step, is_live).with_key("race")
+
+
+def ends_showing(step: int) -> str | None:
+    """The race plays at step 1, and carries on, already over, into step 2."""
+    return WON if step == 1 else None
 
 
 @component
@@ -77,7 +84,7 @@ def tree(step: int, finished: float | None, is_over: bool = False) -> Div:
             ),
         ]
         if is_over and is_winner:
-            parts.append(centered_ink("✓ tg.cancel()", column, 10, HIGHLIGHT))
+            parts.append(centered_ink(WON, column, 10, HIGHLIGHT))
         elif is_over:
             parts.append(centered_ink("✗ cancelled", column, 10, CROSSED))
     if step >= 2:

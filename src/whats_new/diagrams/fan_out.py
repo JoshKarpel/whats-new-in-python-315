@@ -80,6 +80,11 @@ Every copy moves a cell per tick of this, so copies to nearer threads arrive fir
 PER_ITEM = PER_CELL * SPAN
 
 
+def ends_showing(step: int) -> str | None:
+    """The caption of the panel `step` plays, which appears once all its items are dealt; step 0 plays nothing."""
+    return None if step == 0 else PANELS[step - 1][1][0]
+
+
 def fan_out(step: int, is_live: bool) -> Div:
     panels: list[Div | Component] = []
     for index in range(len(PANELS)):

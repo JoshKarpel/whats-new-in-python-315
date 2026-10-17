@@ -40,8 +40,17 @@ STACK = (
 EXTENSION = 2
 HOP = timedelta(milliseconds=600)
 """How long the walk takes to follow one saved rbp."""
+WALKED = ": one load per frame, no DWARF tables"
+"""The end of the caption once a walk reaches `_start`."""
+LOST_CALLERS = "its callers vanish"
+"""The end of the caption once a walk stops at the extension."""
 LOST = CellStyle(foreground=EDGE.foreground, dim=True)
 ARROW_X = 37
+
+
+def frame_pointers_end_showing(step: int) -> str | None:
+    """Each walk's caption, which changes as the walk ends; step 0 is the chain, still."""
+    return (None, WALKED, LOST_CALLERS)[step]
 
 
 def frame_pointer_chain(step: int, is_live: bool) -> Div | Component:
@@ -94,13 +103,13 @@ def caption(is_broken: bool, reached: int | None) -> tuple[Chunk, ...]:
     if is_broken and reached == EXTENSION + 1:
         return (
             Chunk(content="one extension without frame pointers, and ", style=NOTE),
-            Chunk(content="its callers vanish", style=CROSSED),
+            Chunk(content=LOST_CALLERS, style=CROSSED),
         )
     if not is_broken and reached == len(STACK) - 1:
         return (
             Chunk(content="every frame, back to ", style=NOTE),
             Chunk(content="_start", style=HIGHLIGHT),
-            Chunk(content=": one load per frame, no DWARF tables", style=NOTE),
+            Chunk(content=WALKED, style=NOTE),
         )
     return (Chunk(content="perf and eBPF walk this list: cheap, and no DWARF tables needed", style=NOTE),)
 
@@ -141,6 +150,11 @@ GC_STEPS = len(RELEASES)
 RELEASE_WIDTH = 17
 TIMELINE_WIDTH = RELEASE_WIDTH * (len(RELEASES) - 1) + len("a PEP to return")
 EXTEND = timedelta(milliseconds=500)
+
+
+def gc_timeline_ends_showing(step: int) -> str | None:
+    """What happened in the release at `step`, which appears once the axis reaches it."""
+    return RELEASES[step][1]
 
 
 def gc_timeline(step: int, is_live: bool) -> Component:

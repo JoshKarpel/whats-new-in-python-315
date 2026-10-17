@@ -218,7 +218,13 @@ FRAME_POINTER_DEMO = Run(
 SLIDES = (
     Slide(title="Performance", content=section_title, title_card=TitleCard.SECTION),
     Slide(title="Tachyon", content=tachyon_name, title_card=TitleCard.SUBSECTION),
-    Slide(title="Why sampling?", content=why_sampling, peps=(799,), steps=profilers.SAMPLING_STEPS),
+    Slide(
+        title="Why sampling?",
+        content=why_sampling,
+        peps=(799,),
+        steps=profilers.SAMPLING_STEPS,
+        ends_showing=profilers.ends_showing,
+    ),
     Slide(
         title="Tracing vs sampling: the overhead",
         content=sampling_overhead,
@@ -254,6 +260,7 @@ SLIDES = (
         peps=(831,),
         steps=low_level.FRAME_POINTER_STEPS,
         runs=(FRAME_POINTER_DEMO,),
+        ends_showing=low_level.frame_pointers_end_showing,
     ),
     Slide(title="The JIT", content=jit),
     Slide(
@@ -292,7 +299,12 @@ SLIDES = (
         ),
     ),
     Slide(title="The garbage collector saga", content=gc_title, title_card=TitleCard.SUBSECTION),
-    Slide(title="The garbage collector", content=gc_story, steps=low_level.GC_STEPS),
+    Slide(
+        title="The garbage collector",
+        content=gc_story,
+        steps=low_level.GC_STEPS,
+        ends_showing=low_level.gc_timeline_ends_showing,
+    ),
     Slide(
         title="The garbage collector: peak memory",
         content=gc_peaks,

@@ -5,7 +5,9 @@ that asciinema-player plays back, with a chapter per slide.
 Unlike the export, it runs things: each slide's tour, and then its runs, after its last reveal step.
 Those take real time, which the autopilot waits out by watching the screen, so the recording comes out a little
 different every time, and nothing regenerates it on commit as the export is.
-Everything between them is paced by the frozen clock, so a reveal holds exactly as long on every recording.
+So does an animation a reveal step plays: the autopilot waits for its last frame (`Slide.ends_showing`),
+since a hold cut short of the end would never show where it lands. The holds are paced by the frozen clock,
+so each lasts exactly as long on every recording.
 """
 
 import re
@@ -39,6 +41,7 @@ from whats_new.runs import Run
 from whats_new.size import PRESENTING
 from whats_new.slides import Slide
 from whats_new.tours import hold
+from whats_new.tours import showing
 
 REVEAL = timedelta(seconds=3)
 """How long the recording holds on each reveal step, to read it."""
@@ -89,12 +92,16 @@ def run_all(slide: Slide, capabilities: frozenset[Capability]) -> Iterator[Autop
 
 
 def presented(slides: tuple[Slide, ...], capabilities: frozenset[Capability]) -> Iterator[AutopilotStep]:
-    """The deck presented from its first slide: each reveal step held on and toured, then the slide's runs."""
+    """
+    The deck presented from its first slide: each reveal step played out, held on and toured, then the slide's runs.
+    """
     for index, slide in enumerate(slides):
         yield Marker(label=f"{index + 1}. {slide.title}")
         for step in range(slide.steps):
             if step > 0:
                 yield KeyPressed(key=Key.Space)
+            if (end := slide.ends_showing(step)) is not None:
+                yield showing(end)
             yield from hold(REVEAL)
             yield from slide.tour(step)
         yield from run_all(slide, capabilities)

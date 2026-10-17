@@ -76,6 +76,11 @@ def no_tour(step: int) -> Iterable[AutopilotStep]:
     return ()
 
 
+def nothing_animates(step: int) -> str | None:
+    """What a slide that draws each reveal step all at once ends showing: no animation to wait for."""
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class Slide:
     title: str
@@ -95,6 +100,12 @@ class Slide:
     """
     What the recording does on each reveal step, by the step, beyond showing it and running the slide's runs:
     the keys a presenter would press on a stage the run pane doesn't drive, such as the REPL's.
+    """
+    ends_showing: Callable[[int], str | None] = nothing_animates
+    """
+    Text that only the last frame of the animation a reveal step plays draws, by the step, or `None` where the step
+    plays none. The recording waits for it before holding on the step, so an animation plays out in full,
+    however long it is.
     """
 
     def __post_init__(self) -> None:

@@ -137,7 +137,12 @@ SLIDES = (
             ),
         ),
     ),
-    Slide(title="TaskGroup.cancel(): first mirror wins", content=first_wins_tree, steps=task_group.STEPS),
+    Slide(
+        title="TaskGroup.cancel(): first mirror wins",
+        content=first_wins_tree,
+        steps=task_group.STEPS,
+        ends_showing=task_group.ends_showing,
+    ),
     Slide(
         title="TaskGroup.cancel(): how it was done before",
         content=first_wins_old,
@@ -194,7 +199,7 @@ SLIDES = (
             ),
         ),
     ),
-    Slide(title="One source, four threads", content=fan_outs, steps=fan_out.STEPS),
+    Slide(title="One source, four threads", content=fan_outs, steps=fan_out.STEPS, ends_showing=fan_out.ends_showing),
     Slide(
         title="Free-threading in 3.15",
         content=free_threading,

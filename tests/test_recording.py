@@ -3,17 +3,28 @@
 import json
 from pathlib import Path
 
+import pytest
+from counterweight.app import app
+from counterweight.autopilot import WaitFor
+from counterweight.controls import AdvanceClock
 from counterweight.controls import Marker
+from counterweight.controls import Quit
+from counterweight.controls import Screenshot
 from counterweight.events import KeyPressed
 from counterweight.keys import Key
 
+from whats_new.checkpoint import Checkpoint
 from whats_new.deck import SLIDES
+from whats_new.export import EXPORT_CLOCK
+from whats_new.export import SETTLE
 from whats_new.host import Host
+from whats_new.presenter import root
 from whats_new.recording import presented
 from whats_new.recording import record
 from whats_new.runs import Capability
 from whats_new.runs import Expect
 from whats_new.runs import Run
+from whats_new.size import PRESENTING
 from whats_new.slides import Slide
 from whats_new.slides import TitleCard
 
@@ -60,3 +71,42 @@ def test_a_slides_chapter_starts_once_the_deck_arrives_on_it() -> None:
     steps = list(presented(SLIDES[:2], capabilities=frozenset()))
 
     assert steps.index(Marker(label=f"2. {SLIDES[1].title}")) == steps.index(KeyPressed(key=Key.Right)) + 1
+
+
+ANIMATED = [
+    (index, step)
+    for index, slide in enumerate(SLIDES)
+    for step in range(slide.steps)
+    if slide.ends_showing(step) is not None
+]
+
+
+@pytest.mark.parametrize(("index", "step"), ANIMATED, ids=[f"{SLIDES[i].title}, step {s}" for i, s in ANIMATED])
+async def test_an_animation_shows_its_end_only_once_it_has_played(host: Host, index: int, step: int) -> None:
+    frames: list[str] = []
+    await app(
+        root(SLIDES, host, Checkpoint(slide=index), lambda checkpoint: None),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=(
+            *(key for _ in range(step) for key in (AdvanceClock(by=SETTLE), KeyPressed(key=Key.Space))),
+            Screenshot(handler=lambda frame: frames.append(frame.text(ansi=False))),
+            AdvanceClock(by=SETTLE),
+            Screenshot(handler=lambda frame: frames.append(frame.text(ansi=False))),
+            Quit(),
+        ),
+        clock=EXPORT_CLOCK,
+    )
+
+    end = SLIDES[index].ends_showing(step)
+    assert end is not None
+    assert (end in frames[0], end in frames[1]) == (False, True)
+
+
+def test_the_recording_waits_for_each_animation_to_end_before_holding_on_it() -> None:
+    # Animated on every step after the first, and without runs, whose waits would count too.
+    slide = next(slide for slide in SLIDES if slide.title == "One source, four threads")
+    steps = list(presented((slide,), capabilities=frozenset()))
+
+    after_space = [steps[i + 1] for i, step in enumerate(steps) if step == KeyPressed(key=Key.Space)]
+    assert [isinstance(step, WaitFor) for step in after_space] == [True] * (slide.steps - 1)
