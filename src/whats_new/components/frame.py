@@ -22,7 +22,7 @@ TALK_TITLE = "What's New in Python 3.15"
 
 def heading(title: str, peps: tuple[int, ...]) -> Text:
     """
-    The slide's title, centered on its top row, after the PEPs it cites: `PEP 814: frozendict`.
+    The slide's title, at the left of its top row, where a thumbnail's title sits, after the PEPs it cites: `PEP 814: frozendict`.
     Each `PEP <n>` is an OSC 8 hyperlink to it, and the URL isn't spelled out, since from a seat,
     searching for "PEP 814" is quicker than typing one, and a line of links would cost a row on every such slide.
     """
@@ -37,9 +37,7 @@ def heading(title: str, peps: tuple[int, ...]) -> Text:
             )
         )
     prefix = (*links, Chunk(content=": ")) if links else ()
-    return Text(
-        content=(*prefix, Chunk(content=title)), style=heading_style | pad_x(1) | shrink(0) | text_justify_center
-    )
+    return Text(content=(*prefix, Chunk(content=title)), style=heading_style | pad_x(1) | shrink(0))
 
 
 @component

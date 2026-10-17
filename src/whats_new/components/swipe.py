@@ -28,7 +28,7 @@ OFF = "off"
 TRANSITIONS = (OFF, *EASINGS)
 """What F3 offers: no transition, then each easing curve, by name."""
 SWIPE = timedelta(seconds=0.75)
-"""How long a swipe takes, as long as spiel's: long enough to see a curve's shape, short enough not to wait on."""
+"""How long a swipe takes, and the grid's zoom, as long as spiel's swipe: long enough to see a curve's shape, short enough not to wait on."""
 
 
 class Direction(Enum):

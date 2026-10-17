@@ -1,6 +1,6 @@
 """
 F3's slide transitions: the easing curves, where the two slides sit, which moves swipe,
-and the swipe itself, drawn on the export's frozen clock and stopped halfway.
+and the swipe itself, drawn on the export's frozen clock and stopped halfway; and the grid shrinking open.
 """
 
 from collections.abc import Sequence
@@ -19,6 +19,9 @@ from counterweight.output import Frame
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.easing import EASINGS
 from whats_new.components.easing import Easing
+from whats_new.components.grid import Toward
+from whats_new.components.grid import Zoom
+from whats_new.components.grid import shares
 from whats_new.components.swipe import SWIPE
 from whats_new.components.swipe import Direction
 from whats_new.components.swipe import offsets
@@ -28,6 +31,7 @@ from whats_new.host import Host
 from whats_new.presenter import Position
 from whats_new.presenter import root
 from whats_new.presenter import swipe_direction
+from whats_new.presenter import zoom_toward
 from whats_new.size import PRESENTING
 
 SAMPLES = [step / 100 for step in range(101)]
@@ -109,10 +113,10 @@ def slide_rows(frame: Frame) -> list[str]:
     return frame.text(ansi=False).splitlines()[:-FOOTER_ROWS]
 
 
-async def drive(host: Host, index: int, steps: Sequence[AnyEvent | AnyControl]) -> None:
-    """Starts the deck on slide `index` with the linear transition picked, then drives it through `steps`."""
+async def drive(host: Host, index: int, steps: Sequence[AnyEvent | AnyControl], transition: str = "linear") -> None:
+    """Starts the deck on slide `index` with `transition` picked, then drives it through `steps`."""
     await app(
-        root(SLIDES, host, Checkpoint(slide=index, transition="linear"), lambda checkpoint: None),
+        root(SLIDES, host, Checkpoint(slide=index, transition=transition), lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=(*steps, Quit()),
@@ -191,6 +195,116 @@ async def test_the_arriving_slide_takes_the_keys_while_the_swipe_plays(host: Hos
             KeyPressed(key=Key.Right),
             AdvanceClock(by=SWIPE / 3),
             # Reaches the arriving slide's editor only if focus moved to it as the swipe began.
+            KeyPressed(key=Key.Tab),
+            KeyPressed(key="Q"),
+            AdvanceClock(by=SWIPE),
+            Screenshot(handler=frames.append),
+        ),
+    )
+
+    assert 'print(f"{DEFAULTS=}")Q' in frames[0].text(ansi=False)
+
+
+@pytest.mark.parametrize(
+    ("selected", "openness", "expected"),
+    [
+        (1, 0.0, (0.0, 1.0, 0.0)),
+        (2, 0.0, (0.0, 0.0, 1.0)),
+        (0, 0.5, (2 / 3, 1 / 6, 1 / 6)),
+        (2, 1.0, (1 / 3, 1 / 3, 1 / 3)),
+        (1, 1.2, (0.4, 0.2, 0.4)),
+    ],
+    ids=["closed", "closed, last track", "half open", "open", "past open"],
+)
+def test_shares_shrink_the_selected_track_into_place(
+    selected: int, openness: float, expected: tuple[float, ...]
+) -> None:
+    assert shares(selected, 3, openness) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("easing", EASINGS.values(), ids=EASINGS.keys())
+@pytest.mark.parametrize("toward", Toward)
+def test_no_curve_zooms_a_share_below_zero(toward: Toward, easing: Easing) -> None:
+    zoom = Zoom(toward=toward, easing=easing)
+    assert min(min(shares(0, 3, zoom.openness(t))) for t in SAMPLES) >= 0.0
+
+
+@pytest.mark.parametrize(("toward", "expected"), [(Toward.GRID, 0.25), (Toward.SLIDE, 0.75)])
+def test_zooming_in_runs_the_opening_backwards(toward: Toward, expected: float) -> None:
+    assert Zoom(toward=toward, easing=EASINGS["linear"]).openness(0.25) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "expected"),
+    [
+        (Position(index=3), Position(index=3, selected=3), Toward.GRID),
+        (Position(index=3, selected=7), Position(index=7), Toward.SLIDE),
+        (Position(index=3, selected=7), Position(index=3), Toward.SLIDE),
+        (Position(index=3, selected=3), Position(index=3, selected=4), None),
+        (Position(index=3), Position(index=4), None),
+    ],
+    ids=["opening the grid", "jumping from the grid", "Escape", "moving the selection", "moving on a slide"],
+)
+def test_zoom_toward(before: Position, after: Position, expected: Toward | None) -> None:
+    assert zoom_toward(before, after) is expected
+
+
+GRID_TOP = 1
+"""The grid's first row, under the line naming the section."""
+OPEN = (KeyPressed(key="d"), AdvanceClock(by=SWIPE))
+JUMP = (*OPEN, KeyPressed(key=Key.Right), KeyPressed(key=Key.Enter))
+"""Opens the grid from `EDITED`, then jumps to the slide after it."""
+
+
+async def screens(host: Host, steps: Sequence[AnyEvent | AnyControl | None], transition: str = "linear") -> list[Frame]:
+    """What `steps` from `EDITED` draw, a screenshot for each `None` among them."""
+    frames: list[Frame] = []
+    await drive(
+        host,
+        EDITED,
+        tuple(Screenshot(handler=frames.append) if step is None else step for step in steps),
+        transition=transition,
+    )
+    return frames
+
+
+async def test_opening_the_grid_starts_with_the_selected_thumbnail_filling_it(host: Host) -> None:
+    (frame,) = await screens(host, (KeyPressed(key="d"), None))
+
+    rows = slide_rows(frame)
+    assert rows[GRID_TOP] == "╭" + "─" * (PRESENTING.columns - 2) + "╮"
+    assert rows[GRID_TOP + 1].startswith(f"│{EDITED + 1} | {SLIDES[EDITED].title}")
+
+
+async def test_the_grid_opens_to_where_it_opens_without_a_transition(host: Host) -> None:
+    (zoomed,) = await screens(host, (*OPEN, None))
+    (instant,) = await screens(host, (*OPEN, None), transition="off")
+
+    assert slide_rows(zoomed) == slide_rows(instant)
+
+
+async def test_jumping_from_the_grid_zooms_in_from_the_grid_as_it_was(host: Host) -> None:
+    before, after = await screens(host, (*JUMP[:-1], None, JUMP[-1], None))
+
+    assert slide_rows(after) == slide_rows(before)
+
+
+async def test_jumping_from_the_grid_ends_on_the_slide_as_without_a_transition(host: Host) -> None:
+    (zoomed,) = await screens(host, (*JUMP, AdvanceClock(by=SWIPE), None))
+    (instant,) = await screens(host, (*JUMP, None), transition="off")
+
+    assert slide_rows(zoomed) == slide_rows(instant)
+
+
+async def test_the_slide_jumped_to_takes_the_keys_while_the_grid_zooms_in(host: Host) -> None:
+    frames: list[Frame] = []
+    await drive(
+        host,
+        EDITED - 1,
+        (
+            *JUMP,
+            AdvanceClock(by=SWIPE / 3),
+            # Reaches the editor only if the slide mounted, and took focus, beneath the grid as the zoom began.
             KeyPressed(key=Key.Tab),
             KeyPressed(key="Q"),
             AdvanceClock(by=SWIPE),

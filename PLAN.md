@@ -951,9 +951,10 @@ runs the first in it, `2` the next, each replacing what the box showed, and the
 line above the box marks which one it shows. Runs beside the code, or side by
 side, would halve the width of a traceback that already wraps.
 
-Content is centered both ways by default, and a slide's title is centered on its
-top row. The exceptions are pictures drawn for a fixed position, the hand-placed
-diagrams. Notes beside code take their natural width and shrink to fit;
+Content is centered both ways by default. The exceptions are pictures drawn for
+a fixed position, the hand-placed diagrams, and a slide's title, which sits at the
+left of its top row, where its thumbnail's title sits in the slide grid, so the
+title stays put as the grid zooms. Notes beside code take their natural width and shrink to fit;
 code too wide to leave the notes 28 columns puts them under it instead.
 
 The deck is drawn for 100x30, from trying sizes on the presenting laptop.
@@ -1086,7 +1087,9 @@ F3 picks the transition: `off`, or the easing curve the swipe follows.
   `spring` carry the slides past their place and back, so the offsets aren't
   clamped to the screen.
 - Only moving from one slide straight to another swipes, as in spiel: not opening
-  or leaving the grid, jumping from it, or `r`.
+  or leaving the grid, jumping from it, or `r`. Opening and leaving the grid zoom
+  instead, along the same curve, over the same 0.75 s. See
+  [The slide grid](#the-slide-grid).
 - Both slides are mounted for the length of the swipe. The one being left keeps
   its state (run output, edits), since it continues under its own key, but stops
   being live at once. counterweight auto-focuses a component only on the render it
@@ -1147,6 +1150,20 @@ Design:
   mounted underneath, including a live Tachyon pane still costing frame time.
 - The Tachyon stage leaves the grid while its pane has focus: there, `d` goes to
   the profiler. Take focus back with Tab first.
+- With a transition picked, the grid zooms. Opening, the selected thumbnail
+  starts filling the grid and shrinks into its place while the others grow in
+  around it. Leaving, by a jump or Escape, it runs backwards: the selected
+  thumbnail grows back to fill the grid. Both interpolate the grid's `fr` track
+  weights from the selected column and row taking everything to equal thirds, so
+  the thumbnails reflow as they resize rather than scaling, as a thumbnail always
+  does. A curve that overshoots shrinks the selected thumbnail past its place
+  opening, but holds it at the grid's edges closing, since a track can't grow
+  past the grid. Tracks narrower than a border show only that border for the
+  first frame or two.
+- Only while it zooms in does the grid sit over a slide: the slide it leaves for
+  mounts, and takes focus, beneath it as the zoom starts, as an arriving slide
+  does in a swipe. The grid draws nothing once the zoom ends, and unmounts on the
+  next move. Any move while a zoom plays ends it at once.
 
 ### The Tachyon stage
 

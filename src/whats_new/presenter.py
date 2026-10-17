@@ -15,7 +15,6 @@ from zoneinfo import ZoneInfo
 from counterweight.components import Component
 from counterweight.components import component
 from counterweight.controls import FocusOn
-from counterweight.elements import AnyElement
 from counterweight.elements import Div
 from counterweight.events import InputEvent
 from counterweight.events import InputResponse
@@ -33,6 +32,8 @@ from whats_new.components.code import CODE_THEMES
 from whats_new.components.easing import EASINGS
 from whats_new.components.frame import footer
 from whats_new.components.frame import heading
+from whats_new.components.grid import Toward
+from whats_new.components.grid import Zoom
 from whats_new.components.grid import above
 from whats_new.components.grid import below
 from whats_new.components.grid import grid
@@ -116,6 +117,20 @@ def swipe_direction(before: Position, after: Position) -> Direction | None:
     return Direction.NEXT if after.index > before.index else Direction.PREVIOUS
 
 
+def zoom_toward(before: Position, after: Position) -> Toward | None:
+    """
+    Which way a move from `before` to `after` zooms the grid, or `None` if it doesn't: opening the grid zooms out
+    to it, and leaving it, by a jump or Escape, zooms in to the slide it leaves for.
+    """
+    match before.selected, after.selected:
+        case None, int():
+            return Toward.GRID
+        case int(), None:
+            return Toward.SLIDE
+        case _:
+            return None
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class Mounting:
     """
@@ -172,6 +187,8 @@ def root(
     mounting, set_mounting = use_state(Mounting(serial=0))
     no_swipe: Swipe | None = None
     swipe, set_swipe = use_state(no_swipe)
+    no_zoom: Zoom | None = None
+    zoom, set_zoom = use_state(no_zoom)
     show_clock, set_show_clock = use_state(False)
     show_size, set_show_size = use_state(False)
     code_theme, set_code_theme = use_state(start.code_theme)
@@ -190,8 +207,14 @@ def root(
         return slide_view(slides[at.index], at.step, is_live, host, code_theme, of.focus).with_key(of.key)
 
     def go(moved: Position) -> None:
-        """Moves to `moved`, mounting the slide there afresh if it's another slide (or `r`), swiping if it should."""
+        """
+        Moves to `moved`, mounting the slide there afresh if it's another slide (or `r`), swiping or zooming
+        if it should. Any other move ends a zoom still playing.
+        """
         set_position(moved)
+        toward = zoom_toward(position, moved)
+        easing = EASINGS.get(transition)
+        set_zoom(None if toward is None or easing is None else Zoom(toward=toward, easing=easing))
         if moved.selected is not None:
             # The grid replaces the stage, which would replay a swipe left here when it came back.
             set_swipe(None)
@@ -199,7 +222,6 @@ def root(
             return
         set_mounting(Mounting(serial=mounting.serial + 1))
         direction = swipe_direction(position, moved)
-        easing = EASINGS.get(transition)
         if direction is None or easing is None:
             set_swipe(None)
             return
@@ -237,18 +259,19 @@ def root(
         go(moved)
         return ()
 
+    layers: list[Component] = []
     if position.selected is None:
-        body: tuple[Component | AnyElement, ...] = (
-            stage(view(position, mounting, is_live=True), swipe).with_key("stage"),
-        )
-    else:
-        body = (grid(slides, position.selected, jump, host, code_theme).with_key("grid"),)
+        layers.append(stage(view(position, mounting, is_live=True), swipe).with_key("stage"))
+    # The grid stays over the stage while it zooms in to the slide it left for, already mounted beneath it.
+    if position.selected is not None or zoom is not None:
+        selected = position.index if position.selected is None else position.selected
+        layers.append(grid(slides, selected, jump, host, code_theme, zoom).with_key("grid"))
 
     return Div(
         style=col | full | position_relative,
         on_input=on_input,
         children=(
-            *body,
+            Div(style=col | fill(1) | position_relative, children=tuple(layers)),
             footer(
                 position.index,
                 len(slides),

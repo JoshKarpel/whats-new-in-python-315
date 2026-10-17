@@ -5,10 +5,16 @@ the selection, under a line naming the section. Moving the selection past a sect
 Each thumbnail is the slide's own content component drawn at a third of the width and clipped at its border,
 not a picture, so it's exactly what the slide draws at that width. Thumbnails aren't live: they never take focus,
 so they never receive a slide's keys or start its runs.
+
+With a transition picked, the grid zooms, along the transition's easing curve. Opening, the selected thumbnail
+starts filling the grid and shrinks into its place while the others grow in around it; leaving, the selected
+thumbnail grows back to fill it. Its content reflows as it changes size, as a thumbnail's always does, rather than
+scaling. The grid sits over the stage, so the slide it leaves for is already mounted, and live, beneath it.
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 
 from counterweight.components import component
 from counterweight.elements import Chunk
@@ -20,15 +26,44 @@ from counterweight.hooks import use_state
 from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
+from whats_new.components.animation import use_progress_since
+from whats_new.components.easing import Easing
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
 from whats_new.components.slide_body import slide_body
+from whats_new.components.swipe import SWIPE
 from whats_new.host import Host
 from whats_new.slides import Slide
 from whats_new.slides import sections
 
 COLUMNS = 3
 ROWS = 3
+
+
+class Toward(Enum):
+    """Which way the grid zooms: out to the grid as it opens, or in to the selected slide as it closes."""
+
+    GRID = "grid"
+    SLIDE = "slide"
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class Zoom:
+    """
+    One zoom of the grid. Compared by identity, so each opening or closing plays afresh, even one that looks the same.
+    """
+
+    toward: Toward
+    easing: Easing
+
+    def openness(self, progress: float) -> float:
+        """
+        How open the grid is `progress` of the way through the zoom: 0 with the selected thumbnail filling it,
+        1 with every thumbnail in its place. Zooming in, a curve that overshoots would carry the selected thumbnail
+        past the grid's edges, which a track can't reach, so it holds there while the curve is past its end.
+        """
+        eased = self.easing(progress)
+        return eased if self.toward is Toward.GRID else max(1 - eased, 0.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +130,16 @@ def visible_range(selected: int, section: range) -> range:
     return range(start, min(section.stop, start + ROWS * COLUMNS))
 
 
+def shares(selected: int, count: int, openness: float) -> tuple[float, ...]:
+    """
+    The share of the grid's width (or height) each of `count` tracks takes, `openness` of the way from the `selected`
+    track taking all of it to every track taking an equal share. An `openness` past 1 shrinks the selected track
+    past its place, which stays positive up to `count / (count - 1)`, well beyond the furthest any curve overshoots.
+    """
+    others = openness / count
+    return tuple(1 - others * (count - 1) if track == selected else others for track in range(count))
+
+
 @component
 def thumbnail(
     slides: tuple[Slide, ...],
@@ -125,29 +170,48 @@ def thumbnail(
 
 
 @component
-def grid(slides: tuple[Slide, ...], selected: int, jump: Callable[[int], None], host: Host, code_theme: str) -> Div:
+def grid(
+    slides: tuple[Slide, ...],
+    selected: int,
+    jump: Callable[[int], None],
+    host: Host,
+    code_theme: str,
+    zoom: Zoom | None,
+) -> Div:
+    """
+    The grid, over the stage, playing `zoom` from when it changes to another one: without one, it's open.
+    Once a zoom in to the selected slide ends, it draws nothing, leaving the slide beneath it in view.
+    """
     deck_sections = sections(slides)
-    number = cell_of(selected, deck_sections).section
-    section = deck_sections[number]
+    cell = cell_of(selected, deck_sections)
+    section = deck_sections[cell.section]
+    visible = visible_range(selected, section)
+    progress = use_progress_since(zoom, SWIPE)
+    if zoom is not None and zoom.toward is Toward.SLIDE and progress >= 1.0:
+        return Div(style=display_none)
+    openness = 1.0 if zoom is None else zoom.openness(progress)
+    # The selected row within the window, which isn't its row in the section once the window has moved down.
+    row = (selected - visible.start) // COLUMNS
     return Div(
-        style=col | full,
+        style=position_absolute | inset_top(0) | inset_left(0) | full | col,
         children=(
             Text(
                 content=(
                     Chunk(content=slides[section.start].title, style=CellStyle(foreground=PYTHON_YELLOW, bold=True)),
-                    Chunk(content=f"  section {number + 1} of {len(deck_sections)}", style=CellStyle(dim=True)),
+                    Chunk(content=f"  section {cell.section + 1} of {len(deck_sections)}", style=CellStyle(dim=True)),
                 ),
                 style=pad_x(1) | shrink(0),
             ),
             Div(
                 style=display_grid
                 | fill(1)
-                | grid_template_columns(*(fr() for _ in range(COLUMNS)))
-                | grid_template_rows(*(fr() for _ in range(ROWS))),
+                | overflow_hidden
+                | grid_template_columns(*(fr(share) for share in shares(cell.column, COLUMNS, openness)))
+                | grid_template_rows(*(fr(share) for share in shares(row, ROWS, openness))),
                 children=tuple(
                     # Keyed by slide index, so moving the selection a row mounts one new row and keeps the other two.
                     thumbnail(slides, index, index == selected, jump, host, code_theme).with_key(str(index))
-                    for index in visible_range(selected, section)
+                    for index in visible
                 ),
             ),
         ),

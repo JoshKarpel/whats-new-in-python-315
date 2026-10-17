@@ -51,7 +51,7 @@ What doesn't work in a default container:
 | `r` | reset the slide, undoing its edits |
 | `d` | the slide grid, one section at a time: arrows move, Enter or `d` jumps, Escape goes back |
 | F1 / F2 | the clock / the size check |
-| F3 | pick the slide transition, off or an easing curve for a swipe: as F4's picker, F3 closes |
+| F3 | pick the slide transition, off or an easing curve for a swipe and the grid's zoom: as F4's picker, F3 closes |
 | F4 | pick the code theme: type to narrow the list, Up and Down move, Enter chooses, F4 closes |
 | Ctrl+C | quit |
 
