@@ -22,7 +22,7 @@ Mounting your home directory or the Docker socket, or running with `--privileged
 
 `main` follows the latest build. To run a fixed build, use a commit SHA tag instead.
 
-The deck is drawn for a 90x30 terminal: press F2 to see your terminal's size, green when it fits.
+The deck is drawn for a 100x30 terminal: press F2 to see your terminal's size, green when it fits.
 
 The Tachyon slide can serve a flamegraph to your browser, which needs a port, so give the container one,
 on your machine's loopback only:

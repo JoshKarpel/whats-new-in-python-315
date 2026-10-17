@@ -24,6 +24,5 @@ def nbody(steps):
             b[2] += dt * b[5]
     return bodies[0][0]
 
-
 if __name__ == "__main__":
     nbody(60_000)

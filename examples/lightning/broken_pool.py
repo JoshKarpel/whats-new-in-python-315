@@ -1,10 +1,8 @@
 import os
 from concurrent.futures import ProcessPoolExecutor
 
-
 def crash():
     os._exit(3)
-
 
 if __name__ == "__main__":
     with ProcessPoolExecutor(1) as pool:

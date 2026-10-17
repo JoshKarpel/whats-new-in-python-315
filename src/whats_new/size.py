@@ -29,7 +29,7 @@ class Size:
         return (self.columns, self.rows)
 
 
-PRESENTING = Size(columns=90, rows=30)
+PRESENTING = Size(columns=100, rows=30)
 """
 The reference talk's size, presented from the same 3:2 laptop, whose screen gives about three columns per row.
 Confirm it in zellij web on the presenting laptop before drawing diagrams.

@@ -53,10 +53,11 @@ not from memory or its docs site.
 
 ## Constraints that aren't visible from one file
 
-- `examples/` is slide content: ruff skips it, each file is formatted for the screen,
+- `examples/` is slide content: ruff skips it, each file is formatted for the screen
+  (one blank line between definitions, which `test_example_layout.py` checks),
   and some are invalid on purpose on one interpreter or another.
   Don't "fix" an example's style or a deliberate error.
-- The deck is drawn for 90x30 (`size.PRESENTING`), and diagrams are laid out for that exact width.
+- The deck is drawn for 100x30 (`size.PRESENTING`), and diagrams are laid out for that exact width.
   `test_diagrams.py` checks a drawing's width, not its height or what overlaps,
   so look at the rendered slide after changing a layout (see below).
 - Mounting a slide starts nothing: no subprocess, focus grab or explanatory animation.

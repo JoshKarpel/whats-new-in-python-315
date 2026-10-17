@@ -62,11 +62,13 @@ OUT = ROOT / "out"
 FLAMEGRAPH = "deck-flamegraph.html"
 FLAMEGRAPH_SECONDS = 10
 
+# Tachyon refuses `-a` (every thread) with `--async-aware`, which reconstructs stacks from the tasks instead;
+# the deck's tasks all run on its own loop, so that mode loses nothing by dropping it.
 MODES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("wall", ("--mode", "wall")),
-    ("cpu", ("--mode", "cpu")),
-    ("gil", ("--mode", "gil")),
-    ("exception", ("--mode", "exception")),
+    ("wall", ("-a", "--mode", "wall")),
+    ("cpu", ("-a", "--mode", "cpu")),
+    ("gil", ("-a", "--mode", "gil")),
+    ("exception", ("-a", "--mode", "exception")),
     ("async-aware", ("--async-aware",)),
 )
 
@@ -87,9 +89,9 @@ STEPS = len(POINTS)
 
 
 def profiler_argv(pid: int, mode: int) -> tuple[str, ...]:
-    """Tachyon's live TUI attached to `pid`, sampling every thread, in the mode at index `mode` of `MODES`."""
+    """Tachyon's live TUI attached to `pid`, in the mode at index `mode` of `MODES`."""
     # sys.executable, since the profiler must be the same minor version as the process it attaches to.
-    return (sys.executable, "-m", "profiling.sampling", "attach", "--live", "-a", *MODES[mode][1], str(pid))
+    return (sys.executable, "-m", "profiling.sampling", "attach", "--live", *MODES[mode][1], str(pid))
 
 
 def flamegraph_argv(pid: int) -> tuple[str, ...]:

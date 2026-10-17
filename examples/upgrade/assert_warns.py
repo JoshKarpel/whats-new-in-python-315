@@ -2,13 +2,11 @@ import io
 import unittest
 import warnings
 
-
 class Test(unittest.TestCase):
     def test_deprecated(self):
         with self.assertWarns(DeprecationWarning):
             warnings.warn("unrelated", UserWarning)
             warnings.warn("expected", DeprecationWarning)
-
 
 with warnings.catch_warnings(record=True) as leaked:
     warnings.simplefilter("always", UserWarning)

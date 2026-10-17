@@ -849,7 +849,7 @@ Diagrams are drawn by hand, as counterweight elements rather than text files.
 - A box sits centered on the connector that meets it. `draw.py` places boxes from
   connector columns (`centered_node`, `fork`) rather than from hand-picked left
   edges, so moving a box keeps its connector.
-- Nothing in a diagram wraps, so anything wider than the slide's 88 content
+- Nothing in a diagram wraps, so anything wider than the slide's 98 content
   columns is clipped. A test draws each diagram, at every reveal step, on a screen
   far wider than the slide and asserts it fits.
 - What elements cost over a text file: positions are fiddlier to edit. What they
@@ -954,16 +954,16 @@ top row. The exceptions are pictures drawn for a fixed position, the hand-placed
 diagrams. Notes beside code take their natural width and shrink to fit;
 code too wide to leave the notes 28 columns puts them under it instead.
 
-The starting point is the reference talk's 90x30, presented from the same laptop.
-Its footer checked for exactly 90 columns, and its export rendered at 90x30.
+The deck is drawn for 100x30, from trying sizes on the presenting laptop.
+The reference talk, presented from the same laptop, used 90x30.
 
 - The Surface Pro's screen is 3:2. Cells are roughly twice as tall as they are
-  wide, so a 3:2 window gives about 3 columns per row at any zoom, and 90x30 is
-  exactly that shape. Zoom trades legibility for room. It doesn't change the shape.
+  wide, so a 3:2 window gives about 3 columns per row at any zoom, and 100x30 is
+  close to that shape. Zoom trades legibility for room. It doesn't change the shape.
 - Confirm it before drawing any diagrams. Open zellij web full screen on the
   laptop, in the zellij layout to be used on stage. The default layout spends rows
   on tab and status bars, so present with a bare one. Record the cell count
-  `tput cols lines` reports at the zoom that gives 90 columns, and at a step
+  `tput cols lines` reports at the zoom that gives 100 columns, and at a step
   either side.
 - Judge each candidate by:
   - code: the longest example is legible from across a room
@@ -1142,6 +1142,8 @@ every navigation and restart the profiler.
   `[sys.executable, "-m", "profiling.sampling", "attach", "--live", "-a", str(os.getpid())]`.
   - `sys.executable` matters: profiler and target must be the same minor version.
   - `-a` samples every thread, so workloads in worker threads show up.
+    Tachyon refuses `-a` with `--async-aware`, so that mode drops it; the
+    asyncio workload runs on the deck's own loop, so it still shows up.
   - A key starts the profiler; arriving on the slide doesn't (see the
     mount-starts-nothing decision). Until then the pane shows a placeholder,
     which is also what the slide's thumbnail shows.
@@ -1370,7 +1372,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
    the README command. See [Running it yourself](#running-it-yourself). Building
    it this early means each later step adds its interpreters and tools to the
    `Dockerfile` as they arrive, and CI catches the ones that don't.
-4. [Presenting resolution](#presenting-resolution): confirm 90x30 on the laptop
+4. [Presenting resolution](#presenting-resolution): confirm 100x30 on the laptop
    and record the size in `size.py`. The grid, diagrams and Tachyon stage
    depend on it.
 5. The slide grid, the size check, and the bar-chart component.

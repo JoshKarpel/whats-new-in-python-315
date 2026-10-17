@@ -1,7 +1,6 @@
 import base64, datetime, sqlite3, sys, warnings
 from typing import NamedTuple, TypedDict
 
-
 def attempt(label, call):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -11,7 +10,6 @@ def attempt(label, call):
             result = f"{type(error).__name__}"
     warned = " (DeprecationWarning)" if any(w.category is DeprecationWarning for w in caught) else ""
     print(f"{label:<26} {result}{warned}")
-
 
 print(sys.version.split()[0])
 attempt('strptime("29", "%d")', lambda: datetime.datetime.strptime("29", "%d"))
