@@ -45,6 +45,10 @@ export:
 record:
     uv run --frozen python -m whats_new record
 
+[doc('Upload slides.cast to asciinema, passing any arguments on to asciinema upload')]
+upload *ARGS:
+    asciinema upload slides.cast {{ ARGS }}
+
 [doc('Run every run declared on every slide and check its outcome')]
 check-examples *ARGS:
     uv run --frozen pytest tests/test_examples.py {{ ARGS }}

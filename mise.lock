@@ -2,6 +2,31 @@
 
 lockfile_version = 3
 
+[[tools."github:asciinema/asciinema"]]
+version = "3.2.1"
+backend = "github:asciinema/asciinema"
+specifiers = ["3.2.1"]
+
+[tools."github:asciinema/asciinema"."platforms.linux-arm64"]
+checksum = "sha256:b516a6d896844c0ffbc96e0a55afe4cbcc79216abde0fc64fdda4e39bee421ea"
+url = "https://github.com/asciinema/asciinema/releases/download/v3.2.1/asciinema-aarch64-unknown-linux-gnu"
+url_api = "https://api.github.com/repos/asciinema/asciinema/releases/assets/449290064"
+
+[tools."github:asciinema/asciinema"."platforms.linux-x64"]
+checksum = "sha256:1b405bbda565b33c3c4718de67fedc3535580603c0694b1ff3fb04f363430a20"
+url = "https://github.com/asciinema/asciinema/releases/download/v3.2.1/asciinema-x86_64-unknown-linux-gnu"
+url_api = "https://api.github.com/repos/asciinema/asciinema/releases/assets/449289226"
+
+[tools."github:asciinema/asciinema"."platforms.macos-arm64"]
+checksum = "sha256:1f0c76da7855601df93e5dccdf69b7c683b81beff1411e38b3802de1f5fc7a1c"
+url = "https://github.com/asciinema/asciinema/releases/download/v3.2.1/asciinema-aarch64-apple-darwin"
+url_api = "https://api.github.com/repos/asciinema/asciinema/releases/assets/449290357"
+
+[tools."github:asciinema/asciinema"."platforms.macos-x64"]
+checksum = "sha256:1b388af0e1566ab19deea663b0ce64730ad46ade2825fadd43cc88f0bd28140a"
+url = "https://github.com/asciinema/asciinema/releases/download/v3.2.1/asciinema-x86_64-apple-darwin"
+url_api = "https://api.github.com/repos/asciinema/asciinema/releases/assets/449290107"
+
 [[tools.hyperfine]]
 version = "1.21.0"
 backend = "aqua:sharkdp/hyperfine"
