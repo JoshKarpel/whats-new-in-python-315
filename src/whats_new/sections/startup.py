@@ -10,6 +10,7 @@ from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
 from whats_new.components.layouts import notes_beside_code_above_runs
 from whats_new.components.layouts import side_by_side
+from whats_new.components.layouts import stack
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
 from whats_new.components.look import code
@@ -120,21 +121,18 @@ def start_files(props: SlideProps) -> Div:
 
 @component
 def start_flow(props: SlideProps) -> Div:
-    return Div(
-        style=col | fill(1) | gap(1),
-        children=(
-            site_startup(),
-            bullets(
-                (
-                    plain("narrows "),
-                    em("one"),
-                    plain(" vector: supply-chain "),
-                    code("exec()"),
-                    plain(" via "),
-                    code(".pth"),
-                ),
-                (plain("a malicious package can still run code at startup")),
+    return stack(
+        site_startup(),
+        bullets(
+            (
+                plain("narrows "),
+                em("one"),
+                plain(" vector: supply-chain "),
+                code("exec()"),
+                plain(" via "),
+                code(".pth"),
             ),
+            (plain("a malicious package can still run code at startup")),
         ),
     )
 

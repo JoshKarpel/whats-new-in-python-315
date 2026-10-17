@@ -17,7 +17,7 @@ from whats_new.diagrams.draw import node
 
 def site_startup() -> Div:
     return area(
-        86,
+        73,
         14,
         node("greet.pth", 0, 0),
         ink("─┬─ path lines ───────▶ sys.path", 13, 1),
