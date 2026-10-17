@@ -1,7 +1,8 @@
 """
-F4's code theme picker: an autocomplete field over the slide's top right corner, as in counterweight's autocomplete
-cookbook. Typing narrows the list of themes, Down and Up move the highlight, Enter or Tab chooses the highlighted theme,
-and Escape or F4 closes it unchanged. Either way, focus goes back to the slide.
+The pickers the function keys open, F3's slide transition and F4's code theme: an autocomplete field over the slide's
+top right corner, as in counterweight's autocomplete cookbook. Typing narrows the list of options, Down and Up move
+the highlight, Enter or Tab chooses the highlighted option, and Escape or the key that opened it closes it unchanged.
+Either way, focus goes back to the slide.
 """
 
 import glob
@@ -37,12 +38,11 @@ from counterweight.styles import Color
 from counterweight.styles import Style
 from counterweight.styles.utilities import *
 
-from whats_new.components.code import CODE_THEMES
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
 
 SHOWN_ROWS = 10
-"""How many themes the list shows at once; it scrolls the rest."""
+"""How many options the list shows at once; it scrolls the rest."""
 WIDTH = 28
 PICKER_BACKGROUND = Color.from_hex("#0f172a")
 """Opaque, so the slide under the picker doesn't show through it."""
@@ -50,40 +50,55 @@ CURSOR = (text_color("slate", 900) | text_bg("sky", 300)).text_style
 CURRENT = Style(text_style=CellStyle(foreground=PYTHON_YELLOW, bold=True))
 
 
-def matches(text: str, themes: tuple[str, ...]) -> tuple[str, ...]:
+def matches(text: str, options: tuple[str, ...]) -> tuple[str, ...]:
     """
-    The themes the typed letters appear in, in order, with anything between them, so `nd` matches `nord-darker`;
-    every theme while nothing is typed. Letters are escaped, so a typed `[` matches itself.
+    The options the typed letters appear in, in order, with anything between them, so `nd` matches `nord-darker`;
+    every option while nothing is typed. Letters are escaped, so a typed `[` matches itself.
     """
     pattern = f"*{'*'.join(glob.escape(letter) for letter in text.lower())}*"
-    return tuple(theme for theme in themes if fnmatchcase(theme.lower(), pattern))
+    return tuple(option for option in options if fnmatchcase(option.lower(), pattern))
 
 
 @dataclass(frozen=True, slots=True)
 class Completion:
     text: str
     highlighted: int
-    """The highlighted theme's place among the matches, reset to the first whenever the text changes."""
+    """The highlighted option's place among the matches, reset to the first whenever the text changes."""
 
     def edited(self, text: str) -> Completion:
         return self if text == self.text else Completion(text=text, highlighted=0)
 
 
+@dataclass(frozen=True, slots=True)
+class Choice:
+    """What a picker offers and how it's labeled: `label` heads it, and `key` names the key that closes it."""
+
+    label: str
+    options: tuple[str, ...]
+    key: str
+
+
 @component
-def theme_picker(
-    current: str, choose: Callable[[str], None], close: Callable[[], None], leave: AnyControl, handle: FocusHandle
+def picker(
+    choice: Choice,
+    current: str,
+    choose: Callable[[str], None],
+    close: Callable[[], None],
+    leave: AnyControl,
+    handle: FocusHandle,
 ) -> Div:
     """
-    Opens with the field empty and `current` highlighted. Choosing a theme calls `choose` with it,
-    and choosing or Escape calls `close` and does `leave`, which gives focus back to the slide.
-    The field's focus handle is `handle`, which F4 focuses as it opens the picker:
+    Opens with the field empty and `current`, one of `choice`'s options, highlighted. Choosing an option calls
+    `choose` with it, and choosing or Escape calls `close` and does `leave`, which gives focus back to the slide.
+    The field's focus handle is `handle`, which the opening key focuses as it opens the picker:
     `auto_focus` wouldn't take focus from the slide, which always has it.
     """
-    completion, set_completion = use_state(Completion(text="", highlighted=CODE_THEMES.index(current)))
+    options = choice.options
+    completion, set_completion = use_state(Completion(text="", highlighted=options.index(current)))
     highlighted_match, _ = use_state(ElementHandle)
     send = use_controls()
 
-    # The current theme can be past the rows the list shows; an input handler would return this control,
+    # The current option can be past the rows the list shows; an input handler would return this control,
     # but nothing has been pressed yet as the picker opens.
     async def show_current() -> None:
         send(ScrollIntoView(highlighted_match, block="nearest"))
@@ -94,11 +109,11 @@ def theme_picker(
         set_completion(lambda c: c.edited(edit_text(c.text)))
 
     field = use_text_input(completion.text, edit, handle=handle)
-    shown = matches(completion.text, CODE_THEMES)
+    shown = matches(completion.text, options)
     highlighted = completion.highlighted
 
-    def chosen(theme: str) -> InputResponse:
-        choose(theme)
+    def chosen(option: str) -> InputResponse:
+        choose(option)
         close()
         return leave
 
@@ -122,14 +137,14 @@ def theme_picker(
 
     rows = tuple(
         Text(
-            content=f"{'▸' if theme == current else ' '} {theme}",
+            content=f"{'▸' if option == current else ' '} {option}",
             style=text_wrap_none
             | (text_bg("sky", 800) if index == highlighted else default)
-            | (CURRENT if theme == current else default),
+            | (CURRENT if option == current else default),
             handle=highlighted_match if index == highlighted else None,
-            on_input=on_click(partial(chosen, theme)),
+            on_input=on_click(partial(chosen, option)),
         )
-        for index, theme in enumerate(shown)
+        for index, option in enumerate(shown)
     )
     return Div(
         style=position_absolute
@@ -145,7 +160,7 @@ def theme_picker(
         | Style(padding_color=PICKER_BACKGROUND, content_color=PICKER_BACKGROUND),
         on_input=first(on_input, focus_receiver_on_press),
         children=(
-            Text(content="code theme", style=dim),
+            Text(content=choice.label, style=dim),
             Div(
                 style=row | overflow_x_scroll | stick_to_end_x | text_bg("slate", 700),
                 on_input=field.on_press,
@@ -163,8 +178,8 @@ def theme_picker(
             Div(
                 style=col | max_height(SHOWN_ROWS) | overflow_y_scroll,
                 on_input=scroll_on_wheel(1),
-                children=rows or (Text(content="no theme matches", style=dim),),
+                children=rows or (Text(content="nothing matches", style=dim),),
             ),
-            Text(content="↑ ↓ · Enter · F4 closes", style=dim | text_wrap_none),
+            Text(content=f"↑ ↓ · Enter · {choice.key} closes", style=dim | text_wrap_none),
         ),
     )

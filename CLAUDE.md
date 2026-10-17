@@ -60,6 +60,8 @@ not from memory or its docs site.
 - The deck is drawn for 100x30 (`size.PRESENTING`), and diagrams are laid out for that exact width.
   `test_diagrams.py` checks a drawing's width, not its height or what overlaps,
   so look at the rendered slide after changing a layout (see below).
+- A swipe (`components/swipe.py`) mounts two slides at once, so each mounting of a slide gets its own key and
+  `FocusHandle` (`presenter.Mounting`): never give two mounted slides one handle, or key a slide by its index.
 - Mounting a slide starts nothing: no subprocess, focus grab or explanatory animation.
   The slide grid, the smoke test and the export each mount many slides at once,
   so anything started on mount starts in all of them, and the smoke test fails if a child process is left over.

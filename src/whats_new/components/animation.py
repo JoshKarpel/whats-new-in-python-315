@@ -49,6 +49,36 @@ def use_progress(duration: timedelta, is_playing: bool) -> float:
     return progress
 
 
+@dataclass(slots=True)
+class Restarted:
+    """What `use_progress_since` last started from, when, and whether it has reached its end."""
+
+    since: object = None
+    started: timedelta = timedelta()
+    is_done: bool = True
+
+
+def use_progress_since(since: object, duration: timedelta) -> float:
+    """
+    `use_progress`, restarting whenever `since` is a different object (compared by identity), rather than at mount,
+    for an animation whose component stays mounted between plays. `None` doesn't play, and is 1 at once.
+    """
+    restarted: Ref[Restarted] = use_ref(Restarted)
+    is_new = since is not restarted.current.since
+    is_ticking = since is not None and (is_new or not restarted.current.is_done)
+    # A reading taken on an hour-long interval can be an hour old, but switching to frames makes one due
+    # (unless the last was in this same frame), so the render that starts the animation reads the clock afresh.
+    tick = use_clock(FRAME if is_ticking else IDLE)
+    if is_new:
+        restarted.current = Restarted(since=since, started=tick.since_start, is_done=since is None)
+    if since is None:
+        return 1.0
+    progress = min((tick.since_start - restarted.current.started) / duration, 1.0)
+    if progress >= 1.0:
+        restarted.current.is_done = True
+    return progress
+
+
 def use_loop(period: timedelta, is_playing: bool) -> float:
     """Where in a loop `period` long the calling component is, from 0 up to (not including) 1; 0 while not playing."""
     tick = use_clock(FRAME if is_playing else IDLE)

@@ -783,6 +783,8 @@ Dockerfile           the image others run the deck from
   - F1: toggle the clock, as in the reference talk. F1 opens help in some
     browsers, but not in the laptop's.
   - F2: the size check. See [Presenting resolution](#presenting-resolution).
+  - F3: the slide transition picker, the same autocomplete field as F4's, offering
+    `off` or an easing curve for a swipe. See [Slide transitions](#slide-transitions).
   - F4: the code theme picker, an autocomplete field as in counterweight's
     autocomplete cookbook. Typing narrows the list (the typed letters in order),
     Down and Up move the highlight, and Enter or Tab sets that Pygments style on
@@ -1071,6 +1073,31 @@ asciinema-player plays back. `just record` writes it, through counterweight's
 - The player's idle limit cuts a run's silences down to the length of a hold.
 - Real time makes the recording differ on every run, so no hook regenerates it as
   one does the export: re-record by hand when the deck changes.
+
+### Slide transitions
+
+Moving to the next or previous slide can swipe, as
+[spiel's transitions](https://www.spiel.how/transitions/) do: the slide being left
+and the one arriving sit side by side and slide across together, over 0.75 s.
+F3 picks the transition: `off`, or the easing curve the swipe follows.
+
+- The curves are the deck's own, a short list named for how they move: `linear`,
+  `ease-out`, `ease-in-out`, `overshoot`, `spring` and `bounce`. `overshoot` and
+  `spring` carry the slides past their place and back, so the offsets aren't
+  clamped to the screen.
+- Only moving from one slide straight to another swipes, as in spiel: not opening
+  or leaving the grid, jumping from it, or `r`.
+- Both slides are mounted for the length of the swipe. The one being left keeps
+  its state (run output, edits), since it continues under its own key, but stops
+  being live at once. counterweight auto-focuses a component only on the render it
+  mounts, so the arriving slide takes focus, and its keys, as the swipe starts.
+- Every mounting of a slide gets its own key and focus handle (`Mounting`), since
+  two mounted components can't share a handle, and a slide returned to mid-swipe
+  must mount afresh rather than continue the copy still leaving.
+- It's `off` by default, so the export and the recording don't change. The
+  checkpoint remembers the choice, as it does the code theme.
+- The swipe ticks at the deck's 20 frames a second, 15 frames for the whole
+  swipe. Whether that reads as smooth on the projector is for rehearsal.
 
 ### The slide grid
 

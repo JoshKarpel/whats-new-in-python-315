@@ -1,4 +1,7 @@
-"""F4's code theme picker, the themes it offers, and the checkpoint that remembers the choice across a restart."""
+"""
+F3's transition picker and F4's code theme picker, the themes F4 offers,
+and the checkpoint that remembers both choices across a restart.
+"""
 
 import asyncio
 
@@ -16,7 +19,9 @@ from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEME
 from whats_new.components.code import CODE_THEMES
 from whats_new.components.code import has_dark_background
-from whats_new.components.theme_picker import matches
+from whats_new.components.picker import matches
+from whats_new.components.swipe import OFF
+from whats_new.components.swipe import TRANSITIONS
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
@@ -45,19 +50,31 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ('{"slide": 12, "code_theme": "monokai"}', Checkpoint(slide=12, code_theme="monokai")),
+        (
+            '{"slide": 12, "code_theme": "monokai", "transition": "spring"}',
+            Checkpoint(slide=12, code_theme="monokai", transition="spring"),
+        ),
+        ('{"slide": 12, "code_theme": "monokai"}', Checkpoint(slide=12, code_theme="monokai", transition=OFF)),
         ('{"slide": 12, "code_theme": "solarized-light"}', Checkpoint(slide=12, code_theme=CODE_THEME)),
+        ('{"slide": 12, "code_theme": "monokai", "transition": "zoom"}', Checkpoint(slide=12, code_theme="monokai")),
         ("12", Checkpoint(slide=0)),
         ("", Checkpoint(slide=0)),
     ],
-    ids=["a checkpoint", "a theme the picker doesn't offer", "not an object", "not JSON"],
+    ids=[
+        "a checkpoint",
+        "one from before transitions",
+        "a theme the picker doesn't offer",
+        "a transition the picker doesn't offer",
+        "not an object",
+        "not JSON",
+    ],
 )
 def test_checkpoint_parse(text: str, expected: Checkpoint) -> None:
     assert Checkpoint.parse(text) == expected
 
 
 def test_checkpoint_round_trips() -> None:
-    checkpoint = Checkpoint(slide=7, code_theme="nord")
+    checkpoint = Checkpoint(slide=7, code_theme="nord", transition="bounce")
 
     assert Checkpoint.parse(checkpoint.serialized()) == checkpoint
 
@@ -94,3 +111,57 @@ async def test_choosing_a_theme_checkpoints_it_and_gives_the_slide_its_keys_back
     text = frames[0].text(ansi=False)
     assert "code theme" not in text
     assert 'print(f"{DEFAULTS=}")Q' in text
+
+
+async def test_choosing_a_transition_checkpoints_it_and_gives_the_slide_its_keys_back(host: Host) -> None:
+    index = next(index for index, slide in enumerate(SLIDES) if slide.title == "frozendict: the mutable default, fixed")
+    checkpoints: list[Checkpoint] = []
+    frames: list[Frame] = []
+
+    async def settle(frame: Frame) -> None:
+        await asyncio.sleep(0.05)
+
+    autopilot: tuple[AnyEvent | AnyControl, ...] = (
+        KeyPressed(key=Key.F3),
+        *(KeyPressed(key=character) for character in "spr"),
+        KeyPressed(key=Key.Enter),
+        KeyPressed(key=Key.Tab),
+        KeyPressed(key="Q"),
+        Screenshot(handler=frames.append),
+        Screenshot(handler=settle),
+        Quit(),
+    )
+    await app(
+        root(SLIDES, host, Checkpoint(slide=index), checkpoints.append),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=autopilot,
+        clock=EXPORT_CLOCK,
+    )
+
+    assert checkpoints[-1] == Checkpoint(slide=index, transition="spring")
+    text = frames[0].text(ansi=False)
+    assert "slide transition" not in text
+    assert 'print(f"{DEFAULTS=}")Q' in text
+
+
+async def test_each_function_key_opens_its_own_picker_in_place_of_the_other(host: Host) -> None:
+    frames: list[Frame] = []
+    autopilot: tuple[AnyEvent | AnyControl, ...] = (
+        KeyPressed(key=Key.F4),
+        KeyPressed(key=Key.F3),
+        Screenshot(handler=frames.append),
+        Quit(),
+    )
+    await app(
+        root(SLIDES, host, Checkpoint(slide=0), lambda checkpoint: None),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=autopilot,
+        clock=EXPORT_CLOCK,
+    )
+
+    text = frames[0].text(ansi=False)
+    assert "slide transition" in text
+    assert "code theme" not in text
+    assert all(option in text for option in TRANSITIONS)
