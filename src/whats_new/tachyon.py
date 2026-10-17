@@ -193,7 +193,8 @@ def tachyon_stage(props: SlideProps) -> Div:
             case "w":
                 set_picking(WORKLOAD_CHOICE)
                 return (FocusOn(picker_focus),)
-            case "f" if is_profiling:
+            # The pane's `take_back` claims Tab too, so Tab moves the keyboard in and out of the profiler.
+            case Key.Tab if is_profiling:
                 return (FocusOn(pane),)
             case "F":
                 OUT.mkdir(exist_ok=True)
@@ -376,8 +377,8 @@ def tachyon_tour(step: int) -> Iterable[AutopilotStep]:
         # Drawing the profiler's screen is work the deck does, so it's in the profile too.
         *press("c"),
         LOOK,
-        # Tachyon's own keys, then Tab takes the keyboard back.
-        *press("f"),
+        # Tab hands Tachyon the keyboard for its own keys, then takes it back.
+        KeyPressed(key=Key.Tab),
         LOOK,
         *press("s"),
         LOOK,

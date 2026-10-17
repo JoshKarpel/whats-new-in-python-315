@@ -1,21 +1,38 @@
 """
 The Tachyon stage's profiler modes, each handed to Tachyon itself, since some of its options refuse each other
 and on stage the refusal only shows as a pane that exits as soon as `m`'s picker chooses that mode;
-and the medals its live view draws, which the stage's profiler environment swaps for ranks.
+the medals its live view draws, which the stage's profiler environment swaps for ranks;
+and Tab, which moves the keyboard between the stage and the profiler.
 """
 
+import asyncio
 import os
 import subprocess
 import sys
 from collections.abc import Iterator
 from collections.abc import Mapping
+from dataclasses import replace
 
 import pytest
+from counterweight.app import app
+from counterweight.autopilot import AutopilotStep
+from counterweight.controls import Quit
+from counterweight.controls import Screenshot
+from counterweight.events import KeyPressed
+from counterweight.keys import Key
+from counterweight.output import Frame
 
+from whats_new.checkpoint import Checkpoint
+from whats_new.deck import SLIDES
+from whats_new.export import EXPORT_CLOCK
+from whats_new.host import Host
+from whats_new.presenter import root
+from whats_new.size import PRESENTING
 from whats_new.tachyon import MODES
 from whats_new.tachyon import PROFILER_ENV
 from whats_new.tachyon import Mode
 from whats_new.tachyon import profiler_argv
+from whats_new.tours import showing
 
 
 @pytest.fixture
@@ -68,3 +85,56 @@ def test_the_profiler_draws_ranks_instead_of_medals() -> None:
 def test_tachyon_draws_medals_without_the_profiler_s_environment() -> None:
     # The control: the medals are there to replace, so the test above reaches the row that draws them.
     assert "🥇" in drawn_top_functions({})
+
+
+PROFILING = (KeyPressed(key="p"), showing("Tachyon Profiler"))
+"""Starts the profiler and waits for it to draw, since the pane only takes keys while its program runs."""
+TAB = KeyPressed(key=Key.Tab)
+
+
+@pytest.mark.parametrize(
+    ("steps", "running"),
+    [
+        ((), "idle"),
+        ((*PROFILING, TAB), "blocking I/O"),
+        ((*PROFILING, TAB, TAB), "idle"),
+        ((TAB,), "idle"),
+    ],
+    ids=[
+        "the stage has the keyboard",
+        "Tab hands it to the profiler",
+        "Tab takes it back",
+        "no profiler to hand it to",
+    ],
+)
+async def test_tab_moves_the_keyboard_in_and_out_of_the_profiler(
+    host: Host, steps: tuple[AutopilotStep, ...], running: str
+) -> None:
+    # `c` stops the workload only if it reaches the stage rather than the profiler.
+    index = next(index for index, slide in enumerate(SLIDES) if slide.title == "Tachyon, live")
+    frames: list[Frame] = []
+
+    async def settle(frame: Frame) -> None:
+        await asyncio.sleep(0.05)
+
+    autopilot: tuple[AutopilotStep, ...] = (
+        KeyPressed(key="w"),
+        *(KeyPressed(key=character) for character in "blo"),
+        KeyPressed(key=Key.Enter),
+        showing("running: blocking I/O"),
+        *steps,
+        KeyPressed(key="c"),
+        Screenshot(handler=settle),
+        Screenshot(handler=frames.append),
+        Quit(),
+    )
+    await app(
+        # The test process itself, since the profiler needs a real process to attach to.
+        root(SLIDES, replace(host, pid=os.getpid()), Checkpoint(slide=index), lambda checkpoint: None),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=autopilot,
+        clock=EXPORT_CLOCK,
+    )
+
+    assert f"running: {running}" in frames[0].text(ansi=False)

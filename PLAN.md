@@ -435,9 +435,9 @@ frame earns a slide or just a sentence.
      screen), and it shows up in the profile it's drawing. Observed on the real
      deck: counterweight's `layout.place` and `Emulator.convert_row` were the top
      two functions in Tachyon's live view.
-   - The presenter can hand the keyboard to the pane and use Tachyon's own keys
-     (`s` sort, `t` mode, `x` trends, arrows for threads, `h` help), then take it
-     back with Tab.
+   - The presenter can hand the keyboard to the pane with Tab and use Tachyon's
+     own keys (`s` sort, `t` mode, `x` trends, arrows for threads, `h` help),
+     then take it back with Tab.
 5. Tachyon's own flamegraph (cut-first). A key runs
    `attach -d 10 --flamegraph -o out/deck-flamegraph.html` against the deck in a
    second embedded pane while a workload runs. The output is a self-contained HTML
@@ -1218,7 +1218,7 @@ profiler.
 - Focus: keys go to the deck by default, so the stage's own keys work.
   - `w` and `m` open a picker over the stage's top right corner and focus it;
     choosing or Escape gives focus back to the stage.
-  - A key hands focus to the pane, and the presenter drives Tachyon's own keys.
+  - Tab hands focus to the pane, and the presenter drives Tachyon's own keys.
   - Tab takes it back. Tachyon's TUI binds letters, arrows, `/`, `+` and `-`,
     but not Tab. Ctrl+B, the prefix from #423's multiplexer example, works too
     where zellij lets it through.
