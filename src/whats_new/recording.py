@@ -53,6 +53,9 @@ The longest pause a player shows, which cuts short a run's silences.
 No shorter than the holds, which draw nothing on a slide with nothing animating.
 """
 
+START = Checkpoint(slide=0, code_theme="dracula", transition="ease-in-out")
+"""Where the recording starts, and the code theme and slide transition it presents in."""
+
 THEME = Theme(foreground=SVG_FOREGROUND, background=SVG_BACKGROUND, palette=DEFAULT_PALETTE[:16])
 """The colors the export's screenshots draw the terminal's own colors in, so the two look alike."""
 
@@ -112,7 +115,7 @@ def presented(slides: tuple[Slide, ...], capabilities: frozenset[Capability]) ->
 
 async def record(slides: tuple[Slide, ...], host: Host, capabilities: frozenset[Capability], path: Path) -> None:
     await app(
-        root(slides, host, Checkpoint(slide=0), lambda checkpoint: None),
+        root(slides, host, START, lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=presented(slides, capabilities),

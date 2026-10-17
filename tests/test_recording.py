@@ -14,11 +14,14 @@ from counterweight.events import KeyPressed
 from counterweight.keys import Key
 
 from whats_new.checkpoint import Checkpoint
+from whats_new.components.code import CODE_THEMES
+from whats_new.components.swipe import TRANSITIONS
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.export import SETTLE
 from whats_new.host import Host
 from whats_new.presenter import root
+from whats_new.recording import START
 from whats_new.recording import presented
 from whats_new.recording import record
 from whats_new.runs import Capability
@@ -48,6 +51,10 @@ async def test_the_recording_ends_with_the_deck_quitting(host: Host, tmp_path: P
     await record(SLIDES[:1], host, frozenset(), path)
 
     assert json.loads(path.read_text().splitlines()[-1])[1:] == ["x", "0"]
+
+
+def test_the_recording_presents_in_a_theme_and_transition_the_pickers_offer() -> None:
+    assert (START.code_theme in CODE_THEMES, START.transition in TRANSITIONS) == (True, True)
 
 
 def slide_with_a_perf_run() -> Slide:
