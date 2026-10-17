@@ -1,5 +1,5 @@
 """
-The hand-placed drawings: diagrams and the Tachyon talking points, which don't wrap, so on stage the slide clips
+The hand-placed drawings: diagrams, which don't wrap, so on stage the slide clips
 whatever of them is wider than it. Each diagram is drawn on a screen much wider than the slide, where nothing clips it,
 and measured.
 """
@@ -32,7 +32,6 @@ from whats_new.diagrams.site_startup import site_startup
 from whats_new.diagrams.take_bytes import take_bytes_memory
 from whats_new.export import EXPORT_CLOCK
 from whats_new.size import PRESENTING
-from whats_new.tachyon import POINTS
 
 WIDE = 200
 SLIDE_WIDTH = PRESENTING.columns - 2
@@ -87,12 +86,6 @@ async def drawn_width(drawing: Component | Text | Div) -> int:
 @pytest.mark.parametrize("name", DRAWINGS)
 async def test_drawing_fits_the_slide(name: str) -> None:
     assert await drawn_width(DRAWINGS[name]()) <= SLIDE_WIDTH
-
-
-@pytest.mark.parametrize("point", POINTS)
-def test_tachyon_talking_point_fits_on_one_line(point: str) -> None:
-    """A point that wrapped would push the profiler's pane down a row, resizing its terminal mid-demo."""
-    assert len(point) <= SLIDE_WIDTH
 
 
 @pytest.mark.parametrize(

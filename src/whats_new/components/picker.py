@@ -1,8 +1,8 @@
 """
-The pickers the function keys open, F3's slide transition and F4's code theme: an autocomplete field over the slide's
-top right corner, as in counterweight's autocomplete cookbook. Typing narrows the list of options, Down and Up move
-the highlight, Enter or Tab chooses the highlighted option, and Escape or the key that opened it closes it unchanged.
-Either way, focus goes back to the slide.
+The pickers keys open: the function keys' F3 slide transition and F4 code theme, and the Tachyon stage's workload and
+profiler mode. Each is an autocomplete field over its parent's top right corner, as in counterweight's autocomplete
+cookbook. Typing narrows the list of options, Down and Up move the highlight, Enter or Tab chooses the highlighted
+option, and Escape closes it unchanged. Either way, focus goes back to the slide.
 """
 
 import glob
@@ -15,6 +15,7 @@ from functools import partial
 from counterweight.components import component
 from counterweight.controls import AnyControl
 from counterweight.controls import ScrollIntoView
+from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.events import InputEvent
@@ -41,9 +42,10 @@ from counterweight.styles.utilities import *
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
 
-SHOWN_ROWS = 10
+SHOWN_OPTIONS = 10
 """How many options the list shows at once; it scrolls the rest."""
 WIDTH = 28
+"""The narrowest a picker is; one with longer options or descriptions widens to fit them on one line each."""
 PICKER_BACKGROUND = Color.from_hex("#0f172a")
 """Opaque, so the slide under the picker doesn't show through it."""
 CURSOR = (text_color("slate", 900) | text_bg("sky", 300)).text_style
@@ -70,31 +72,64 @@ class Completion:
 
 
 @dataclass(frozen=True, slots=True)
+class Option:
+    """One thing a picker offers: typing matches its `name`, and its `description`, if any, shows under it."""
+
+    name: str
+    description: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class Choice:
-    """What a picker offers and how it's labeled: `label` heads it, and `key` names the key that closes it."""
+    """What a picker offers and how it's labeled: `label` heads it, and `key` names the key that opens it."""
 
     label: str
-    options: tuple[str, ...]
+    options: tuple[Option, ...]
     key: str
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(option.name for option in self.options)
+
+    @property
+    def is_described(self) -> bool:
+        return any(option.description for option in self.options)
+
+    @property
+    def width(self) -> int:
+        """Wide enough for the label, and each option and description on a line of its own, inside the border."""
+        lines = (
+            self.label,
+            HINT,
+            *(f"▸ {option.name}" for option in self.options),
+            *(f"  {option.description}" for option in self.options),
+        )
+        return max(WIDTH, 4 + max(len(line) for line in lines))
+
+
+HINT = "↑ ↓ · Enter · Esc closes"
 
 
 @component
 def picker(
     choice: Choice,
-    current: str,
+    current: str | None,
     choose: Callable[[str], None],
     close: Callable[[], None],
     leave: AnyControl,
     handle: FocusHandle,
 ) -> Div:
     """
-    Opens with the field empty and `current`, one of `choice`'s options, highlighted. Choosing an option calls
-    `choose` with it, and choosing or Escape calls `close` and does `leave`, which gives focus back to the slide.
+    Opens with the field empty and `current`, the name of one of `choice`'s options, marked and highlighted,
+    or the first option highlighted if there's no `current`. Choosing an option calls `choose` with its name,
+    and choosing or Escape calls `close` and does `leave`, which gives focus back to the slide.
     The field's focus handle is `handle`, which the opening key focuses as it opens the picker:
     `auto_focus` wouldn't take focus from the slide, which always has it.
     """
-    options = choice.options
-    completion, set_completion = use_state(Completion(text="", highlighted=options.index(current)))
+    names = choice.names
+    completion, set_completion = use_state(
+        Completion(text="", highlighted=0 if current is None else names.index(current))
+    )
     highlighted_match, _ = use_state(ElementHandle)
     send = use_controls()
 
@@ -109,7 +144,8 @@ def picker(
         set_completion(lambda c: c.edited(edit_text(c.text)))
 
     field = use_text_input(completion.text, edit, handle=handle)
-    shown = matches(completion.text, options)
+    shown = matches(completion.text, names)
+    descriptions = {option.name: option.description for option in choice.options}
     highlighted = completion.highlighted
 
     def chosen(option: str) -> InputResponse:
@@ -137,21 +173,24 @@ def picker(
 
     rows = tuple(
         Text(
-            content=f"{'▸' if option == current else ' '} {option}",
-            style=text_wrap_none
-            | (text_bg("sky", 800) if index == highlighted else default)
-            | (CURRENT if option == current else default),
+            content=option_row(
+                name,
+                descriptions[name] if choice.is_described else None,
+                (text_bg("sky", 800) if index == highlighted else default) | (CURRENT if name == current else default),
+                is_current=name == current,
+            ),
+            style=text_wrap_none,
             handle=highlighted_match if index == highlighted else None,
-            on_input=on_click(partial(chosen, option)),
+            on_input=on_click(partial(chosen, name)),
         )
-        for index, option in enumerate(shown)
+        for index, name in enumerate(shown)
     )
     return Div(
         style=position_absolute
         | inset_right(1)
         | inset_top(1)
         | z(1)
-        | width(WIDTH)
+        | width(choice.width)
         | col
         | border
         | border_lightrounded
@@ -176,10 +215,21 @@ def picker(
                 ),
             ),
             Div(
-                style=col | max_height(SHOWN_ROWS) | overflow_y_scroll,
+                style=col | max_height(SHOWN_OPTIONS * (2 if choice.is_described else 1)) | overflow_y_scroll,
                 on_input=scroll_on_wheel(1),
                 children=rows or (Text(content="nothing matches", style=dim),),
             ),
-            Text(content=f"↑ ↓ · Enter · {choice.key} closes", style=dim | text_wrap_none),
+            Text(content=HINT, style=dim | text_wrap_none),
         ),
     )
+
+
+def option_row(name: str, description: str | None, style: Style, is_current: bool) -> tuple[Chunk, ...]:
+    """
+    An option's row: its name, marked if it's the current one, and, in a described picker, its description under it,
+    blank if it has none, so every option takes the same two lines. A chunk ignores its text's style, so each gets it.
+    """
+    line = Chunk(content=f"{'▸' if is_current else ' '} {name}", style=style.text_style)
+    if description is None:
+        return (line,)
+    return (line, Chunk.newline(), Chunk(content=f"  {description}", style=(style | dim).text_style))

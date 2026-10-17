@@ -24,6 +24,7 @@ from whats_new.diagrams.draw import centered_node
 from whats_new.diagrams.draw import ink
 from whats_new.diagrams.draw import node
 from whats_new.diagrams.draw import node_width
+from whats_new.tachyon import MODES
 from whats_new.tachyon import profiler_argv
 
 CALLS = "main ─ parse ─┬─ load ─┬─ read ── decode ─┬─ render ─┬─ write ──"
@@ -146,7 +147,7 @@ def the_loop(pid: int) -> Div:
     as its widest line, so the slide centers the whole drawing. The profiler's box holds the command the Tachyon
     stage runs, as the deck builds it, attaching to `pid`, the deck's own process.
     """
-    profiler = " ".join(("python", *profiler_argv(pid, 0)[1:]))
+    profiler = " ".join(("python", *profiler_argv(pid, MODES[0])[1:]))
     width = max(len(SCREEN), node_width(profiler))
     middle = width // 2
     down, up = middle - 3, middle + 3

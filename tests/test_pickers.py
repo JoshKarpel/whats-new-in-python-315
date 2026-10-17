@@ -1,6 +1,7 @@
 """
 F3's transition picker and F4's code theme picker, the themes F4 offers,
-and the checkpoint that remembers both choices across a restart.
+the checkpoint that remembers both choices across a restart,
+and the Tachyon stage's workload and mode pickers.
 """
 
 import asyncio
@@ -19,14 +20,20 @@ from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEME
 from whats_new.components.code import CODE_THEMES
 from whats_new.components.code import has_dark_background
+from whats_new.components.picker import Choice
 from whats_new.components.picker import matches
 from whats_new.components.swipe import OFF
 from whats_new.components.swipe import TRANSITIONS
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
+from whats_new.presenter import THEME
+from whats_new.presenter import TRANSITION
 from whats_new.presenter import root
 from whats_new.size import PRESENTING
+from whats_new.tachyon import MODE_CHOICE
+from whats_new.tachyon import NO_WORKLOAD
+from whats_new.tachyon import WORKLOAD_CHOICE
 
 
 @pytest.mark.parametrize(("theme", "expected"), [("monokai", True), ("zenburn", True), ("solarized-light", False)])
@@ -165,3 +172,88 @@ async def test_each_function_key_opens_its_own_picker_in_place_of_the_other(host
     assert "slide transition" in text
     assert "code theme" not in text
     assert all(option in text for option in TRANSITIONS)
+
+
+@pytest.mark.parametrize("choice", [THEME, TRANSITION, MODE_CHOICE, WORKLOAD_CHOICE], ids=lambda choice: choice.label)
+def test_a_picker_fits_inside_the_slide(choice: Choice) -> None:
+    # The slide body has a column of padding either side, and the picker sits one more in from the right.
+    assert choice.width <= PRESENTING.columns - 3
+
+
+@pytest.mark.parametrize(
+    ("choice", "name"),
+    [(choice, name) for choice in (MODE_CHOICE, WORKLOAD_CHOICE) for name in choice.names],
+    ids=lambda value: value if isinstance(value, str) else value.label,
+)
+def test_typing_an_option_s_whole_name_matches_it_first(choice: Choice, name: str) -> None:
+    # The tour picks by typing a name and pressing Enter, which chooses the first match.
+    assert matches(name, choice.names)[0] == name
+
+
+async def test_the_tachyon_pickers_start_a_workload_and_change_the_mode(host: Host) -> None:
+    index = next(index for index, slide in enumerate(SLIDES) if slide.title == "Tachyon, live")
+    frames: list[Frame] = []
+
+    async def settle(frame: Frame) -> None:
+        await asyncio.sleep(0.05)
+
+    autopilot: tuple[AnyEvent | AnyControl, ...] = (
+        KeyPressed(key="w"),
+        *(KeyPressed(key=character) for character in "blo"),
+        KeyPressed(key=Key.Enter),
+        KeyPressed(key="m"),
+        *(KeyPressed(key=character) for character in "gil"),
+        KeyPressed(key=Key.Enter),
+        # The workload starts from an effect, which runs once the autopilot yields to it.
+        Screenshot(handler=settle),
+        Screenshot(handler=frames.append),
+        Quit(),
+    )
+    await app(
+        root(SLIDES, host, Checkpoint(slide=index), lambda checkpoint: None),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=autopilot,
+        clock=EXPORT_CLOCK,
+    )
+
+    text = frames[0].text(ansi=False)
+    assert "mode: gil" in text
+    assert "running: blocking I/O" in text
+    assert "profiler mode" not in text
+
+
+@pytest.mark.parametrize(
+    "stop",
+    [
+        (KeyPressed(key="c"),),
+        (KeyPressed(key="w"), *(KeyPressed(key=character) for character in NO_WORKLOAD), KeyPressed(key=Key.Enter)),
+    ],
+    ids=["c", "none in the picker"],
+)
+async def test_the_tachyon_workload_stops(host: Host, stop: tuple[KeyPressed, ...]) -> None:
+    index = next(index for index, slide in enumerate(SLIDES) if slide.title == "Tachyon, live")
+    frames: list[Frame] = []
+
+    async def settle(frame: Frame) -> None:
+        await asyncio.sleep(0.05)
+
+    autopilot: tuple[AnyEvent | AnyControl, ...] = (
+        KeyPressed(key="w"),
+        *(KeyPressed(key=character) for character in "blo"),
+        KeyPressed(key=Key.Enter),
+        Screenshot(handler=settle),
+        *stop,
+        Screenshot(handler=settle),
+        Screenshot(handler=frames.append),
+        Quit(),
+    )
+    await app(
+        root(SLIDES, host, Checkpoint(slide=index), lambda checkpoint: None),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=autopilot,
+        clock=EXPORT_CLOCK,
+    )
+
+    assert "running: idle" in frames[0].text(ansi=False)

@@ -409,22 +409,26 @@ frame earns a slide or just a sentence.
      parent, its screen comes back through the PTY, and the deck draws it in its own
      pane. The ptrace permissions (Yama) stay off the slide.
    - The deck runs Tachyon's live TUI _inside itself_, attached to its own PID.
-   - Workload keys make the deck do expensive things at a few intensities
-     (light, medium, heavy), and the profiler shows each one as it happens:
+   - Workloads make the deck do expensive things, and the profiler shows each one
+     as it happens. One workload runs at a time, until another is chosen.
+     `w` opens a picker of them, each with a line on what to point at, and `none`;
+     `c` clears the one running, as `none` does, leaving the deck alone under the
+     profiler. Workloads have no keys of their own: only the picker starts one.
 
-     | Key | Workload | What to point at |
-     |---|---|---|
-     | `c` | pure-Python CPU (nbody) in a worker thread | the hot function and per-line attribution |
-     | `C` | the same on the event loop, bounded to about 2 s | the deck freezes; the profile explains it after |
-     | `n` | numpy matmul (`lazy import numpy`) | compiled code appears as `<native>` frames |
-     | `i` | blocking file/sleep I/O in a thread | wall vs cpu mode: idle time vanishes in cpu mode |
-     | `a` | a fan of asyncio tasks | `--async-aware` reconstructs task trees |
-     | `g` | garbage-cycle churn | `<GC>` frames, which links to the GC story below |
-     | `e` | a raise-and-catch loop in a worker thread | exception mode shows only it |
+     | Workload | What to point at |
+     |---|---|
+     | pure-Python CPU (nbody) in a worker thread | the hot function and per-line attribution |
+     | the same on the event loop, pausing every 5 s | the deck freezes; the profile explains it after |
+     | numpy matmul (`lazy import numpy`) | compiled code appears as `<native>` frames |
+     | blocking file/sleep I/O in a thread | wall vs cpu mode: idle time vanishes in cpu mode |
+     | a fan of asyncio tasks | `--async-aware` reconstructs task trees |
+     | garbage-cycle churn | `<GC>` frames, which links to the GC story below |
+     | a raise-and-catch loop in a worker thread | exception mode shows only it |
 
-   - `m` cycles the profiler's mode (wall, cpu, gil, exception, async-aware) by
-     restarting it with new flags. Exception mode samples only threads with an
-     active exception (observed in `--help`: `--mode {wall,cpu,gil,exception}`). gil mode pairs with `c`: the worker thread holds the GIL while
+   - `m` opens a picker of the profiler's modes (wall, cpu, gil, exception,
+     async-aware), each with a line on what it samples, and choosing one
+     restarts the profiler with new flags. Exception mode samples only threads with an
+     active exception (observed in `--help`: `--mode {wall,cpu,gil,exception}`). gil mode pairs with pure-Python CPU in a thread: the worker thread holds the GIL while
      the render loop waits for it, which is also why the deck stutters.
    - The mirror moment: drawing the profiler's screen is itself work the deck
      does (the #423 plan measures 3 to 10 ms per emulator snapshot of a busy colored
@@ -456,7 +460,7 @@ frame earns a slide or just a sentence.
      and `--collapsed` for any flamegraph tool.
 6. Also: `profiling.sampling dump <pid>` prints a one-shot stack, which is how you'd
    ask a hung production process what it's doing. Run it against the deck in a pane
-   while a threaded workload is busy. Not during `C`: a frozen deck can't draw the answer.
+   while a threaded workload is busy. Not during pure-Python CPU on the event loop: a frozen deck can't draw the answer.
    - `--diff-flamegraph` compares a baseline with the current run.
    - `heatmap` is another output format.
    - `--opcodes` records which bytecode instructions are executing, including the
@@ -788,7 +792,10 @@ Dockerfile           the image others run the deck from
   - F4: the code theme picker, an autocomplete field as in counterweight's
     autocomplete cookbook. Typing narrows the list (the typed letters in order),
     Down and Up move the highlight, and Enter or Tab sets that Pygments style on
-    every slide and thumbnail. F4 or Escape closes it unchanged. Either way focus
+    every slide and thumbnail. F4 or Escape closes it unchanged.
+    The Tachyon stage's `w` and `m` pickers are the same field, with a
+    description under each option; there Escape closes it, since the field
+    takes the letter as typing. Either way focus
     goes back to whatever takes the slide's keys, through a focus handle the root
     owns. It offers only the dark styles, by their background's luminance; the
     light ones would clash with the deck. The deck starts in `github-dark`.
@@ -1059,8 +1066,9 @@ asciinema-player plays back. `just record` writes it, through counterweight's
   as the example check skips it.
 - A slide's `tour` carries what a presenter does on a stage the run pane doesn't
   drive, by reveal step: the REPL slide starts the REPL and shows its completions,
-  and the Tachyon stage attaches the profiler, starts each workload its talking
-  points name, moves through the modes, and dumps every thread. The flamegraph (`F`)
+  and the Tachyon stage attaches the profiler, runs each workload,
+  moves through the modes, clears the workload to watch the deck alone,
+  and dumps every thread while a workload is busy. The flamegraph (`F`)
   stays out, since it serves a page the recording can't show. The recording's `Host`
   carries the real PID, so Tachyon attaches to the recording process itself.
 - Time is split by what it's waiting for. Reveals hold on the frozen clock, one
@@ -1174,21 +1182,27 @@ Design:
 
 ### The Tachyon stage
 
-The Tachyon demo is one slide whose steps advance with Space, so the profiler pane
-survives the whole section. A separate slide per step would unmount the pane on
-every navigation and restart the profiler.
+The Tachyon demo is one slide, so the profiler pane survives the whole section.
+A slide per beat would unmount the pane on every navigation and restart the
+profiler.
 
-- Layout: the profiler pane takes the full width at the bottom, and a strip on top
-  holds the current talking point and which workload is running.
-  - Each talking point fits on one line, so the pane doesn't move between steps; a
-    test holds every point to the slide's width. The line under it, the mode and
-    what's running, wraps rather than clipping when two long-named workloads run
-    at once.
+- Layout: the profiler pane takes the full width at the bottom, under one
+  centered line, `mode: wall · running: idle`, saying the profiler's mode and
+  which workload is running. The pane says for itself whether the profiler is
+  running, so the line doesn't.
   - Tachyon's live TUI needs at least 60x12. Below that it shows a "Terminal too
     small!" screen (observed).
   - Stack the panes unless the presenting width leaves the slide a useful
     strip beside a pane of at least 60 columns.
   - The `file:line` column truncates long paths, so run the deck from a short path.
+  - Tachyon marks its top three functions with medal emoji, which zellij web
+    measures at the wrong width
+    ([zellij-org/zellij#5718](https://github.com/zellij-org/zellij/issues/5718)),
+    knocking their row and anything drawn over it out of line. The profiler runs
+    with `PYTHONPATH` on a `sitecustomize` that draws them as `#1`, `#2` and `#3`,
+    the same two cells, so the command the stage runs stays plain Tachyon. A test
+    draws the row, so a Tachyon that draws its medals differently fails it rather
+    than bringing them back on stage. Drop it once zellij measures them.
 - The pane runs `use_terminal` with
   `[sys.executable, "-m", "profiling.sampling", "attach", "--live", "-a", str(os.getpid())]`.
   - `sys.executable` matters: profiler and target must be the same minor version.
@@ -1201,7 +1215,9 @@ every navigation and restart the profiler.
   - The mode lives in state. Changing it changes the pane's argv and key, which
     remounts the pane and restarts the profiler. Leaving the slide unmounts the
     pane, which hangs up the PTY and ends the profiler.
-- Focus: keys go to the deck by default, so workload keys work.
+- Focus: keys go to the deck by default, so the stage's own keys work.
+  - `w` and `m` open a picker over the stage's top right corner and focus it;
+    choosing or Escape gives focus back to the stage.
   - A key hands focus to the pane, and the presenter drives Tachyon's own keys.
   - Tab takes it back. Tachyon's TUI binds letters, arrows, `/`, `+` and `-`,
     but not Tab. Ctrl+B, the prefix from #423's multiplexer example, works too
@@ -1219,13 +1235,23 @@ every navigation and restart the profiler.
     spawning the profiler.
 - Workloads (`workloads.py`) run off the event loop, so the deck keeps drawing.
   - They still share the GIL with the render loop. That's the point of the gil-mode beat.
-  - Each one ends on its own after a few seconds. A key starts it; nothing has to
-    stop it.
-  - `C` deliberately runs on the event loop and freezes the deck. The pane can't
-    redraw during the freeze, so the profile only becomes visible afterwards.
+  - numpy runs on one OpenBLAS thread (`OPENBLAS_NUM_THREADS=1`, set before numpy
+    loads). OpenBLAS's fork handler joins its worker threads, and with workers it
+    deadlocked the deck when switching modes forked a new profiler mid-matmul
+    (observed: the join waited on a worker that never woke, with the GIL held).
+  - The workload is state, like the mode, and runs from an effect keyed on it.
+    Choosing another, or none, or leaving the slide cancels the effect. Each
+    workload is a loop that checks a stop signal between slices of work, so a
+    thread's workload ends within a slice of being cancelled.
+  - Pure-Python CPU on the event loop deliberately freezes the deck. The pane can't
+    redraw during a freeze, so the profile only becomes visible afterwards.
+    A frozen loop can't read the key that would stop it, so it freezes for 5 s
+    at a time and gives the loop back for a quarter of a second between freezes:
+    long enough to draw a frame and read the keys pressed meanwhile, so a key
+    stops it within one freeze.
   - While the deck isn't reading the PTY, Tachyon's screen writes back up. Probe
     whether a full PTY buffer stalls Tachyon's sampling, not only its drawing. If
-    it does, keep `C` short enough that the buffer never fills, or cut it.
+    it does, shorten its freezes until the buffer never fills, or cut it.
 
 ### Presenting over zellij web
 
@@ -1346,8 +1372,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   - On each slide, every `PEP <n>` in the rendered text must appear in that
     slide's `peps`, so a slide can't cite a PEP without linking it.
 - Diagram fit: every diagram, at every reveal step, drawn on a screen far wider
-  than the slide, must fit the slide's content width, and every Tachyon talking
-  point must fit on one line. From the screen alone, text clipped at the edge
+  than the slide, must fit the slide's content width. From the screen alone, text clipped at the edge
   looks the same as text that ends there, so the test measures drawings where
   nothing clips them.
 - The export hook: a commit that changes the render without regenerating

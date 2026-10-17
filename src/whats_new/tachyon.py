@@ -2,7 +2,8 @@
 The Tachyon stage: the deck runs Tachyon's live TUI inside itself, attached to its own process,
 and makes itself do expensive things for it to watch.
 
-It's one slide whose Space steps are its talking points, so the profiler pane survives the whole section.
+It's one slide, so the profiler pane survives the whole section, with a line over the pane saying
+the profiler's mode and what's running.
 Arriving starts nothing: `p` starts the profiler, and leaving the slide unmounts the pane, which hangs it up.
 The profiler is the deck's child, attaching to its parent, which needs no ptrace permission beyond the default
 on a machine without Yama (Yama's `ptrace_scope` 1 would refuse it).
@@ -15,6 +16,8 @@ from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
+from functools import partial
+from pathlib import Path
 
 from counterweight.autopilot import AutopilotStep
 from counterweight.autopilot import Wait
@@ -46,15 +49,17 @@ from counterweight.styles.utilities import *
 from counterweight.widgets import terminal
 
 from whats_new.components.look import PYTHON_BLUE
-from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
+from whats_new.components.picker import Choice
+from whats_new.components.picker import Option
+from whats_new.components.picker import picker
 from whats_new.components.run_pane import OUTPUT_STYLES
 from whats_new.host import FlamegraphSite
 from whats_new.runs import ROOT
 from whats_new.slides import SlideProps
 from whats_new.tours import showing
-from whats_new.workloads import SECONDS
-from whats_new.workloads import WORKLOADS_BY_KEY
+from whats_new.workloads import WORKLOADS
+from whats_new.workloads import WORKLOADS_BY_NAME
 from whats_new.workloads import Workload
 from whats_new.workloads import perform
 
@@ -62,36 +67,49 @@ OUT = ROOT / "out"
 FLAMEGRAPH = "deck-flamegraph.html"
 FLAMEGRAPH_SECONDS = 10
 
+
+@dataclass(frozen=True, slots=True)
+class Mode:
+    """A way to run Tachyon's live view: `options` are what it's given, and `description` is what the picker says."""
+
+    name: str
+    options: tuple[str, ...]
+    description: str
+
+
 # Tachyon refuses `-a` (every thread) with `--async-aware`, which reconstructs stacks from the tasks instead;
 # the deck's tasks all run on its own loop, so that mode loses nothing by dropping it.
-MODES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("wall", ("-a", "--mode", "wall")),
-    ("cpu", ("-a", "--mode", "cpu")),
-    ("gil", ("-a", "--mode", "gil")),
-    ("exception", ("-a", "--mode", "exception")),
-    ("async-aware", ("--async-aware",)),
+MODES = (
+    Mode("wall", ("-a", "--mode", "wall"), "every sample, running or waiting"),
+    Mode("cpu", ("-a", "--mode", "cpu"), "only samples on the CPU: waiting drops out"),
+    Mode("gil", ("-a", "--mode", "gil"), "only samples holding the GIL"),
+    Mode("exception", ("-a", "--mode", "exception"), "only samples handling an exception"),
+    Mode("async-aware", ("--async-aware",), "stacks rebuilt from asyncio tasks, not threads"),
+)
+MODES_BY_NAME = {mode.name: mode for mode in MODES}
+
+MODE_CHOICE = Choice(
+    label="profiler mode", options=tuple(Option(mode.name, mode.description) for mode in MODES), key="m"
+)
+NO_WORKLOAD = "none"
+WORKLOAD_CHOICE = Choice(
+    label="workload",
+    options=(
+        Option(NO_WORKLOAD, "stop the workload: the deck alone"),
+        *(Option(workload.name, workload.description) for workload in WORKLOADS),
+    ),
+    key="w",
 )
 
-POINTS = (
-    "p attaches Tachyon to this deck: the profiler is its child, attached to its parent",
-    "c: pure-Python CPU in a worker thread: the hot function, and the lines in it",
-    "C: the same on the event loop: the deck freezes, and the profile explains why",
-    "n: numpy: compiled code shows up as <native> frames",
-    "i: blocking I/O: m to cpu mode, and the idle time vanishes",
-    "a: asyncio tasks: m to async-aware mode, and the task tree comes back",
-    "g: garbage cycles: <GC> frames",
-    "e: raise and catch in a thread: exception mode samples only it",
-    "drawing the profiler's screen is work the deck does, so it shows up in the profile",
-    "f hands Tachyon the keyboard (s sort, t mode, x trends, h help); Tab takes it back",
-    "F: a flamegraph of the next 10 seconds; D: what is every thread doing, right now?",
-)
-STEPS = len(POINTS)
+
+PROFILER_ENV = frozendict(PYTHONPATH=str(Path(__file__).parent / "tachyon_site"))
+"""What the profiler runs with: its `sitecustomize` draws Tachyon's medals as `#1` and so on (see its docstring)."""
 
 
-def profiler_argv(pid: int, mode: int) -> tuple[str, ...]:
-    """Tachyon's live TUI attached to `pid`, in the mode at index `mode` of `MODES`."""
+def profiler_argv(pid: int, mode: Mode) -> tuple[str, ...]:
+    """Tachyon's live TUI attached to `pid`, in `mode`."""
     # sys.executable, since the profiler must be the same minor version as the process it attaches to.
-    return (sys.executable, "-m", "profiling.sampling", "attach", "--live", *MODES[mode][1], str(pid))
+    return (sys.executable, "-m", "profiling.sampling", "attach", "--live", *mode.options, str(pid))
 
 
 def flamegraph_argv(pid: int) -> tuple[str, ...]:
@@ -119,39 +137,29 @@ def new_executor() -> ThreadPoolExecutor:
     return ThreadPoolExecutor(max_workers=4, thread_name_prefix="workload")
 
 
-@dataclass(frozen=True, slots=True, eq=False)
-class Started:
-    """A workload started by a key press, compared by identity, so pressing the key again starts another."""
-
-    workload: Workload
-
-
 @component
 def tachyon_stage(props: SlideProps) -> Div:
     focus = use_focus(auto_focus=props.is_live, handle=props.slide_focus, is_focusable=props.is_live)
     pane, _ = use_state(FocusHandle)
     viewport, _ = use_state(ElementHandle)
     is_profiling, set_profiling = use_state(False)
-    mode, set_mode = use_state(0)
-    no_workload: Started | None = None
-    started, set_started = use_state(no_workload)
-    running, set_running = use_state(frozenset[str]())
+    mode, set_mode = use_state(MODES[0])
+    no_picker: Choice | None = None
+    picking, set_picking = use_state(no_picker)
+    picker_focus, _ = use_state(FocusHandle)
+    no_workload: Workload | None = None
+    workload, set_workload = use_state(no_workload)
     is_serving, set_serving = use_state(False)
     executor: Ref[ThreadPoolExecutor] = use_ref(new_executor)
     one_shot = use_command(columns=use_rects(viewport).content.width, timeout=timedelta(seconds=30))
     pid = props.host.pid
 
+    # Choosing another workload, or none, or leaving the slide, cancels this, which stops the one running.
     async def run_workload() -> None:
-        if started is None:
-            return
-        name = started.workload.name
-        set_running(lambda names: names | {name})
-        try:
-            await perform(started.workload, executor.current)
-        finally:
-            set_running(lambda names: names - {name})
+        if workload is not None:
+            await perform(workload, executor.current)
 
-    use_effect(run_workload, deps=(started,))
+    use_effect(run_workload, deps=(workload,))
 
     async def shut_down_executor() -> None:
         try:
@@ -167,6 +175,12 @@ def tachyon_stage(props: SlideProps) -> Div:
 
     use_effect(serve, deps=(is_serving,))
 
+    def choose(choice: Choice, name: str) -> None:
+        if choice is MODE_CHOICE:
+            set_mode(MODES_BY_NAME[name])
+        else:
+            set_workload(None if name == NO_WORKLOAD else WORKLOADS_BY_NAME[name])
+
     def on_input(event: InputEvent, receiver: Receiver) -> InputResponse:
         if not isinstance(event, KeyPressed):
             return None
@@ -174,7 +188,11 @@ def tachyon_stage(props: SlideProps) -> Div:
             case "p":
                 set_profiling(lambda profiling: not profiling)
             case "m":
-                set_mode(lambda m: (m + 1) % len(MODES))
+                set_picking(MODE_CHOICE)
+                return (FocusOn(picker_focus),)
+            case "w":
+                set_picking(WORKLOAD_CHOICE)
+                return (FocusOn(picker_focus),)
             case "f" if is_profiling:
                 return (FocusOn(pane),)
             case "F":
@@ -185,8 +203,8 @@ def tachyon_stage(props: SlideProps) -> Div:
                 one_shot.run(dump_argv(pid))
             case Key.Escape:
                 one_shot.cancel()
-            case key if key in WORKLOADS_BY_KEY:
-                set_started(Started(WORKLOADS_BY_KEY[key]))
+            case "c":
+                set_workload(None)
             case _:
                 return None
         return ()
@@ -202,17 +220,18 @@ def tachyon_stage(props: SlideProps) -> Div:
     latest = one_shot.latest
     flamegraph_ready = latest is not None and latest.argv == flamegraph_argv(pid) and latest.outcome == Exited(status=0)
     body: list[Component | AnyElement] = [
-        strip(props.step, MODES[mode][0], tuple(sorted(running)), is_profiling),
+        strip(mode.name, None if workload is None else workload.name),
     ]
     if is_profiling:
         body.append(
             terminal(
                 profiler_argv(pid, mode),
+                env=PROFILER_ENV,
                 style=fill(3) | min_height(12),
                 intercept=take_back,
                 handle=pane,
                 in_focus_order=False,
-            ).with_key(f"profiler-{mode}")
+            ).with_key(f"profiler-{mode.name}")
         )
     else:
         body.append(placeholder())
@@ -228,23 +247,39 @@ def tachyon_stage(props: SlideProps) -> Div:
                 ),
             )
         )
-    return Div(style=col | fill(1), on_input=on_input, children=tuple(body))
+    if picking is not None:
+        # Last, so it paints over the profiler.
+        body.append(
+            picker(
+                picking,
+                current_choice(picking, mode, workload),
+                partial(choose, picking),
+                lambda: set_picking(None),
+                FocusOn(focus.handle),
+                picker_focus,
+            ).with_key(f"picker-{picking.key}")
+        )
+    return Div(style=col | fill(1) | position_relative, on_input=on_input, children=tuple(body))
 
 
-def strip(step: int, mode: str, running: tuple[str, ...], is_profiling: bool) -> Text:
-    """
-    The talking point, on one line (each fits the slide), then the mode and what's running,
-    which wraps rather than being clipped when two long-named workloads run at once.
-    """
-    status = ", ".join(running) if running else "idle"
+def current_choice(choice: Choice, mode: Mode, workload: Workload | None) -> str:
+    """What `choice`'s picker marks as current: the mode, or the workload running, or none."""
+    if choice is MODE_CHOICE:
+        return mode.name
+    return NO_WORKLOAD if workload is None else workload.name
+
+
+def strip(mode: str, running: str | None) -> Text:
+    """The profiler's mode and what's running, on one line, centered over the pane."""
+    value = CellStyle(foreground=PYTHON_BLUE)
     return Text(
         content=(
-            Chunk(content=POINTS[step], style=CellStyle(foreground=PYTHON_YELLOW, bold=True)),
-            Chunk.newline(),
-            Chunk(content=f"mode {mode}", style=CellStyle(foreground=PYTHON_BLUE)),
-            Chunk(content=f" · {'profiling' if is_profiling else 'p to profile'} · running: {status}"),
+            Chunk(content="mode: "),
+            Chunk(content=mode, style=value),
+            Chunk(content=" · running: "),
+            Chunk(content="idle" if running is None else running, style=value),
         ),
-        style=shrink(0) | text_wrap_pretty,
+        style=shrink(0) | text_wrap_none | text_justify_center,
     )
 
 
@@ -283,8 +318,8 @@ async def serve_flamegraphs(site: FlamegraphSite) -> None:
             await server.wait()
 
 
-WORKLOAD = Wait(timedelta(seconds=SECONDS + 1))
-"""Long enough for a workload to finish, in real time, with the profiler watching."""
+WORKLOAD = Wait(timedelta(seconds=7))
+"""How long to watch each workload, in real time, before the next talking point."""
 LOOK = Wait(timedelta(seconds=3))
 
 
@@ -292,39 +327,65 @@ def press(*keys: str) -> list[AutopilotStep]:
     return [KeyPressed(key=key) for key in keys]
 
 
-def to_mode(start: int, name: str) -> list[AutopilotStep]:
-    """`m` as many times as it takes to get from the mode at index `start` of `MODES` to the one called `name`."""
-    target = next(index for index, (mode, _) in enumerate(MODES) if mode == name)
-    return press(*["m"] * ((target - start) % len(MODES)))
+def pick(choice: Choice, name: str) -> list[AutopilotStep]:
+    """The option called `name`, picked by typing its name into `choice`'s picker, where it's the first match."""
+    return [*press(choice.key), LOOK, *press(*name), KeyPressed(key=Key.Enter)]
 
 
 def tachyon_tour(step: int) -> Iterable[AutopilotStep]:
     """
-    What each talking point says to do, done: attach, start each workload and let it finish under the profiler,
-    move through the modes the points name, hand Tachyon the keyboard to sort its table, and dump every thread.
+    The demo, done: attach, run each workload a while under the profiler, switching to the modes that show it best,
+    clear the workload to watch the deck alone, hand Tachyon the keyboard to sort its table,
+    and dump every thread while a workload is busy.
     The flamegraph (`F`) is left out: it serves a page the recording can't show.
     """
-    match step:
-        case 0:
-            return [*press("p"), showing("Tachyon Profiler"), LOOK]
-        case 1:
-            return [*press("c"), WORKLOAD]
-        case 2:
-            # Freezes the deck, so the autopilot too: the wait ends once the deck draws again.
-            return [*press("C"), WORKLOAD, LOOK]
-        case 3:
-            return [*press("n"), WORKLOAD]
-        case 4:
-            return [*press("i"), LOOK, *to_mode(0, "cpu"), WORKLOAD]
-        case 5:
-            return [*to_mode(1, "async-aware"), *press("a"), WORKLOAD]
-        case 6:
-            return [*press("g"), WORKLOAD]
-        case 7:
-            return [*to_mode(4, "exception"), *press("e"), WORKLOAD]
-        case 9:
-            return [*press("f"), LOOK, *press("s"), LOOK, KeyPressed(key=Key.Tab)]
-        case 10:
-            return [*press("D"), showing("exited"), LOOK]
-        case _:
-            return []
+    if step != 0:
+        return []
+    return [
+        # The profiler is the deck's child, attached to its parent.
+        *press("p"),
+        showing("Tachyon Profiler"),
+        LOOK,
+        # The hot function, and the lines in it.
+        *pick(WORKLOAD_CHOICE, "pure-Python CPU, in a thread"),
+        WORKLOAD,
+        # The deck freezes, and the profile explains why. The autopilot freezes too,
+        # and takes its turns between freezes.
+        *pick(WORKLOAD_CHOICE, "pure-Python CPU, on the event loop"),
+        WORKLOAD,
+        LOOK,
+        # Compiled code shows up as <native> frames.
+        *pick(WORKLOAD_CHOICE, "numpy matmul"),
+        WORKLOAD,
+        # In cpu mode, the idle time vanishes.
+        *pick(WORKLOAD_CHOICE, "blocking I/O"),
+        LOOK,
+        *pick(MODE_CHOICE, "cpu"),
+        WORKLOAD,
+        # In async-aware mode, the task tree comes back.
+        *pick(MODE_CHOICE, "async-aware"),
+        *pick(WORKLOAD_CHOICE, "asyncio tasks"),
+        WORKLOAD,
+        # <GC> frames.
+        *pick(WORKLOAD_CHOICE, "garbage cycles"),
+        WORKLOAD,
+        # Exception mode samples only the thread raising.
+        *pick(MODE_CHOICE, "exception"),
+        *pick(WORKLOAD_CHOICE, "raise and catch"),
+        WORKLOAD,
+        # Drawing the profiler's screen is work the deck does, so it's in the profile too.
+        *press("c"),
+        LOOK,
+        # Tachyon's own keys, then Tab takes the keyboard back.
+        *press("f"),
+        LOOK,
+        *press("s"),
+        LOOK,
+        KeyPressed(key=Key.Tab),
+        # What is every thread doing, right now?
+        *pick(WORKLOAD_CHOICE, "pure-Python CPU, in a thread"),
+        LOOK,
+        *press("D"),
+        showing("exited"),
+        LOOK,
+    ]

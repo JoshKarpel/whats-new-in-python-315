@@ -38,6 +38,7 @@ from whats_new.components.grid import above
 from whats_new.components.grid import below
 from whats_new.components.grid import grid
 from whats_new.components.picker import Choice
+from whats_new.components.picker import Option
 from whats_new.components.picker import picker
 from whats_new.components.slide_body import slide_body
 from whats_new.components.swipe import TRANSITIONS
@@ -146,8 +147,8 @@ class Mounting:
         return f"slide-{self.serial}"
 
 
-THEME = Choice(label="code theme", options=CODE_THEMES, key="F4")
-TRANSITION = Choice(label="slide transition", options=TRANSITIONS, key="F3")
+THEME = Choice(label="code theme", options=tuple(Option(theme) for theme in CODE_THEMES), key="F4")
+TRANSITION = Choice(label="slide transition", options=tuple(Option(name) for name in TRANSITIONS), key="F3")
 
 CHICAGO = ZoneInfo("America/Chicago")
 """Where the talk is given, so the clock reads the room's time, not the VM's UTC."""
