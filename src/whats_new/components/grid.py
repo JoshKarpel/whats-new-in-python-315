@@ -6,7 +6,7 @@ Each thumbnail is the slide's own content component drawn at a third of the widt
 not a picture, so it's exactly what the slide draws at that width. Thumbnails aren't live: they never take focus,
 so they never receive a slide's keys or start its runs.
 
-With F9 toggled on, the grid zooms, along F7's easing curve at F8's speed. Opening, the selected thumbnail
+With F9's `zoom` picked, the grid zooms, along F7's easing curve at F8's speed. Opening, the selected thumbnail
 starts filling the grid and shrinks into its place while the others grow in around it; leaving, the selected
 thumbnail grows back to fill it. Its content reflows as it changes size, as a thumbnail's always does, rather than
 scaling. The grid sits over the stage, so the slide it leaves for is already mounted, and live, beneath it.

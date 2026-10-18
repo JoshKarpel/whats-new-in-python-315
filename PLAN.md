@@ -801,9 +801,10 @@ Dockerfile           the image others run the deck from
     It offers only the dark styles, by their background's luminance; the
     light ones would clash with the deck. The deck starts in `github-dark`.
   - F6: the slide transition picker, the same autocomplete field as F4's,
-    offering `off`, an effect, or `random`. F7 picks the easing curve the transition and the
-    grid's zoom follow, F8 their speed, and F9 toggles the grid's zoom. Not F5,
-    which the browser keeps. See [Slide transitions](#slide-transitions).
+    offering `off`, `random`, or an effect, each with a line saying what it does.
+    F7 picks the easing curve the transition and the grid's transition follow,
+    F8 their speed, and F9 the grid's transition, from a picker of its own.
+    Not F5, which the browser keeps. See [Slide transitions](#slide-transitions).
   - Slide-specific keys on Tachyon slides only.
 
   See [Presenting over zellij web](#presenting-over-zellij-web) for which keys the
@@ -1011,7 +1012,7 @@ The reference talk did this with two pieces, and the deck keeps both:
 - The deck writes a checkpoint to a file in the temp directory whenever the slide
   or a setting changes, and reads it at startup: the slide's index, clamped to the
   deck's length, the theme F4 picked, the transition, curve and speed F6 through
-  F8 picked, and whether F9 has the grid's zoom on. A restart lands on the same
+  F8 picked, and the grid's transition F9 picked. A restart lands on the same
   slide, looking the same. Reveal steps and run output start fresh. A checkpoint
   that doesn't parse starts over from the first slide, since a deck relaunched on
   stage mustn't refuse to start.
@@ -1103,8 +1104,8 @@ half speed as the deck moves on from its first slide, a chapter each.
 
 - Each transition is picked on screen, from F6's picker, one option down from the
   last, so the recording shows how to pick one as well as what each looks like.
-  It starts with `off`, so walking down the list reaches every transition in the
-  order F6 lists them.
+  It starts with `random`, the option just ahead of the transitions, so walking
+  down the list reaches every transition in the order F6 lists them.
 - It runs nothing and waits for nothing real: every moment passes on the frozen
   clock, one animation frame at a time. So it records the same every time, in
   about three seconds, and a pre-commit hook regenerates it as the export's does.
@@ -1112,8 +1113,8 @@ half speed as the deck moves on from its first slide, a chapter each.
 ### Slide transitions
 
 Moving to the next or previous slide can play a transition. F6 picks which:
-`off`, `swipe`, one of the effects drawn from pictures, or `random`, which picks
-one afresh on every move. F7 picks the easing curve it follows, and F8 its speed,
+`off`, `random`, which picks one afresh on every move, `swipe`,
+or one of the effects drawn from pictures, each with a line in the picker saying what it does. F7 picks the easing curve it follows, and F8 its speed,
 from `0.25x` to `2x`. The effects are an open-ended collection to try out and cut
 down: `components/transitions.py` names each one and its duration, and each
 effect's module docstring says what it looks like.
@@ -1126,10 +1127,11 @@ effect's module docstring says what it looks like.
   their cells.
 - Only moving from one slide straight to another plays one, as in spiel: not
   opening or leaving the grid, jumping from it, or `r`. Opening and leaving the
-  grid zoom instead, when F9 has the zoom on, along the same curve at the same
-  speed. See [The slide grid](#the-slide-grid).
-- `random` draws from `random.choice` by default. The root component takes the
-  chooser as an argument, so a test can fix which transition plays.
+  grid play the grid's own transition instead, which F9 picks the same way
+  (`off`, `random`, or one by name), along the same curve at the same speed.
+  See [The slide grid](#the-slide-grid).
+- `random` draws from `random.choice` by default. The root component takes a
+  chooser for each picker as an argument, so a test can fix which transition plays.
 - Everything is `off` by default, so the export doesn't change. The checkpoint
   remembers each choice, as it does the code theme.
 - A transition ticks at the deck's 20 frames a second. Whether that reads as
@@ -1182,7 +1184,7 @@ from the two, cell by cell, for one `Canvas` drawn over the stage.
   put, so a box breaks up and reforms with its text rather than changing color in
   place on a clock of its own.
 - An effect lasts as long as it takes to follow: 0.75 s for the simplest, up to
-  3 s for those that move every character or play out in phases.
+  4.5 s for those that move every character or play out in phases.
 - Measured on this VM over four slide pairs, every effect's frame averages under
   1 ms, against the 50 ms a frame at 20 frames a second allows. The worst single
   frames reach about 13 ms. Working out an effect's plan from the two pictures
@@ -1240,7 +1242,7 @@ Design:
   mounted underneath, including a live Tachyon pane still costing frame time.
 - The Tachyon stage leaves the grid while its pane has focus: there, `d` goes to
   the profiler. Take focus back with Tab first.
-- With F9's zoom on, the grid zooms. Opening, the selected thumbnail
+- With F9's `zoom` picked, the grid zooms. Opening, the selected thumbnail
   starts filling the grid and shrinks into its place while the others grow in
   around it. Leaving, by a jump or Escape, it runs backwards: the selected
   thumbnail grows back to fill the grid. Both interpolate the grid's `fr` track

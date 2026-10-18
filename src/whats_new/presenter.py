@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import replace
+from datetime import timedelta
 from datetime import tzinfo
 from typing import assert_never
 from zoneinfo import ZoneInfo
@@ -39,6 +40,7 @@ from whats_new.components.crossing import Crossing
 from whats_new.components.crossing import photograph
 from whats_new.components.crossing import picture_of
 from whats_new.components.easing import EASINGS
+from whats_new.components.easing import Easing
 from whats_new.components.frame import footer
 from whats_new.components.frame import heading
 from whats_new.components.grid import Toward
@@ -56,11 +58,16 @@ from whats_new.components.stage import stage
 from whats_new.components.swipe import SWIPE
 from whats_new.components.swipe import Direction
 from whats_new.components.swipe import Swipe
-from whats_new.components.transitions import OFFERED
+from whats_new.components.transitions import DESCRIBED
+from whats_new.components.transitions import GRID_DESCRIBED
 from whats_new.components.transitions import SPEEDS
 from whats_new.components.transitions import Choose
+from whats_new.components.transitions import ChooseGrid
 from whats_new.components.transitions import Crossed
+from whats_new.components.transitions import GridTransition
 from whats_new.components.transitions import Swiped
+from whats_new.components.transitions import Zoomed
+from whats_new.components.transitions import grid_transition_for
 from whats_new.components.transitions import transition_for
 from whats_new.host import Host
 from whats_new.slides import Slide
@@ -149,6 +156,17 @@ def zoom_toward(before: Position, after: Position) -> Toward | None:
             return None
 
 
+def grid_motion(toward: Toward, transition: GridTransition | None, easing: Easing, duration: timedelta) -> Zoom | None:
+    """How the grid moves opening or closing, `toward` the grid or the slide, with `transition`: not at all for `None`."""
+    match transition:
+        case None:
+            return None
+        case Zoomed():
+            return Zoom(toward=toward, easing=easing, duration=duration)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class Mounting:
     """
@@ -165,9 +183,14 @@ class Mounting:
 
 
 THEME = Choice(label="code theme", options=tuple(Option(theme) for theme in CODE_THEMES), key="F4")
-TRANSITION = Choice(label="slide transition", options=tuple(Option(name) for name in OFFERED), key="F6")
+TRANSITION = Choice(
+    label="slide transition", options=tuple(Option(name, about) for name, about in DESCRIBED.items()), key="F6"
+)
 CURVE = Choice(label="easing curve", options=tuple(Option(name) for name in EASINGS), key="F7")
 PACE = Choice(label="transition speed", options=tuple(Option(name) for name in SPEEDS), key="F8")
+GRID_TRANSITION = Choice(
+    label="grid transition", options=tuple(Option(name, about) for name, about in GRID_DESCRIBED.items()), key="F9"
+)
 
 CHICAGO = ZoneInfo("America/Chicago")
 """Where the talk is given, so the clock reads the room's time, not the VM's UTC."""
@@ -196,14 +219,15 @@ def root(
     remember: Callable[[Checkpoint], None],
     timezone: tzinfo = CHICAGO,
     choose: Choose = random.choice,
+    choose_grid: ChooseGrid = random.choice,
 ) -> Div:
     """
     The deck. It starts from `start` and calls `remember` with a new checkpoint whenever the slide, the code theme,
-    the transition, its curve or speed, or the grid's zoom changes, so a restart (live reload, or a crash on stage)
+    the transition, its curve or speed, or the grid's transition changes, so a restart (live reload, or a crash on stage)
     comes back to the same slide, looking the same. The footer's clock reads the time in `timezone`, and `choose`
-    picks each move's transition while F6 has `random` picked.
-    F4 opens the code theme picker, F6 the slide transition picker, F7 the easing curve picker, and F8 the speed
-    picker (see `picker`); the same key closes it unchanged. F9 toggles the grid's zoom.
+    picks each move's transition while F6 has `random` picked, and `choose_grid` the grid's while F9 has.
+    F4 opens the code theme picker, F6 the slide transition picker, F7 the easing curve picker, F8 the speed
+    picker, and F9 the grid transition picker (see `picker`); the same key closes it unchanged.
     Not F5, which the presenting browser keeps for itself.
     """
     position, set_position = use_state(Position(index=clamp(start.slide, 0, len(slides) - 1)))
@@ -219,7 +243,7 @@ def root(
     transition, set_transition = use_state(start.transition)
     curve, set_curve = use_state(start.easing)
     speed, set_speed = use_state(start.speed)
-    zooms_grid, set_zooms_grid = use_state(start.zooms_grid)
+    grid_transition, set_grid_transition = use_state(start.grid_transition)
     no_picker: Picking | None = None
     picking, set_picking = use_state(no_picker)
     stage_handle, _ = use_state(ElementHandle)
@@ -234,11 +258,11 @@ def root(
                 transition=transition,
                 easing=curve,
                 speed=speed,
-                zooms_grid=zooms_grid,
+                grid_transition=grid_transition,
             )
         )
 
-    use_effect(checkpoint, deps=(position.index, code_theme, transition, curve, speed, zooms_grid))
+    use_effect(checkpoint, deps=(position.index, code_theme, transition, curve, speed, grid_transition))
 
     def view(at: Position, of: Mounting, is_live: bool) -> Component:
         return slide_view(slides[at.index], at.step, is_live, host, code_theme, of.focus).with_key(of.key)
@@ -254,7 +278,9 @@ def root(
         pace = SPEEDS[speed]
         toward = zoom_toward(position, moved)
         set_zoom(
-            Zoom(toward=toward, easing=easing, duration=SWIPE / pace) if toward is not None and zooms_grid else None
+            None
+            if toward is None
+            else grid_motion(toward, grid_transition_for(grid_transition, choose_grid), easing, SWIPE / pace)
         )
         if moved.selected is not None:
             # The grid replaces the stage, which would replay a transition left here when it came back.
@@ -308,6 +334,8 @@ def root(
             return curve, set_curve
         if choice is PACE:
             return speed, set_speed
+        if choice is GRID_TRANSITION:
+            return grid_transition, set_grid_transition
         return code_theme, set_code_theme
 
     def on_input(event: InputEvent, receiver: Receiver) -> InputResponse:
@@ -329,8 +357,7 @@ def root(
             case Key.F8:
                 return toggle(PACE)
             case Key.F9:
-                set_zooms_grid(lambda zooms: not zooms)
-                return ()
+                return toggle(GRID_TRANSITION)
             case _:
                 pass
         moved = navigate(position, event.key, slides)

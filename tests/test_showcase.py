@@ -31,16 +31,16 @@ from whats_new.showcase import showcased
 from whats_new.size import PRESENTING
 
 FIRST = tuple(TRANSITIONS.items())[:3]
-"""A few transitions, F6's first after `off`, so a test records in a moment."""
+"""A few transitions, F6's first, so a test records in a moment."""
 
 
 def markers(path: Path) -> list[str]:
     return [data for _, code, data in (json.loads(line) for line in path.read_text().splitlines()[1:]) if code == "m"]
 
 
-def test_the_transitions_follow_off_in_the_order_f6_lists_them() -> None:
+def test_the_transitions_follow_where_the_showcase_starts_in_the_order_f6_lists_them() -> None:
     """Moving one option down the picker picks the next transition only while F6 lists them in this order."""
-    assert OFFERED[: len(TRANSITIONS) + 1] == (START.transition, *TRANSITIONS)
+    assert OFFERED[OFFERED.index(START.transition) :] == (START.transition, *TRANSITIONS)
 
 
 async def test_each_transition_is_picked_in_turn(host: Host) -> None:

@@ -23,7 +23,7 @@ from counterweight.keys import Key
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.frame import TALK_TITLE
 from whats_new.components.swipe import SWIPE
-from whats_new.components.transitions import OFF
+from whats_new.components.transitions import RANDOM
 from whats_new.components.transitions import SPEEDS
 from whats_new.components.transitions import Crossed
 from whats_new.components.transitions import Swiped
@@ -42,9 +42,10 @@ PICKING = timedelta(seconds=0.6)
 SETTLED = timedelta(seconds=1)
 """How long the showcase holds on each slide a transition arrives at, before picking the next one."""
 
-START = Checkpoint(slide=0, code_theme="dracula", transition=OFF, easing="ease-in-out", speed="0.5x")
+START = Checkpoint(slide=0, code_theme="dracula", transition=RANDOM, easing="ease-in-out", speed="0.5x")
 """
-Where the showcase starts: on the first slide, with no transition, so moving one option down picks the first,
+Where the showcase starts: on the first slide, with `random`, the option just ahead of the transitions, so moving
+one option down picks the first,
 and each one down after that picks the next, in the order F6 lists them. At half speed, so there's time to see
 what each one does.
 """
@@ -63,7 +64,7 @@ def duration_of(transition: Transition) -> timedelta:
 
 def showcased(transitions: tuple[tuple[str, Transition], ...]) -> Iterator[AutopilotStep]:
     """
-    Each of `transitions`, which must be F6's first options after `off`, in its order: picked from F6's picker,
+    Each of `transitions`, which must be F6's first options after `random`, in its order: picked from F6's picker,
     then played moving on to the next slide, and held on there.
     """
     for number, (name, transition) in enumerate(transitions, start=1):

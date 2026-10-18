@@ -1,6 +1,6 @@
 """
-The text effects' own behavior, on small pictures: the typewriter's keystrokes and cursor, the diff's listing and
-its lines' turns, the crash's squash and report, and the lazy import's regions and proxy labels.
+The text effects' own behavior, on small pictures: the typewriter's keystrokes and cursor,
+the crash's squash and report, and the lazy import's regions and proxy labels.
 Every effect's first and last frames are checked for all effects together, in `test_crossing`.
 """
 
@@ -17,12 +17,6 @@ from whats_new.components.easing import linear
 from whats_new.components.effects.crash import crash
 from whats_new.components.effects.crash import glitched
 from whats_new.components.effects.crash import squashed
-from whats_new.components.effects.diff import REMOVED
-from whats_new.components.effects.diff import Change
-from whats_new.components.effects.diff import Line
-from whats_new.components.effects.diff import diff
-from whats_new.components.effects.diff import listing
-from whats_new.components.effects.diff import marked
 from whats_new.components.effects.lazy_import import label_of
 from whats_new.components.effects.lazy_import import labelled
 from whats_new.components.effects.lazy_import import lazy_import
@@ -76,71 +70,6 @@ def test_backspacing_starts_on_the_bottom_row() -> None:
     # The erasing is the first 0.35 of the transition. The bottom row erases over its first 0.6, so 0.24 into it
     # is 1.6 keystrokes, and the top row starts 0.4 into it.
     assert text(frames(0.35 * 0.24)) == ("abcd", "ef█ ")
-
-
-def test_a_diff_line_is_tinted_across_the_row_behind_its_gutter() -> None:
-    (row,) = grid(" a😭", style=BLUE)
-
-    assert marked(row, Change.REMOVED, REMOVED) == (
-        StyledGrapheme(grapheme="-", style=REMOVED | CellStyle(bold=True)),
-        StyledGrapheme(grapheme="a", style=REMOVED),
-        StyledGrapheme(grapheme="😭", style=REMOVED),
-        None,
-    )
-
-
-def test_the_listing_puts_each_replaced_rows_addition_straight_after_its_deletion() -> None:
-    lines = listing(grid(" a", " b", " c", style=RED), grid(" x", " y", " c", style=RED))
-
-    assert [(line.change, text((line.row,))) for line in lines] == [
-        (Change.REMOVED, (" a",)),
-        (Change.ADDED, (" x",)),
-        (Change.REMOVED, (" b",)),
-        (Change.ADDED, (" y",)),
-        (Change.CONTEXT, (" c",)),
-    ]
-
-
-def test_a_replaced_row_and_its_replacement_take_their_turn_together() -> None:
-    lines = listing(grid(" a", " b", style=RED), grid(" x", " b", style=RED))
-
-    assert [line.turn for line in lines] == [0.0, 0.0, 0.5]
-
-
-def test_blank_rows_dont_split_a_change_into_far_apart_deletions_and_insertions() -> None:
-    lines = listing(grid(" a", "  ", " b", style=RED), grid("  ", " x", " y", style=RED))
-
-    assert [line.change for line in lines] == [Change.REMOVED, Change.ADDED] * 3
-
-
-DELETED_ROW, ADDED_ROW, MARKED_ROW = grid(" -", " +", "=m", style=RED)
-
-
-@pytest.mark.parametrize(
-    ("change", "progress", "expected"),
-    [
-        (Change.REMOVED, 0.05, DELETED_ROW),
-        (Change.REMOVED, 0.1, MARKED_ROW),
-        (Change.REMOVED, 0.3, None),
-        (Change.ADDED, 0.1, None),
-        (Change.ADDED, 0.2, MARKED_ROW),
-        (Change.ADDED, 0.36, ADDED_ROW),
-    ],
-    ids=["unmarked", "marked red", "deleted", "not yet inserted", "inserted green", "settled"],
-)
-def test_a_lines_turn_marks_inserts_deletes_and_settles_it_in_order(
-    change: Change, progress: float, expected: tuple[StyledGrapheme | None, ...] | None
-) -> None:
-    row = DELETED_ROW if change is Change.REMOVED else ADDED_ROW
-    line = Line(change=change, row=row, marked=MARKED_ROW, turn=0.0)
-
-    assert line.shown(progress) == expected
-
-
-def test_while_a_row_is_replaced_its_deletion_and_addition_push_the_rows_below_off_the_stage() -> None:
-    frames = diff(grid(" p", " q", style=RED), grid(" r", " q", style=RED), Direction.NEXT, linear)
-
-    assert text(frames(0.2)) == ("-p", "+r")
 
 
 GLITCHABLE = grid("abcdefghij" * 4, "klmnopqrst" * 4, "uvwxyzabcd" * 4, style=RED)

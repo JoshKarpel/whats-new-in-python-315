@@ -1,6 +1,6 @@
 """
 The effects that work cell by cell, each on what sets it apart: the rain's columns and settling characters,
-decay's shades and ripple, the departure board's locking columns, and pixelate's blocks.
+decay's shades and ripple, and the departure board's locking columns.
 Every effect's first and last frames are checked for all of them together, in `test_crossing`.
 """
 
@@ -19,14 +19,6 @@ from whats_new.components.easing import linear
 from whats_new.components.effects.decay import DUST_COLOR
 from whats_new.components.effects.decay import decay
 from whats_new.components.effects.decay import rippling
-from whats_new.components.effects.pixelate import COARSENING
-from whats_new.components.effects.pixelate import SIZES
-from whats_new.components.effects.pixelate import UPPER_HALF
-from whats_new.components.effects.pixelate import Totals
-from whats_new.components.effects.pixelate import blocks_of
-from whats_new.components.effects.pixelate import coarseness
-from whats_new.components.effects.pixelate import colors_of
-from whats_new.components.effects.pixelate import pixelate
 from whats_new.components.effects.rain import drops
 from whats_new.components.effects.rain import rain
 from whats_new.components.effects.slots import BLANK_FACE
@@ -67,7 +59,7 @@ def kinds(row: tuple[StyledGrapheme | None, ...], leaving: Grid, arriving: Grid,
     )
 
 
-@pytest.mark.parametrize("effect", [rain, decay, slots, pixelate])
+@pytest.mark.parametrize("effect", [rain, decay, slots])
 def test_the_same_progress_always_draws_the_same_frame(effect: Effect) -> None:
     leaving = grid("abc de😭", "  fgh   ", "ab    ab", style=RED)
     arriving = grid("  edcba ", "😭 xyz  ", "zz   ba ", style=BLUE)
@@ -202,53 +194,3 @@ def test_a_cell_spins_in_the_color_of_the_character_it_turns_to_or_from(
     before: StyledGrapheme, after: StyledGrapheme, ink: object
 ) -> None:
     assert {face.style.foreground for face in spinning_faces(before, after)} == {ink}
-
-
-@pytest.mark.parametrize(
-    ("row", "expected"),
-    [
-        ("x", Color.from_name("blue")),
-        (" ", Color.from_name("white")),
-        ("😭", Color.from_name("blue")),
-    ],
-    ids=["a character, its foreground", "an empty cell, its background", "a wide grapheme's second half, its first"],
-)
-def test_a_cell_reads_as_its_characters_color_or_else_its_background(row: str, expected: Color) -> None:
-    assert set(colors_of(grid(row, style=BLUE))[0]) == {expected}
-
-
-def test_a_block_is_the_average_of_its_pixels() -> None:
-    blocks = blocks_of(2, 2, 1)
-
-    assert blocks.averages(Totals.of(colors_of(grid("x ", style=RED)))) == (Color(127, 0, 0),)
-
-
-def test_a_cell_split_between_blocks_draws_the_upper_one_over_the_lower_one() -> None:
-    blocks = blocks_of(3, 1, 3)
-
-    drawn = blocks.drawn(blocks.averages(Totals.of(colors_of(grid("x", "x", " ", style=RED)))))
-
-    assert drawn[1][0] == StyledGrapheme(
-        grapheme=UPPER_HALF, style=CellStyle(foreground=Color(255, 0, 0), background=Color(85, 0, 0))
-    )
-
-
-def test_blocks_are_centered_on_the_picture() -> None:
-    assert blocks_of(4, 6, 1).tops == ((0, 0, 0, 1, 1, 1),)
-
-
-def test_the_blocks_grow_from_the_slide_itself_to_the_largest() -> None:
-    steps = [coarseness(COARSENING * step / 100) for step in range(101)]
-
-    assert (steps[0], steps == sorted(steps), steps[-1]) == (0, True, len(SIZES))
-
-
-def test_halfway_the_largest_blocks_are_halfway_between_the_slides_colors() -> None:
-    leaving, arriving = grid(*["xxxxxxxxxxxx"] * 6, style=RED), grid(*["xxxxxxxxxxxx"] * 6, style=BLUE)
-    halfway = Color.from_name("red").blend(Color.from_name("blue"), 0.5)
-
-    frame = pixelate(leaving, arriving, Direction.NEXT, linear)(0.5)
-
-    assert {glyph for row in frame for glyph in row} == {
-        StyledGrapheme(grapheme=UPPER_HALF, style=CellStyle(foreground=halfway, background=halfway))
-    }

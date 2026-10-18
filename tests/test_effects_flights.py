@@ -1,6 +1,6 @@
 """
 The effects that move characters about one by one, each on what sets it apart: gravity's falls and landings,
-the sort's rows in order, the vortex's spirals, and the swap's hops and decays.
+the vortex's spirals, and the swap's hops and decays.
 Every effect's first and last frames are checked for all of them together, in `test_crossing`.
 """
 
@@ -26,10 +26,6 @@ from whats_new.components.effects.gravity import Landing
 from whats_new.components.effects.gravity import drops
 from whats_new.components.effects.gravity import gravity
 from whats_new.components.effects.gravity import landings
-from whats_new.components.effects.sort import sort
-from whats_new.components.effects.sort import sorted_row
-from whats_new.components.effects.sort import sorting
-from whats_new.components.effects.sort import unsorting
 from whats_new.components.effects.swap import Decay
 from whats_new.components.effects.swap import Hop
 from whats_new.components.effects.swap import nearest_pairs
@@ -105,41 +101,6 @@ def test_a_bouncing_curve_bounces_a_landing_character_back_up_off_its_row() -> N
     touching, bounced = landing.at(0.45, bounce)[1], landing.at(0.6, bounce)[1]
 
     assert (touching, bounced < touching) == (10, True)
-
-
-@pytest.mark.parametrize(
-    ("direction", "expected"),
-    [(Direction.NEXT, ("   abc",)), (Direction.PREVIOUS, ("cba   ",))],
-    ids=["next, packed right", "previous, packed left"],
-)
-def test_just_before_halfway_each_leaving_row_is_sorted(direction: Direction, expected: tuple[str, ...]) -> None:
-    frames = sort(grid("b a c ", style=RED), grid("      ", style=BLUE), direction, linear)
-
-    assert text(frames(0.4999)) == expected
-
-
-def test_at_halfway_each_arriving_row_is_sorted() -> None:
-    frames = sort(grid("      ", style=RED), grid("z y x ", style=BLUE), Direction.NEXT, linear)
-
-    assert text(frames(0.5)) == ("   xyz",)
-
-
-def test_the_smallest_character_of_a_row_sorts_first() -> None:
-    slides = sorting(grid("cab", style=RED), Direction.NEXT, RED.background)
-
-    assert [slide.glyph.grapheme for slide in sorted(slides, key=lambda slide: slide.begin)] == ["a", "b", "c"]
-
-
-def test_the_largest_character_of_a_row_unsorts_first() -> None:
-    slides = unsorting(grid("cab", style=BLUE), Direction.NEXT, BLUE.background)
-
-    assert [slide.glyph.grapheme for slide in sorted(slides, key=lambda slide: slide.begin)] == ["c", "b", "a"]
-
-
-def test_a_two_cell_wide_character_takes_two_cells_of_a_sorted_row() -> None:
-    row = grid("b😭a ", style=RED)[0]
-
-    assert [(x, to) for x, to, _ in sorted_row(row, Direction.NEXT, RED.background)] == [(3, 1), (0, 2), (1, 3)]
 
 
 def spiral(direction: Direction) -> Spiral:

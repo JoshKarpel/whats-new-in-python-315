@@ -1,5 +1,6 @@
 """
-F4's code theme picker, F6's transition picker and F7's easing curve picker, the themes F4 offers,
+F4's code theme picker, F6's transition picker, F7's easing curve picker and F9's grid transition picker,
+the themes F4 offers,
 the checkpoint that remembers each choice across a restart,
 and the Tachyon stage's workload and mode pickers.
 """
@@ -31,6 +32,7 @@ from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
 from whats_new.presenter import CURVE
+from whats_new.presenter import GRID_TRANSITION
 from whats_new.presenter import PACE
 from whats_new.presenter import THEME
 from whats_new.presenter import TRANSITION
@@ -64,9 +66,14 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
     [
         (
             '{"slide": 12, "code_theme": "monokai", "transition": "morph", "easing": "spring", "speed": "0.5x",'
-            ' "zooms_grid": true}',
+            ' "grid_transition": "zoom"}',
             Checkpoint(
-                slide=12, code_theme="monokai", transition="morph", easing="spring", speed="0.5x", zooms_grid=True
+                slide=12,
+                code_theme="monokai",
+                transition="morph",
+                easing="spring",
+                speed="0.5x",
+                grid_transition="zoom",
             ),
         ),
         ('{"slide": 12, "code_theme": "monokai"}', Checkpoint(slide=12, code_theme="monokai", transition=OFF)),
@@ -77,7 +84,7 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
             Checkpoint(slide=12, code_theme="monokai", transition="wipe", easing=EASING),
         ),
         (
-            '{"slide": 12, "code_theme": "monokai", "speed": "11x", "zooms_grid": "yes"}',
+            '{"slide": 12, "code_theme": "monokai", "speed": "11x", "grid_transition": "melt"}',
             Checkpoint(slide=12, code_theme="monokai"),
         ),
         ("12", Checkpoint(slide=0)),
@@ -89,7 +96,7 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
         "a theme the picker doesn't offer",
         "a transition the picker doesn't offer",
         "a curve the picker doesn't offer",
-        "a speed the picker doesn't offer, and a zoom that isn't a boolean",
+        "a speed and a grid transition the pickers don't offer",
         "not an object",
         "not JSON",
     ],
@@ -100,7 +107,7 @@ def test_checkpoint_parse(text: str, expected: Checkpoint) -> None:
 
 def test_checkpoint_round_trips() -> None:
     checkpoint = Checkpoint(
-        slide=7, code_theme="nord", transition="morph", easing="bounce", speed="2x", zooms_grid=True
+        slide=7, code_theme="nord", transition="morph", easing="bounce", speed="2x", grid_transition="zoom"
     )
 
     assert Checkpoint.parse(checkpoint.serialized()) == checkpoint
@@ -146,8 +153,9 @@ async def test_choosing_a_theme_checkpoints_it_and_gives_the_slide_its_keys_back
         (Key.F6, "mor", Checkpoint(slide=0, transition="morph"), "slide transition"),
         (Key.F7, "spr", Checkpoint(slide=0, easing="spring"), "easing curve"),
         (Key.F8, "0.2", Checkpoint(slide=0, speed="0.25x"), "transition speed"),
+        (Key.F9, "zoo", Checkpoint(slide=0, grid_transition="zoom"), "grid transition"),
     ],
-    ids=["a transition", "a curve", "a speed"],
+    ids=["a transition", "a curve", "a speed", "a grid transition"],
 )
 async def test_choosing_a_transition_setting_checkpoints_it_and_gives_the_slide_its_keys_back(
     host: Host, key: Key, typed: str, expected: Checkpoint, label: str
@@ -234,7 +242,9 @@ async def test_a_picker_opened_in_place_of_another_takes_the_keys(host: Host) ->
 
 
 @pytest.mark.parametrize(
-    "choice", [THEME, TRANSITION, CURVE, PACE, MODE_CHOICE, WORKLOAD_CHOICE], ids=lambda choice: choice.label
+    "choice",
+    [THEME, TRANSITION, CURVE, PACE, GRID_TRANSITION, MODE_CHOICE, WORKLOAD_CHOICE],
+    ids=lambda choice: choice.label,
 )
 def test_a_picker_fits_inside_the_slide(choice: Choice) -> None:
     # The slide body has a column of padding either side, and the picker sits one more in from the right.
