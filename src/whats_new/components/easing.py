@@ -1,5 +1,5 @@
 """
-The curves a slide transition can follow, which F3 picks between.
+The curves a slide transition can follow, which F7 picks between.
 
 Each maps how far through the transition's time it is, from 0 to 1, to how far across the slides have moved:
 0 at the start and 1 at the end. In between a curve may go past 1 and come back, as `overshoot` and `spring` do,
@@ -54,3 +54,6 @@ EASINGS: frozendict[str, Easing] = frozendict(
         "bounce": bounce,
     }
 )
+
+EASING = "ease-in-out"
+"""The curve F7 starts on: the smoothest, and the least noticeable."""

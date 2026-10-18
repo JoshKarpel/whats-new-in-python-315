@@ -5,30 +5,39 @@ The deck's state is the current index, the step, and `selected`, which is `None`
 so "the grid is open" and "what it has selected" can't disagree.
 """
 
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import replace
 from datetime import tzinfo
+from typing import assert_never
 from zoneinfo import ZoneInfo
 
 from counterweight.components import Component
 from counterweight.components import component
+from counterweight.controls import AnyControl
 from counterweight.controls import FocusOn
+from counterweight.controls import Screenshot
 from counterweight.elements import Div
 from counterweight.events import InputEvent
 from counterweight.events import InputResponse
 from counterweight.events import KeyPressed
 from counterweight.events import Receiver
 from counterweight.focus import FocusHandle
+from counterweight.hooks import ElementHandle
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_rects
 from counterweight.hooks import use_state
 from counterweight.keys import Key
+from counterweight.output import Frame
 from counterweight.styles.utilities import *
 
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEMES
+from whats_new.components.crossing import Crossing
+from whats_new.components.crossing import photograph
+from whats_new.components.crossing import picture_of
 from whats_new.components.easing import EASINGS
 from whats_new.components.frame import footer
 from whats_new.components.frame import heading
@@ -39,12 +48,20 @@ from whats_new.components.grid import below
 from whats_new.components.grid import grid
 from whats_new.components.picker import Choice
 from whats_new.components.picker import Option
+from whats_new.components.picker import PickerHandles
 from whats_new.components.picker import picker
 from whats_new.components.slide_body import slide_body
-from whats_new.components.swipe import TRANSITIONS
+from whats_new.components.stage import Playing
+from whats_new.components.stage import stage
+from whats_new.components.swipe import SWIPE
 from whats_new.components.swipe import Direction
 from whats_new.components.swipe import Swipe
-from whats_new.components.swipe import stage
+from whats_new.components.transitions import OFFERED
+from whats_new.components.transitions import SPEEDS
+from whats_new.components.transitions import Choose
+from whats_new.components.transitions import Crossed
+from whats_new.components.transitions import Swiped
+from whats_new.components.transitions import transition_for
 from whats_new.host import Host
 from whats_new.slides import Slide
 from whats_new.slides import next_section
@@ -148,7 +165,9 @@ class Mounting:
 
 
 THEME = Choice(label="code theme", options=tuple(Option(theme) for theme in CODE_THEMES), key="F4")
-TRANSITION = Choice(label="slide transition", options=tuple(Option(name) for name in TRANSITIONS), key="F3")
+TRANSITION = Choice(label="slide transition", options=tuple(Option(name) for name in OFFERED), key="F6")
+CURVE = Choice(label="easing curve", options=tuple(Option(name) for name in EASINGS), key="F7")
+PACE = Choice(label="transition speed", options=tuple(Option(name) for name in SPEEDS), key="F8")
 
 CHICAGO = ZoneInfo("America/Chicago")
 """Where the talk is given, so the clock reads the room's time, not the VM's UTC."""
@@ -176,57 +195,100 @@ def root(
     start: Checkpoint,
     remember: Callable[[Checkpoint], None],
     timezone: tzinfo = CHICAGO,
+    choose: Choose = random.choice,
 ) -> Div:
     """
     The deck. It starts from `start` and calls `remember` with a new checkpoint whenever the slide, the code theme,
-    or the transition changes, so a restart (live reload, or a crash on stage) comes back to the same slide,
-    looking the same. The footer's clock reads the time in `timezone`.
-    F3 opens the slide transition picker and F4 the code theme picker (see `picker`); the same key closes it unchanged.
+    the transition, its curve or speed, or the grid's zoom changes, so a restart (live reload, or a crash on stage)
+    comes back to the same slide, looking the same. The footer's clock reads the time in `timezone`, and `choose`
+    picks each move's transition while F6 has `random` picked.
+    F4 opens the code theme picker, F6 the slide transition picker, F7 the easing curve picker, and F8 the speed
+    picker (see `picker`); the same key closes it unchanged. F9 toggles the grid's zoom.
+    Not F5, which the presenting browser keeps for itself.
     """
     position, set_position = use_state(Position(index=clamp(start.slide, 0, len(slides) - 1)))
     # The live slide's, owned here rather than by the slide, so closing a picker can give focus back to it.
     mounting, set_mounting = use_state(Mounting(serial=0))
-    no_swipe: Swipe | None = None
-    swipe, set_swipe = use_state(no_swipe)
+    no_transition: Playing | None = None
+    playing, set_playing = use_state(no_transition)
     no_zoom: Zoom | None = None
     zoom, set_zoom = use_state(no_zoom)
     show_clock, set_show_clock = use_state(False)
     show_size, set_show_size = use_state(False)
     code_theme, set_code_theme = use_state(start.code_theme)
     transition, set_transition = use_state(start.transition)
+    curve, set_curve = use_state(start.easing)
+    speed, set_speed = use_state(start.speed)
+    zooms_grid, set_zooms_grid = use_state(start.zooms_grid)
     no_picker: Choice | None = None
     picking, set_picking = use_state(no_picker)
-    picker_focus, _ = use_state(FocusHandle)
+    picker_handles, _ = use_state(PickerHandles.fresh)
+    stage_handle, _ = use_state(ElementHandle)
     screen = use_rects().border
+    stage_area = use_rects(stage_handle).content
 
     async def checkpoint() -> None:
-        remember(Checkpoint(slide=position.index, code_theme=code_theme, transition=transition))
+        remember(
+            Checkpoint(
+                slide=position.index,
+                code_theme=code_theme,
+                transition=transition,
+                easing=curve,
+                speed=speed,
+                zooms_grid=zooms_grid,
+            )
+        )
 
-    use_effect(checkpoint, deps=(position.index, code_theme, transition))
+    use_effect(checkpoint, deps=(position.index, code_theme, transition, curve, speed, zooms_grid))
 
     def view(at: Position, of: Mounting, is_live: bool) -> Component:
         return slide_view(slides[at.index], at.step, is_live, host, code_theme, of.focus).with_key(of.key)
 
-    def go(moved: Position) -> None:
+    def go(moved: Position) -> tuple[AnyControl, ...]:
         """
-        Moves to `moved`, mounting the slide there afresh if it's another slide (or `r`), swiping or zooming
-        if it should. Any other move ends a zoom still playing.
+        Moves to `moved`, mounting the slide there afresh if it's another slide (or `r`), and playing the transition
+        into it or zooming the grid if it should. Any other move ends a zoom still playing.
+        A crossing can't start until it has a picture of the screen, so `go` returns the screenshot that starts it.
         """
         set_position(moved)
+        easing = EASINGS[curve]
+        pace = SPEEDS[speed]
         toward = zoom_toward(position, moved)
-        easing = EASINGS.get(transition)
-        set_zoom(None if toward is None or easing is None else Zoom(toward=toward, easing=easing))
+        set_zoom(
+            Zoom(toward=toward, easing=easing, duration=SWIPE / pace) if toward is not None and zooms_grid else None
+        )
         if moved.selected is not None:
-            # The grid replaces the stage, which would replay a swipe left here when it came back.
-            set_swipe(None)
+            # The grid replaces the stage, which would replay a transition left here when it came back.
+            set_playing(None)
         if (moved.index, moved.generation) == (position.index, position.generation):
-            return
+            return ()
         set_mounting(Mounting(serial=mounting.serial + 1))
+        set_playing(None)
         direction = swipe_direction(position, moved)
-        if direction is None or easing is None:
-            set_swipe(None)
-            return
-        set_swipe(Swipe(leaving=view(position, mounting, is_live=False), direction=direction, easing=easing))
+        if direction is None:
+            return ()
+        match transition_for(transition, choose):
+            case None:
+                return ()
+            case Swiped():
+                leaving = view(position, mounting, is_live=False)
+                set_playing(Swipe(leaving=leaving, direction=direction, easing=easing, duration=SWIPE / pace))
+                return ()
+            case Crossed(effect=effect, duration=duration):
+                # As the live slide will draw its first frame, though with a focus handle of its own.
+                arriving = slide_view(slides[moved.index], moved.step, True, host, code_theme, FocusHandle())
+                area = stage_area
+
+                async def cross(frame: Frame) -> None:
+                    """Taken before the render that mounts the arriving slide, so that render draws the first frame."""
+                    leaving = picture_of(frame.paint, area)
+                    arrived = await photograph(arriving, area.width, area.height)
+                    frames = effect(leaving, arrived, direction, easing)
+                    set_playing(Crossing(frames=frames, duration=duration / pace))
+
+                return (Screenshot(handler=cross),)
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def jump(index: int) -> None:
         go(Position(index=index))
@@ -236,7 +298,17 @@ def root(
             set_picking(None)
             return (FocusOn(mounting.focus),)
         set_picking(choice)
-        return (FocusOn(picker_focus),)
+        return picker_handles.opened()
+
+    def chosen(choice: Choice) -> tuple[str, Callable[[str], None]]:
+        """What `choice`'s picker shows as chosen, and what choosing another calls."""
+        if choice is TRANSITION:
+            return transition, set_transition
+        if choice is CURVE:
+            return curve, set_curve
+        if choice is PACE:
+            return speed, set_speed
+        return code_theme, set_code_theme
 
     def on_input(event: InputEvent, receiver: Receiver) -> InputResponse:
         if not isinstance(event, KeyPressed):
@@ -248,21 +320,27 @@ def root(
             case Key.F2:
                 set_show_size(lambda shown: not shown)
                 return ()
-            case Key.F3:
-                return toggle(TRANSITION)
             case Key.F4:
                 return toggle(THEME)
+            case Key.F6:
+                return toggle(TRANSITION)
+            case Key.F7:
+                return toggle(CURVE)
+            case Key.F8:
+                return toggle(PACE)
+            case Key.F9:
+                set_zooms_grid(lambda zooms: not zooms)
+                return ()
             case _:
                 pass
         moved = navigate(position, event.key, slides)
         if moved is None:
             return None
-        go(moved)
-        return ()
+        return go(moved)
 
     layers: list[Component] = []
     if position.selected is None:
-        layers.append(stage(view(position, mounting, is_live=True), swipe).with_key("stage"))
+        layers.append(stage(view(position, mounting, is_live=True), playing).with_key("stage"))
     # The grid stays over the stage while it zooms in to the slide it left for, already mounted beneath it.
     if position.selected is not None or zoom is not None:
         selected = position.index if position.selected is None else position.selected
@@ -272,7 +350,7 @@ def root(
         style=col | full | position_relative,
         on_input=on_input,
         children=(
-            Div(style=col | fill(1) | position_relative, children=tuple(layers)),
+            Div(style=col | fill(1) | position_relative, children=tuple(layers), handle=stage_handle),
             footer(
                 position.index,
                 len(slides),
@@ -287,11 +365,10 @@ def root(
                 (
                     picker(
                         picking,
-                        transition if picking is TRANSITION else code_theme,
-                        set_transition if picking is TRANSITION else set_code_theme,
+                        *chosen(picking),
                         lambda: set_picking(None),
                         FocusOn(mounting.focus),
-                        picker_focus,
+                        picker_handles,
                     ).with_key(f"picker-{picking.key}"),
                 )
                 if picking is not None

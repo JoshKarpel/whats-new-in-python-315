@@ -52,6 +52,7 @@ from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import dim
 from whats_new.components.picker import Choice
 from whats_new.components.picker import Option
+from whats_new.components.picker import PickerHandles
 from whats_new.components.picker import picker
 from whats_new.components.run_pane import OUTPUT_STYLES
 from whats_new.host import FlamegraphSite
@@ -146,7 +147,7 @@ def tachyon_stage(props: SlideProps) -> Div:
     mode, set_mode = use_state(MODES[0])
     no_picker: Choice | None = None
     picking, set_picking = use_state(no_picker)
-    picker_focus, _ = use_state(FocusHandle)
+    picker_handles, _ = use_state(PickerHandles.fresh)
     no_workload: Workload | None = None
     workload, set_workload = use_state(no_workload)
     is_serving, set_serving = use_state(False)
@@ -189,10 +190,10 @@ def tachyon_stage(props: SlideProps) -> Div:
                 set_profiling(lambda profiling: not profiling)
             case "m":
                 set_picking(MODE_CHOICE)
-                return (FocusOn(picker_focus),)
+                return picker_handles.opened()
             case "w":
                 set_picking(WORKLOAD_CHOICE)
-                return (FocusOn(picker_focus),)
+                return picker_handles.opened()
             # The pane's `take_back` claims Tab too, so Tab moves the keyboard in and out of the profiler.
             case Key.Tab if is_profiling:
                 return (FocusOn(pane),)
@@ -257,7 +258,7 @@ def tachyon_stage(props: SlideProps) -> Div:
                 partial(choose, picking),
                 lambda: set_picking(None),
                 FocusOn(focus.handle),
-                picker_focus,
+                picker_handles,
             ).with_key(f"picker-{picking.key}")
         )
     return Div(style=col | fill(1) | position_relative, on_input=on_input, children=tuple(body))

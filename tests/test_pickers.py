@@ -1,10 +1,11 @@
 """
-F3's transition picker and F4's code theme picker, the themes F4 offers,
-the checkpoint that remembers both choices across a restart,
+F4's code theme picker, F6's transition picker and F7's easing curve picker, the themes F4 offers,
+the checkpoint that remembers each choice across a restart,
 and the Tachyon stage's workload and mode pickers.
 """
 
 import asyncio
+from dataclasses import replace
 
 import pytest
 from counterweight.app import app
@@ -20,13 +21,17 @@ from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEME
 from whats_new.components.code import CODE_THEMES
 from whats_new.components.code import has_dark_background
+from whats_new.components.easing import EASING
+from whats_new.components.picker import SHOWN_OPTIONS
 from whats_new.components.picker import Choice
 from whats_new.components.picker import matches
-from whats_new.components.swipe import OFF
-from whats_new.components.swipe import TRANSITIONS
+from whats_new.components.transitions import OFF
+from whats_new.components.transitions import OFFERED
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
+from whats_new.presenter import CURVE
+from whats_new.presenter import PACE
 from whats_new.presenter import THEME
 from whats_new.presenter import TRANSITION
 from whats_new.presenter import root
@@ -58,12 +63,23 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
     ("text", "expected"),
     [
         (
-            '{"slide": 12, "code_theme": "monokai", "transition": "spring"}',
-            Checkpoint(slide=12, code_theme="monokai", transition="spring"),
+            '{"slide": 12, "code_theme": "monokai", "transition": "morph", "easing": "spring", "speed": "0.5x",'
+            ' "zooms_grid": true}',
+            Checkpoint(
+                slide=12, code_theme="monokai", transition="morph", easing="spring", speed="0.5x", zooms_grid=True
+            ),
         ),
         ('{"slide": 12, "code_theme": "monokai"}', Checkpoint(slide=12, code_theme="monokai", transition=OFF)),
         ('{"slide": 12, "code_theme": "solarized-light"}', Checkpoint(slide=12, code_theme=CODE_THEME)),
         ('{"slide": 12, "code_theme": "monokai", "transition": "zoom"}', Checkpoint(slide=12, code_theme="monokai")),
+        (
+            '{"slide": 12, "code_theme": "monokai", "transition": "wipe", "easing": "wobble"}',
+            Checkpoint(slide=12, code_theme="monokai", transition="wipe", easing=EASING),
+        ),
+        (
+            '{"slide": 12, "code_theme": "monokai", "speed": "11x", "zooms_grid": "yes"}',
+            Checkpoint(slide=12, code_theme="monokai"),
+        ),
         ("12", Checkpoint(slide=0)),
         ("", Checkpoint(slide=0)),
     ],
@@ -72,6 +88,8 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
         "one from before transitions",
         "a theme the picker doesn't offer",
         "a transition the picker doesn't offer",
+        "a curve the picker doesn't offer",
+        "a speed the picker doesn't offer, and a zoom that isn't a boolean",
         "not an object",
         "not JSON",
     ],
@@ -81,7 +99,9 @@ def test_checkpoint_parse(text: str, expected: Checkpoint) -> None:
 
 
 def test_checkpoint_round_trips() -> None:
-    checkpoint = Checkpoint(slide=7, code_theme="nord", transition="bounce")
+    checkpoint = Checkpoint(
+        slide=7, code_theme="nord", transition="morph", easing="bounce", speed="2x", zooms_grid=True
+    )
 
     assert Checkpoint.parse(checkpoint.serialized()) == checkpoint
 
@@ -120,7 +140,18 @@ async def test_choosing_a_theme_checkpoints_it_and_gives_the_slide_its_keys_back
     assert 'print(f"{DEFAULTS=}")Q' in text
 
 
-async def test_choosing_a_transition_checkpoints_it_and_gives_the_slide_its_keys_back(host: Host) -> None:
+@pytest.mark.parametrize(
+    ("key", "typed", "expected", "label"),
+    [
+        (Key.F6, "mor", Checkpoint(slide=0, transition="morph"), "slide transition"),
+        (Key.F7, "spr", Checkpoint(slide=0, easing="spring"), "easing curve"),
+        (Key.F8, "0.2", Checkpoint(slide=0, speed="0.25x"), "transition speed"),
+    ],
+    ids=["a transition", "a curve", "a speed"],
+)
+async def test_choosing_a_transition_setting_checkpoints_it_and_gives_the_slide_its_keys_back(
+    host: Host, key: Key, typed: str, expected: Checkpoint, label: str
+) -> None:
     index = next(index for index, slide in enumerate(SLIDES) if slide.title == "frozendict: the mutable default, fixed")
     checkpoints: list[Checkpoint] = []
     frames: list[Frame] = []
@@ -129,8 +160,8 @@ async def test_choosing_a_transition_checkpoints_it_and_gives_the_slide_its_keys
         await asyncio.sleep(0.05)
 
     autopilot: tuple[AnyEvent | AnyControl, ...] = (
-        KeyPressed(key=Key.F3),
-        *(KeyPressed(key=character) for character in "spr"),
+        KeyPressed(key=key),
+        *(KeyPressed(key=character) for character in typed),
         KeyPressed(key=Key.Enter),
         KeyPressed(key=Key.Tab),
         KeyPressed(key="Q"),
@@ -146,9 +177,9 @@ async def test_choosing_a_transition_checkpoints_it_and_gives_the_slide_its_keys
         clock=EXPORT_CLOCK,
     )
 
-    assert checkpoints[-1] == Checkpoint(slide=index, transition="spring")
+    assert checkpoints[-1] == replace(expected, slide=index)
     text = frames[0].text(ansi=False)
-    assert "slide transition" not in text
+    assert label not in text
     assert 'print(f"{DEFAULTS=}")Q' in text
 
 
@@ -156,7 +187,7 @@ async def test_each_function_key_opens_its_own_picker_in_place_of_the_other(host
     frames: list[Frame] = []
     autopilot: tuple[AnyEvent | AnyControl, ...] = (
         KeyPressed(key=Key.F4),
-        KeyPressed(key=Key.F3),
+        KeyPressed(key=Key.F6),
         Screenshot(handler=frames.append),
         Quit(),
     )
@@ -171,10 +202,12 @@ async def test_each_function_key_opens_its_own_picker_in_place_of_the_other(host
     text = frames[0].text(ansi=False)
     assert "slide transition" in text
     assert "code theme" not in text
-    assert all(option in text for option in TRANSITIONS)
+    assert all(option in text for option in OFFERED[:SHOWN_OPTIONS])
 
 
-@pytest.mark.parametrize("choice", [THEME, TRANSITION, MODE_CHOICE, WORKLOAD_CHOICE], ids=lambda choice: choice.label)
+@pytest.mark.parametrize(
+    "choice", [THEME, TRANSITION, CURVE, PACE, MODE_CHOICE, WORKLOAD_CHOICE], ids=lambda choice: choice.label
+)
 def test_a_picker_fits_inside_the_slide(choice: Choice) -> None:
     # The slide body has a column of padding either side, and the picker sits one more in from the right.
     assert choice.width <= PRESENTING.columns - 3
@@ -257,3 +290,27 @@ async def test_the_tachyon_workload_stops(host: Host, stop: tuple[KeyPressed, ..
     )
 
     assert "running: idle" in frames[0].text(ansi=False)
+
+
+@pytest.mark.parametrize(
+    ("key", "start", "current"),
+    [
+        (Key.F4, Checkpoint(slide=0, code_theme="zenburn"), "zenburn"),
+        (Key.F6, Checkpoint(slide=0, transition="rain"), "rain"),
+    ],
+    ids=["code theme", "slide transition"],
+)
+async def test_a_picker_opens_showing_its_current_option_past_the_rows_it_shows(
+    host: Host, key: Key, start: Checkpoint, current: str
+) -> None:
+    """In the frame it opens in, with no pause for an effect to run, as when the recordings drive the deck."""
+    frames: list[Frame] = []
+    await app(
+        root(SLIDES, host, start, lambda checkpoint: None),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=(KeyPressed(key=key), Screenshot(handler=frames.append), Quit()),
+        clock=EXPORT_CLOCK,
+    )
+
+    assert f"▸ {current}" in frames[0].text(ansi=False)

@@ -45,6 +45,10 @@ export:
 record:
     uv run --frozen python -m whats_new record
 
+[doc('Record transitions.cast: every slide transition F6 offers, played one after another')]
+showcase:
+    uv run --frozen python -m whats_new showcase
+
 [doc('Upload slides.cast to asciinema, passing any arguments on to asciinema upload')]
 upload *ARGS:
     asciinema upload slides.cast {{ ARGS }}

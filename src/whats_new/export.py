@@ -102,12 +102,12 @@ def page(frames: list[tuple[str, Frame]]) -> str:
     return PAGE.format(figures=figures)
 
 
-def write_tracked(path: Path, html: str) -> None:
+def write_tracked(path: Path, text: str) -> None:
     """
-    Writes `html` to `path` in the repository, and marks a newly created file intent-to-add,
-    so the pre-commit hook fails on the first export as it does on any other rewrite.
+    Writes `text` to `path` in the repository, and marks a newly created file intent-to-add,
+    so a pre-commit hook that regenerates it fails on the first run as it does on any other rewrite.
     """
     is_new = not path.exists()
-    path.write_text(html)
+    path.write_text(text)
     if is_new:
         subprocess.run(["git", "add", "--intent-to-add", str(path)], check=True)

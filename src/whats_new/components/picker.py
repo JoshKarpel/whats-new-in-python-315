@@ -1,6 +1,6 @@
 """
-The pickers keys open: the function keys' F3 slide transition and F4 code theme, and the Tachyon stage's workload and
-profiler mode. Each is an autocomplete field over its parent's top right corner, as in counterweight's autocomplete
+The pickers keys open: the function keys' F4 code theme, F6 slide transition, F7 easing curve and F8 speed, and the Tachyon
+stage's workload and profiler mode. Each is an autocomplete field over its parent's top right corner, as in counterweight's autocomplete
 cookbook. Typing narrows the list of options, Down and Up move the highlight, Enter or Tab chooses the highlighted
 option, and Escape closes it unchanged. Either way, focus goes back to the slide.
 """
@@ -14,6 +14,7 @@ from functools import partial
 
 from counterweight.components import component
 from counterweight.controls import AnyControl
+from counterweight.controls import FocusOn
 from counterweight.controls import ScrollIntoView
 from counterweight.elements import Chunk
 from counterweight.elements import Div
@@ -30,8 +31,6 @@ from counterweight.handlers import on_click
 from counterweight.handlers import scroll_on_wheel
 from counterweight.headless import use_text_input
 from counterweight.hooks import ElementHandle
-from counterweight.hooks import use_controls
-from counterweight.hooks import use_effect
 from counterweight.hooks import use_state
 from counterweight.keys import Key
 from counterweight.styles import CellStyle
@@ -110,6 +109,30 @@ class Choice:
 HINT = "↑ ↓ · Enter · Esc closes"
 
 
+@dataclass(frozen=True, slots=True, eq=False)
+class PickerHandles:
+    """
+    A picker's handles, which whatever opens it owns, so the key that opens it can act on it in the frame it opens:
+    its field's focus handle, and the element handle of its highlighted option.
+    """
+
+    focus: FocusHandle
+    highlighted: ElementHandle
+
+    @classmethod
+    def fresh(cls) -> PickerHandles:
+        """New handles, naming no element until a picker is given them: `use_state(PickerHandles.fresh)`."""
+        return cls(focus=FocusHandle(), highlighted=ElementHandle())
+
+    def opened(self) -> tuple[AnyControl, ...]:
+        """
+        What the key that opens the picker returns: focus on its field, since `auto_focus` wouldn't take focus from
+        the slide, which always has it, and its current option scrolled into view, which can be past the rows
+        the list shows. Returned with the state change that opens it, both apply to the frame it opens in.
+        """
+        return FocusOn(self.focus), ScrollIntoView(self.highlighted, block="nearest")
+
+
 @component
 def picker(
     choice: Choice,
@@ -117,33 +140,24 @@ def picker(
     choose: Callable[[str], None],
     close: Callable[[], None],
     leave: AnyControl,
-    handle: FocusHandle,
+    handles: PickerHandles,
 ) -> Div:
     """
     Opens with the field empty and `current`, the name of one of `choice`'s options, marked and highlighted,
     or the first option highlighted if there's no `current`. Choosing an option calls `choose` with its name,
     and choosing or Escape calls `close` and does `leave`, which gives focus back to the slide.
-    The field's focus handle is `handle`, which the opening key focuses as it opens the picker:
-    `auto_focus` wouldn't take focus from the slide, which always has it.
+    The key that opens it returns `handles.opened()`, which focuses it and shows its current option.
     """
     names = choice.names
     completion, set_completion = use_state(
         Completion(text="", highlighted=0 if current is None else names.index(current))
     )
-    highlighted_match, _ = use_state(ElementHandle)
-    send = use_controls()
-
-    # The current option can be past the rows the list shows; an input handler would return this control,
-    # but nothing has been pressed yet as the picker opens.
-    async def show_current() -> None:
-        send(ScrollIntoView(highlighted_match, block="nearest"))
-
-    use_effect(show_current, deps=())
+    highlighted_match = handles.highlighted
 
     def edit(edit_text: Callable[[str], str]) -> None:
         set_completion(lambda c: c.edited(edit_text(c.text)))
 
-    field = use_text_input(completion.text, edit, handle=handle)
+    field = use_text_input(completion.text, edit, handle=handles.focus)
     shown = matches(completion.text, names)
     descriptions = {option.name: option.description for option in choice.options}
     highlighted = completion.highlighted

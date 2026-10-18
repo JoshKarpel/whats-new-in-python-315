@@ -25,6 +25,8 @@ Each module's docstring says what role it plays; read those before adding a file
   when the file changes, so include the regenerated `slides.html` with the change rather than editing it.
 - `just record` regenerates `slides.cast`, the deck presented by an autopilot with every run and slide `tour`.
   It takes minutes of real time and differs on every run, so no hook regenerates it.
+- `just showcase` regenerates `transitions.cast`, every slide transition played one after another.
+  It waits for nothing real, so it comes out the same every time, and a pre-commit hook regenerates it as the export's does.
 - `pre-commit-autofix` (or `just pre-commit`) runs ruff and the other hooks.
 
 counterweight comes from git `main`, pinned by `uv.lock`, and moves fast.
@@ -65,6 +67,8 @@ not from memory or its docs site.
 - Mounting a slide starts nothing: no subprocess, focus grab or explanatory animation.
   The slide grid, the smoke test and the export each mount many slides at once,
   so anything started on mount starts in all of them, and the smoke test fails if a child process is left over.
+  A transition drawn from pictures (`components/crossing.py`) also renders the arriving slide headless, in an app
+  of its own, and ends on that picture, so the slide's first frame has to be the same however it's mounted.
 - Time comes only from counterweight's clock, through the hooks in `components/animation.py`.
   Tests and the export run on a frozen clock (`export.EXPORT_CLOCK`) moved by `AdvanceClock`,
   which is what keeps both deterministic.

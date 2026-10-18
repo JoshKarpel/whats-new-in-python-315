@@ -6,7 +6,7 @@ Each thumbnail is the slide's own content component drawn at a third of the widt
 not a picture, so it's exactly what the slide draws at that width. Thumbnails aren't live: they never take focus,
 so they never receive a slide's keys or start its runs.
 
-With a transition picked, the grid zooms, along the transition's easing curve. Opening, the selected thumbnail
+With F9 toggled on, the grid zooms, along F7's easing curve at F8's speed. Opening, the selected thumbnail
 starts filling the grid and shrinks into its place while the others grow in around it; leaving, the selected
 thumbnail grows back to fill it. Its content reflows as it changes size, as a thumbnail's always does, rather than
 scaling. The grid sits over the stage, so the slide it leaves for is already mounted, and live, beneath it.
@@ -14,6 +14,7 @@ scaling. The grid sits over the stage, so the slide it leaves for is already mou
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 
 from counterweight.components import component
@@ -55,6 +56,7 @@ class Zoom:
 
     toward: Toward
     easing: Easing
+    duration: timedelta
 
     def openness(self, progress: float) -> float:
         """
@@ -186,7 +188,7 @@ def grid(
     cell = cell_of(selected, deck_sections)
     section = deck_sections[cell.section]
     visible = visible_range(selected, section)
-    progress = use_progress_since(zoom, SWIPE)
+    progress = use_progress_since(zoom, SWIPE if zoom is None else zoom.duration)
     if zoom is not None and zoom.toward is Toward.SLIDE and progress >= 1.0:
         return Div(style=display_none)
     openness = 1.0 if zoom is None else zoom.openness(progress)

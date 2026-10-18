@@ -15,7 +15,7 @@ from counterweight.keys import Key
 
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEMES
-from whats_new.components.swipe import TRANSITIONS
+from whats_new.components.transitions import OFFERED
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.export import SETTLE
@@ -54,7 +54,7 @@ async def test_the_recording_ends_with_the_deck_quitting(host: Host, tmp_path: P
 
 
 def test_the_recording_presents_in_a_theme_and_transition_the_pickers_offer() -> None:
-    assert (START.code_theme in CODE_THEMES, START.transition in TRANSITIONS) == (True, True)
+    assert (START.code_theme in CODE_THEMES, START.transition in OFFERED) == (True, True)
 
 
 def slide_with_a_perf_run() -> Slide:

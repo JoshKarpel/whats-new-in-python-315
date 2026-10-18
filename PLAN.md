@@ -787,8 +787,6 @@ Dockerfile           the image others run the deck from
   - F1: toggle the clock, as in the reference talk. F1 opens help in some
     browsers, but not in the laptop's.
   - F2: the size check. See [Presenting resolution](#presenting-resolution).
-  - F3: the slide transition picker, the same autocomplete field as F4's, offering
-    `off` or an easing curve for a swipe. See [Slide transitions](#slide-transitions).
   - F4: the code theme picker, an autocomplete field as in counterweight's
     autocomplete cookbook. Typing narrows the list (the typed letters in order),
     Down and Up move the highlight, and Enter or Tab sets that Pygments style on
@@ -797,8 +795,15 @@ Dockerfile           the image others run the deck from
     description under each option; there Escape closes it, since the field
     takes the letter as typing. Either way focus
     goes back to whatever takes the slide's keys, through a focus handle the root
-    owns. It offers only the dark styles, by their background's luminance; the
+    owns. A picker opens with its current option marked, highlighted and scrolled
+    into view: whatever opens it owns its handles, so the opening key returns the
+    focus and the scroll together, and both apply to the frame it opens in.
+    It offers only the dark styles, by their background's luminance; the
     light ones would clash with the deck. The deck starts in `github-dark`.
+  - F6: the slide transition picker, the same autocomplete field as F4's,
+    offering `off`, an effect, or `random`. F7 picks the easing curve the transition and the
+    grid's zoom follow, F8 their speed, and F9 toggles the grid's zoom. Not F5,
+    which the browser keeps. See [Slide transitions](#slide-transitions).
   - Slide-specific keys on Tachyon slides only.
 
   See [Presenting over zellij web](#presenting-over-zellij-web) for which keys the
@@ -991,7 +996,8 @@ The reference talk, presented from the same laptop, used 90x30.
   target width and red otherwise, so a wrong width is visible before the first
   diagram. At the venue, press F2 and adjust browser zoom until it goes green.
   - The readout shows the rows too. They turn red only below the floor.
-  - F1 through F4, Tab and Shift+Tab aren't among the keys the browser keeps (see
+  - F1 through F4, F6 through F9, Tab and Shift+Tab aren't among the keys the
+    browser keeps (see
     [Presenting over zellij web](#presenting-over-zellij-web)), but confirm they
     reach the deck through zellij web. `just rehearse` covers it.
   - It's off by default, so the export renders without it.
@@ -1003,9 +1009,10 @@ The reference talk did this with two pieces, and the deck keeps both:
 - `just watch` runs the deck under `watchfiles`, which restarts it whenever a file
   under `src/` or `examples/` changes. `watchfiles` goes in the dev dependency group.
 - The deck writes a checkpoint to a file in the temp directory whenever the slide
-  or the code theme changes, and reads it at startup: the slide's index, clamped
-  to the deck's length, and the theme F4 picked. A restart lands on the same
-  slide, in the same theme. Reveal steps and run output start fresh. A checkpoint
+  or a setting changes, and reads it at startup: the slide's index, clamped to the
+  deck's length, the theme F4 picked, the transition, curve and speed F6 through
+  F8 picked, and whether F9 has the grid's zoom on. A restart lands on the same
+  slide, looking the same. Reveal steps and run output start fresh. A checkpoint
   that doesn't parse starts over from the first slide, since a deck relaunched on
   stage mustn't refuse to start.
 
@@ -1090,21 +1097,50 @@ asciinema-player plays back. `just record` writes it, through counterweight's
 - Real time makes the recording differ on every run, so no hook regenerates it as
   one does the export: re-record by hand when the deck changes.
 
+`transitions.cast` is the showcase: every transition F6 offers, played in turn at
+half speed as the deck moves on from its first slide, a chapter each.
+`just showcase` writes it.
+
+- Each transition is picked on screen, from F6's picker, one option down from the
+  last, so the recording shows how to pick one as well as what each looks like.
+  It starts with `off`, so walking down the list reaches every transition in the
+  order F6 lists them.
+- It runs nothing and waits for nothing real: every moment passes on the frozen
+  clock, one animation frame at a time. So it records the same every time, in
+  about three seconds, and a pre-commit hook regenerates it as the export's does.
+
 ### Slide transitions
 
-Moving to the next or previous slide can swipe, as
-[spiel's transitions](https://www.spiel.how/transitions/) do: the slide being left
-and the one arriving sit side by side and slide across together, over 0.75 s.
-F3 picks the transition: `off`, or the easing curve the swipe follows.
+Moving to the next or previous slide can play a transition. F6 picks which:
+`off`, `swipe`, one of the effects drawn from pictures, or `random`, which picks
+one afresh on every move. F7 picks the easing curve it follows, and F8 its speed,
+from `0.25x` to `2x`. The effects are an open-ended collection to try out and cut
+down: `components/transitions.py` names each one and its duration, and each
+effect's module docstring says what it looks like.
 
 - The curves are the deck's own, a short list named for how they move: `linear`,
   `ease-out`, `ease-in-out`, `overshoot`, `spring` and `bounce`. `overshoot` and
-  `spring` carry the slides past their place and back, so the offsets aren't
-  clamped to the screen.
-- Only moving from one slide straight to another swipes, as in spiel: not opening
-  or leaving the grid, jumping from it, or `r`. Opening and leaving the grid zoom
-  instead, along the same curve, over the same 0.75 s. See
-  [The slide grid](#the-slide-grid).
+  `spring` go past the end and come back, so nothing that places cells from a
+  curve clamps it: a swipe carries the slides past their place, a wipe uncovers
+  everything and covers the last of it again, and a morph's characters overshoot
+  their cells.
+- Only moving from one slide straight to another plays one, as in spiel: not
+  opening or leaving the grid, jumping from it, or `r`. Opening and leaving the
+  grid zoom instead, when F9 has the zoom on, along the same curve at the same
+  speed. See [The slide grid](#the-slide-grid).
+- `random` draws from `random.choice` by default. The root component takes the
+  chooser as an argument, so a test can fix which transition plays.
+- Everything is `off` by default, so the export doesn't change. The checkpoint
+  remembers each choice, as it does the code theme.
+- A transition ticks at the deck's 20 frames a second. Whether that reads as
+  smooth on the projector is for rehearsal.
+
+#### Swipe
+
+The slide being left and the one arriving sit side by side and slide across
+together, over 0.75 s, as
+[spiel's transitions](https://www.spiel.how/transitions/) do.
+
 - Both slides are mounted for the length of the swipe. The one being left keeps
   its state (run output, edits), since it continues under its own key, but stops
   being live at once. counterweight auto-focuses a component only on the render it
@@ -1112,10 +1148,49 @@ F3 picks the transition: `off`, or the easing curve the swipe follows.
 - Every mounting of a slide gets its own key and focus handle (`Mounting`), since
   two mounted components can't share a handle, and a slide returned to mid-swipe
   must mount afresh rather than continue the copy still leaving.
-- It's `off` by default, so the export and the recording don't change. The
-  checkpoint remembers the choice, as it does the code theme.
-- The swipe ticks at the deck's 20 frames a second, 15 frames for the whole
-  swipe. Whether that reads as smooth on the projector is for rehearsal.
+
+#### Effects drawn from pictures
+
+counterweight composites by element, not by cell, so a component can't show one
+slide in some cells and another in the cells between. The effects work on
+pictures instead: each slide captured as a grid of cells, and each frame computed
+from the two, cell by cell, for one `Canvas` drawn over the stage.
+
+- The leaving picture comes from a `Screenshot` control the key press returns. Its
+  handler runs before the render that mounts the arriving slide, so it's the
+  screen as it was left, edits, run output, or a transition still playing
+  included.
+- The arriving picture is a headless render of the arriving slide's first frame,
+  in an app of its own run from that handler. A slide always arrives at its first
+  step and mounting it starts nothing, so it's what the live slide draws too. A
+  title card's pulsing border is the exception: it pulses with the time since its
+  app started, so its color can differ by a step. A headless render took 4 ms on
+  this VM for most slides, and 25 ms for the slowest.
+- An effect is a pure function from the two pictures, the direction and the
+  curve to its frames, and its first frame is the leaving picture and its last the
+  arriving one, so a transition starts and ends without a jump. The arriving slide
+  is mounted and live beneath the canvas throughout, so it takes the keys at once,
+  and shows as itself when the canvas goes.
+- Each effect is a module in `components/effects/`. Three modules hold what
+  several share: `masks` for uncovering the arriving slide cell by cell at
+  per-cell thresholds, `characters` for moving cells about (where each one is,
+  what a cell shows once it has gone, drawing them where they've got to), and
+  `shading` for darkening or tinting cells by steps.
+- What moves, in the effects that move cells about, is everything there is to
+  see: each character, and each cell shaded off the slide's backdrop, such as the
+  inside of a code box, which carries its color with it. Only the backdrop stays
+  put, so a box breaks up and reforms with its text rather than changing color in
+  place on a clock of its own.
+- An effect lasts as long as it takes to follow: 0.75 s for the simplest, up to
+  3 s for those that move every character or play out in phases.
+- Measured on this VM over four slide pairs, every effect's frame averages under
+  1 ms, against the 50 ms a frame at 20 frames a second allows. The worst single
+  frames reach about 13 ms. Working out an effect's plan from the two pictures
+  costs up to about 35 ms, once, as the key is pressed.
+- Two tests hold every effect in `TRANSITIONS` to the contract: its first and
+  last frames match the pictures exactly on small pictures with two-cell-wide
+  graphemes, for every curve and direction, and in the deck, moving on with it
+  lands on exactly what moving on without a transition shows.
 
 ### The slide grid
 
@@ -1165,7 +1240,7 @@ Design:
   mounted underneath, including a live Tachyon pane still costing frame time.
 - The Tachyon stage leaves the grid while its pane has focus: there, `d` goes to
   the profiler. Take focus back with Tab first.
-- With a transition picked, the grid zooms. Opening, the selected thumbnail
+- With F9's zoom on, the grid zooms. Opening, the selected thumbnail
   starts filling the grid and shrinks into its place while the others grow in
   around it. Leaving, by a jump or Escape, it runs backwards: the selected
   thumbnail grows back to fill the grid. Both interpolate the grid's `fr` track
@@ -1392,7 +1467,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   from the presenting browser:
   - every deck key arrives through the browser and zellij's locked mode,
     Escape and Enter included
-  - F1 through F4, Tab and Shift+Tab reach the deck; Tab moves between a slide's
+  - F1 through F4, F6 through F9, Tab and Shift+Tab reach the deck; Tab moves between a slide's
     code and its runs, and takes the keyboard back from Tachyon's pane
   - clicking a thumbnail in the slide grid reaches the deck
   - the flamegraph URL opens from a click

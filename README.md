@@ -7,6 +7,7 @@ and the code on screen is the code that runs, live, on 3.15 and on 3.14.
 [`slides.html`](slides.html) is a static copy of every slide,
 and [`slides.cast`](slides.cast) is a recording of the deck presented, every demo run,
 which [asciinema](https://asciinema.org/) plays with `asciinema play slides.cast`.
+[`transitions.cast`](transitions.cast) shows off every slide transition the deck can play, one after another.
 
 ## Running it yourself
 
@@ -51,8 +52,11 @@ What doesn't work in a default container:
 | `r` | reset the slide, undoing its edits |
 | `d` | the slide grid, one section at a time: arrows move, Enter or `d` jumps, Escape goes back |
 | F1 / F2 | the clock / the size check |
-| F3 | pick the slide transition, off or an easing curve for a swipe and the grid's zoom: as F4's picker, F3 closes |
 | F4 | pick the code theme: type to narrow the list, Up and Down move, Enter chooses, F4 closes |
+| F6 | pick the slide transition: off, swipe, one of the effects (type to narrow the list), or random for a different one each move; as F4's picker, F6 closes |
+| F7 | pick the easing curve the transition and the grid's zoom follow; F7 closes |
+| F8 | pick the transition speed, from a quarter to twice as fast; F8 closes |
+| F9 | the grid's zoom, on or off |
 | Ctrl+C | quit |
 
 ## Developing

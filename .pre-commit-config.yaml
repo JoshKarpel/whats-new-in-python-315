@@ -8,9 +8,9 @@ repos:
         name: check for added large files
         entry: uv run --frozen check-added-large-files
         language: unsupported
-        # The export is one page of SVGs, and the recording every frame of the deck presented,
-        # which both outgrow the default limit as the deck grows.
-        exclude: ^slides\.(html|cast)$
+        # The export is one page of SVGs, and the recordings every frame of the deck presented and of every transition,
+        # which all outgrow the default limit as the deck grows.
+        exclude: ^(slides\.(html|cast)|transitions\.cast)$
       - id: check-case-conflict
         name: check for case conflicts
         entry: uv run --frozen check-case-conflict
@@ -111,6 +111,13 @@ repos:
       - id: export-slides
         name: export slides.html
         entry: uv run --frozen python -m whats_new export
+        language: unsupported
+        files: ^(src/|examples/|uv\.lock$)
+        pass_filenames: false
+      # The showcase waits for nothing real, so it records the same every time, and can be checked as the export is.
+      - id: showcase-transitions
+        name: record transitions.cast
+        entry: uv run --frozen python -m whats_new showcase
         language: unsupported
         files: ^(src/|examples/|uv\.lock$)
         pass_filenames: false

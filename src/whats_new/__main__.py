@@ -1,6 +1,6 @@
 """
 The deck's entry point: `python -m whats_new` presents it, `python -m whats_new export` writes `slides.html`,
-and `python -m whats_new record` writes `slides.cast`.
+`python -m whats_new record` writes `slides.cast`, and `python -m whats_new showcase` writes `transitions.cast`.
 
 Interpreters are resolved here, once, before anything draws, so a missing one fails at launch, not on stage.
 """
@@ -17,7 +17,9 @@ from counterweight.app import app
 
 from whats_new import export
 from whats_new import recording
+from whats_new import showcase
 from whats_new.checkpoint import Checkpoint
+from whats_new.components.transitions import TRANSITIONS
 from whats_new.deck import SLIDES
 from whats_new.host import EXPORT_FLAMEGRAPH_SITE
 from whats_new.host import EXPORT_PID
@@ -58,6 +60,10 @@ def main() -> None:
     record_parser.add_argument(
         "--output", type=Path, default=ROOT / "slides.cast", help="write the recording here instead of slides.cast"
     )
+    showcase_parser = commands.add_parser("showcase", help="record every slide transition, one after another")
+    showcase_parser.add_argument(
+        "--output", type=Path, help="write the recording here instead of the repository's tracked transitions.cast"
+    )
     arguments = parser.parse_args()
 
     if arguments.command == "rehearse":
@@ -92,6 +98,21 @@ def main() -> None:
                     examples_copy=Path(examples_copy),
                 )
                 asyncio.run(recording.record(SLIDES, host, available_capabilities(), arguments.output))
+            case "showcase":
+                host = Host(
+                    interpreters=interpreters,
+                    flamegraph=EXPORT_FLAMEGRAPH_SITE,
+                    pid=EXPORT_PID,
+                    examples_copy=Path(examples_copy),
+                )
+                transitions = tuple(TRANSITIONS.items())
+                if arguments.output is not None:
+                    asyncio.run(showcase.record_showcase(SLIDES, host, transitions, arguments.output))
+                    return
+                with TemporaryDirectory(prefix="whats-new-showcase-") as scratch:
+                    recorded = Path(scratch) / "transitions.cast"
+                    asyncio.run(showcase.record_showcase(SLIDES, host, transitions, recorded))
+                    export.write_tracked(ROOT / "transitions.cast", recorded.read_text())
             case "present" | None:
                 host = Host(
                     interpreters=interpreters,

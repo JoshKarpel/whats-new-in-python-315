@@ -53,7 +53,7 @@ The longest pause a player shows, which cuts short a run's silences.
 No shorter than the holds, which draw nothing on a slide with nothing animating.
 """
 
-START = Checkpoint(slide=0, code_theme="dracula", transition="ease-in-out")
+START = Checkpoint(slide=0, code_theme="dracula", transition="swipe", easing="ease-in-out", zooms_grid=True)
 """Where the recording starts, and the code theme and slide transition it presents in."""
 
 THEME = Theme(foreground=SVG_FOREGROUND, background=SVG_BACKGROUND, palette=DEFAULT_PALETTE[:16])
