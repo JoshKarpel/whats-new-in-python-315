@@ -10,7 +10,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import replace
-from datetime import timedelta
 from datetime import tzinfo
 from typing import assert_never
 from zoneinfo import ZoneInfo
@@ -37,6 +36,9 @@ from counterweight.styles.utilities import *
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEMES
 from whats_new.components.crossing import Crossing
+from whats_new.components.crossing import Frames
+from whats_new.components.crossing import Grid
+from whats_new.components.crossing import Tiles
 from whats_new.components.crossing import photograph
 from whats_new.components.crossing import picture_of
 from whats_new.components.frame import footer
@@ -46,24 +48,29 @@ from whats_new.components.grid import Zoom
 from whats_new.components.grid import above
 from whats_new.components.grid import below
 from whats_new.components.grid import grid
+from whats_new.components.grid import tiles
 from whats_new.components.picker import Choice
 from whats_new.components.picker import Option
 from whats_new.components.picker import Picking
+from whats_new.components.picker import Section
 from whats_new.components.picker import picker
 from whats_new.components.slide_body import slide_body
 from whats_new.components.stage import Playing
+from whats_new.components.stage import cover
 from whats_new.components.stage import stage
 from whats_new.components.swipe import SWIPE
 from whats_new.components.swipe import Direction
 from whats_new.components.swipe import Swipe
+from whats_new.components.transitions import AHEAD
 from whats_new.components.transitions import DESCRIBED
-from whats_new.components.transitions import GRID_DESCRIBED
+from whats_new.components.transitions import GRID_GROUPS
+from whats_new.components.transitions import GROUP_ABOUT
 from whats_new.components.transitions import SPEEDS
 from whats_new.components.transitions import Choose
 from whats_new.components.transitions import ChooseGrid
 from whats_new.components.transitions import Crossed
-from whats_new.components.transitions import GridTransition
 from whats_new.components.transitions import Swiped
+from whats_new.components.transitions import Tiled
 from whats_new.components.transitions import Zoomed
 from whats_new.components.transitions import grid_transition_for
 from whats_new.components.transitions import transition_for
@@ -154,13 +161,24 @@ def zoom_toward(before: Position, after: Position) -> Toward | None:
             return None
 
 
-def grid_motion(toward: Toward, transition: GridTransition | None, duration: timedelta) -> Zoom | None:
-    """How the grid moves opening or closing, `toward` the grid or the slide, with `transition`: not at all for `None`."""
+type GridMotion = Zoom | Crossing
+"""The grid opening or closing: zooming, or a transition drawn from pictures over whichever of it or the slide is live."""
+
+
+def grid_frames(transition: Tiled | Crossed, slide: Grid, opened: Grid, where: Tiles, toward: Toward) -> Frames:
+    """
+    The frames of the grid opening from `slide` to `opened`, the grid's picture with its thumbnails `where` they are,
+    or of it closing back, `toward` one or the other: a grid effect's, played backwards closing, or an F6 effect's,
+    played opening as moving on to the next slide, and closing as moving back.
+    """
     match transition:
-        case None:
-            return None
-        case Zoomed():
-            return Zoom(toward=toward, duration=duration)
+        case Tiled(effect=effect):
+            opening = effect(slide, opened, where)
+            return opening if toward is Toward.GRID else lambda t: opening(1 - t)
+        case Crossed(effect=effect):
+            if toward is Toward.GRID:
+                return effect(slide, opened, Direction.NEXT)
+            return effect(opened, slide, Direction.PREVIOUS)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -180,13 +198,25 @@ class Mounting:
         return f"slide-{self.serial}"
 
 
-THEME = Choice(label="code theme", options=tuple(Option(theme) for theme in CODE_THEMES), key="F4")
-TRANSITION = Choice(
+THEME = Choice.listing(label="code theme", options=tuple(Option(theme) for theme in CODE_THEMES), key="F4")
+TRANSITION = Choice.listing(
     label="slide transition", options=tuple(Option(name, about) for name, about in DESCRIBED.items()), key="F6"
 )
-PACE = Choice(label="transition speed", options=tuple(Option(name) for name in SPEEDS), key="F8")
+PACE = Choice.listing(label="transition speed", options=tuple(Option(name) for name in SPEEDS), key="F8")
 GRID_TRANSITION = Choice(
-    label="grid transition", options=tuple(Option(name, about) for name, about in GRID_DESCRIBED.items()), key="F7"
+    label="grid transition",
+    sections=(
+        Section(title=None, options=tuple(Option(name, about) for name, about in AHEAD.items())),
+        *(
+            Section(
+                title=group.title,
+                options=tuple(Option(name, transition.description) for name, transition in group.transitions.items()),
+                about=GROUP_ABOUT,
+            )
+            for group in GRID_GROUPS
+        ),
+    ),
+    key="F7",
 )
 
 CHICAGO = ZoneInfo("America/Chicago")
@@ -222,7 +252,8 @@ def root(
     The deck. It starts from `start` and calls `remember` with a new checkpoint whenever the slide, the code theme,
     the transition, its speed, or the grid's transition changes, so a restart (live reload, or a crash on stage)
     comes back to the same slide, looking the same. The footer's clock reads the time in `timezone`, and `choose`
-    picks each move's transition while F6 has `random` picked, and `choose_grid` the grid's while F7 has.
+    picks each move's transition while F6 has `random` picked, and `choose_grid` the grid's while F7 has `random`
+    or a group's bar picked.
     F4 opens the code theme picker, F6 the slide transition picker, F7 the grid transition picker,
     and F8 the speed picker (see `picker`); the same key closes it unchanged.
     Not F5, which the presenting browser keeps for itself.
@@ -232,8 +263,8 @@ def root(
     mounting, set_mounting = use_state(Mounting(serial=0))
     no_transition: Playing | None = None
     playing, set_playing = use_state(no_transition)
-    no_zoom: Zoom | None = None
-    zoom, set_zoom = use_state(no_zoom)
+    no_motion: GridMotion | None = None
+    motion, set_motion = use_state(no_motion)
     show_clock, set_show_clock = use_state(False)
     show_size, set_show_size = use_state(False)
     code_theme, set_code_theme = use_state(start.code_theme)
@@ -262,27 +293,60 @@ def root(
     def view(at: Position, of: Mounting, is_live: bool) -> Component:
         return slide_view(slides[at.index], at.step, is_live, host, code_theme, of.focus).with_key(of.key)
 
+    def move_grid(toward: Toward, moved: Position, pace: float) -> tuple[AnyControl, ...]:
+        """
+        Opens the grid, or closes it to the slide `moved` is on, `toward` one or the other, playing F7's transition
+        at `pace`. One drawn from pictures can't start until it has a picture of the screen, so this returns
+        the screenshot that starts it.
+        """
+        set_motion(None)
+        match transition_picked := grid_transition_for(grid_transition, choose_grid):
+            case None:
+                return ()
+            case Zoomed():
+                set_motion(Zoom(toward=toward, duration=SWIPE / pace))
+                return ()
+            case Tiled(duration=duration) | Crossed(duration=duration):
+                area = stage_area
+                # The grid as it opens, or as it would be closing to the slide, the same grid the zoom draws.
+                selected = moved.index if moved.selected is None else moved.selected
+                opened = grid(slides, selected, jump, host, code_theme, None)
+                arriving = slide_view(slides[moved.index], moved.step, True, host, code_theme, FocusHandle())
+                where = tiles(area.width, area.height, selected, slides)
+
+                async def cross(frame: Frame) -> None:
+                    """Taken before the render that opens the grid or mounts the slide, so that render draws the first frame."""
+                    pictured = await photograph(opened, area.width, area.height)
+                    slide = (
+                        picture_of(frame.paint, area)
+                        if toward is Toward.GRID
+                        else await photograph(arriving, area.width, area.height)
+                    )
+                    frames = grid_frames(transition_picked, slide, pictured, where, toward)
+                    set_motion(Crossing(frames=frames, duration=duration / pace))
+
+                return (Screenshot(handler=cross),)
+            case _ as unreachable:
+                assert_never(unreachable)
+
     def go(moved: Position) -> tuple[AnyControl, ...]:
         """
         Moves to `moved`, mounting the slide there afresh if it's another slide (or `r`), and playing the transition
-        into it or zooming the grid if it should. Any other move ends a zoom still playing.
+        into it or opening or closing the grid with its own if it should. Any other move ends the grid's still playing.
         A crossing can't start until it has a picture of the screen, so `go` returns the screenshot that starts it.
         """
         set_position(moved)
         pace = SPEEDS[speed]
-        toward = zoom_toward(position, moved)
-        set_zoom(
-            None
-            if toward is None
-            else grid_motion(toward, grid_transition_for(grid_transition, choose_grid), SWIPE / pace)
-        )
         if moved.selected is not None:
             # The grid replaces the stage, which would replay a transition left here when it came back.
             set_playing(None)
-        if (moved.index, moved.generation) == (position.index, position.generation):
-            return ()
-        set_mounting(Mounting(serial=mounting.serial + 1))
-        set_playing(None)
+        if (moved.index, moved.generation) != (position.index, position.generation):
+            set_mounting(Mounting(serial=mounting.serial + 1))
+            set_playing(None)
+        toward = zoom_toward(position, moved)
+        if toward is not None:
+            return move_grid(toward, moved, pace)
+        set_motion(None)
         direction = swipe_direction(position, moved)
         if direction is None:
             return ()
@@ -309,8 +373,8 @@ def root(
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def jump(index: int) -> None:
-        go(Position(index=index))
+    def jump(index: int) -> InputResponse:
+        return go(Position(index=index))
 
     def toggle(choice: Choice) -> InputResponse:
         if picking is not None and picking.choice is choice:
@@ -358,10 +422,13 @@ def root(
     layers: list[Component] = []
     if position.selected is None:
         layers.append(stage(view(position, mounting, is_live=True), playing).with_key("stage"))
+    zoom = motion if isinstance(motion, Zoom) else None
     # The grid stays over the stage while it zooms in to the slide it left for, already mounted beneath it.
     if position.selected is not None or zoom is not None:
         selected = position.index if position.selected is None else position.selected
         layers.append(grid(slides, selected, jump, host, code_theme, zoom).with_key("grid"))
+    if isinstance(motion, Crossing):
+        layers.append(cover(motion).with_key("cover"))
 
     return Div(
         style=col | full | position_relative,

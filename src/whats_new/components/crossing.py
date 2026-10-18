@@ -11,6 +11,9 @@ the whole time, so it takes the keys at once, and shows as itself when the canva
 The leaving picture is what the screen showed, from a `Screenshot`, so it's the slide as it was left, edits and run
 output included. The arriving picture is a headless render of the slide's first frame, which is what the live slide
 shows too, since a slide always arrives at its first step and mounting it starts nothing.
+
+The grid's transitions (F7) are drawn the same way, between a slide and the grid: any `Effect`, or a `GridEffect`,
+which knows where each thumbnail is, so it can move the slide into its own.
 """
 
 from asyncio import create_task
@@ -50,6 +53,31 @@ given which way the presenter moved. Each effect eases its own motion, if it eas
 Whatever an effect works out from the pictures
 alone, it works out once, here, rather than in every frame. Its first frame is the leaving picture and its last
 the arriving one, so the transition starts and ends without a jump.
+"""
+
+
+@dataclass(frozen=True, slots=True)
+class Tiles:
+    """
+    Where things are in a picture of the slide grid: the line naming the section, each thumbnail in reading order,
+    and which of them is the slide the grid opens from or closes to.
+    """
+
+    header: Region
+    thumbnails: tuple[Region, ...]
+    selected: int
+
+    @property
+    def chosen(self) -> Region:
+        """The selected slide's thumbnail."""
+        return self.thumbnails[self.selected]
+
+
+type GridEffect = Callable[[Grid, Grid, Tiles], Frames]
+"""
+How one kind of grid transition turns a picture of a slide and one of the grid (the same size) into the frames of
+the grid opening from that slide, given where the `Tiles` are in the grid's picture. Closing plays the same frames
+backwards, so its first frame is the slide's picture and its last the grid's, as an `Effect`'s are.
 """
 
 SPACE = StyledGrapheme(grapheme=" ")

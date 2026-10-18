@@ -3,6 +3,9 @@ The pickers keys open: the function keys' F4 code theme, F6 slide transition, F7
 stage's workload and profiler mode. Each is an autocomplete field over its parent's top right corner, as in counterweight's autocomplete
 cookbook. Typing narrows the list of options, Down and Up move the highlight, Enter or Tab chooses the highlighted
 option, and Escape closes it unchanged. Either way, focus goes back to the slide.
+
+A picker's options can come in sections, each under a bar naming it. A bar is chosen as an option is, by its title,
+so whatever the picker sets decides what choosing it means, such as F7's one of that section at random.
 """
 
 import glob
@@ -55,10 +58,13 @@ CURRENT = Style(text_style=CellStyle(foreground=PYTHON_YELLOW, bold=True))
 def matches(text: str, options: tuple[str, ...]) -> tuple[str, ...]:
     """
     The options the typed letters appear in, in order, with anything between them, so `nd` matches `nord-darker`;
-    every option while nothing is typed. Letters are escaped, so a typed `[` matches itself.
+    every option while nothing is typed. The one the text names exactly comes first, and the rest keep their order.
+    Letters are escaped, so a typed `[` matches itself.
     """
     pattern = f"*{'*'.join(glob.escape(letter) for letter in text.lower())}*"
-    return tuple(option for option in options if fnmatchcase(option.lower(), pattern))
+    found = tuple(option for option in options if fnmatchcase(option.lower(), pattern))
+    # The option named exactly first, so typing a whole name and Enter chooses it, whatever else it spells.
+    return tuple(sorted(found, key=lambda option: option.lower() != text.lower()))
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,31 +86,78 @@ class Option:
 
 
 @dataclass(frozen=True, slots=True)
+class Section:
+    """
+    A run of a picker's options, under a bar naming it with its `title` and saying what choosing the bar does
+    (`about`), or under nothing, without a title. The bar is chosen as an option is, by its title.
+    """
+
+    title: str | None
+    options: tuple[Option, ...]
+    about: str = ""
+
+    @property
+    def bar(self) -> str:
+        """The bar's text, before the rule that runs it on to the picker's edge."""
+        return f"── {self.title} ─ {self.about} " if self.about else f"── {self.title} "
+
+
+@dataclass(frozen=True, slots=True)
 class Choice:
-    """What a picker offers and how it's labeled: `label` heads it, and `key` names the key that opens it."""
+    """
+    What a picker offers, in `sections`, and how it's labeled: `label` heads it, and `key` names the key that opens it.
+    """
 
     label: str
-    options: tuple[Option, ...]
+    sections: tuple[Section, ...]
     key: str
+
+    @classmethod
+    def listing(cls, label: str, options: tuple[Option, ...], key: str) -> Choice:
+        """A picker offering `options` in one run, under no bar."""
+        return cls(label=label, sections=(Section(title=None, options=options),), key=key)
+
+    @property
+    def options(self) -> tuple[Option, ...]:
+        return tuple(option for section in self.sections for option in section.options)
+
+    @property
+    def bars(self) -> frozendict[str, Section]:
+        """The titled sections, by the title choosing their bar chooses."""
+        return frozendict({section.title: section for section in self.sections if section.title is not None})
 
     @property
     def names(self) -> tuple[str, ...]:
-        return tuple(option.name for option in self.options)
+        """Everything the picker can choose, in the order it lists them: each bar's title ahead of its options."""
+        return tuple(
+            name
+            for section in self.sections
+            for name in (
+                *(() if section.title is None else (section.title,)),
+                *(option.name for option in section.options),
+            )
+        )
 
     @property
     def is_described(self) -> bool:
         return any(option.description for option in self.options)
 
     @property
-    def width(self) -> int:
-        """Wide enough for the label, and each option and description on a line of its own, inside the border."""
+    def inner_width(self) -> int:
+        """Wide enough for the label, each bar, and each option and description on a line of its own."""
         lines = (
             self.label,
             HINT,
+            *(f"▸{section.bar}──" for section in self.bars.values()),
             *(f"▸ {option.name}" for option in self.options),
             *(f"  {option.description}" for option in self.options),
         )
-        return max(WIDTH, 4 + max(len(line) for line in lines))
+        return max(WIDTH - 4, max(len(line) for line in lines))
+
+    @property
+    def width(self) -> int:
+        """`inner_width`, and the border and padding around it."""
+        return 4 + self.inner_width
 
 
 HINT = "↑ ↓ · Enter · Esc closes"
@@ -176,6 +229,8 @@ def picker(
         set_completion(lambda c: c.edited(edit_text(c.text)))
 
     field = use_text_input(completion.text, edit, handle=handles.focus)
+    bars = choice.bars
+    # A bar is matched by its own title alone, not its options', so typing an option's name doesn't highlight its bar.
     shown = matches(completion.text, names)
     descriptions = {option.name: option.description for option in choice.options}
     highlighted = completion.highlighted
@@ -203,13 +258,16 @@ def picker(
                 return (*edited, highlighted_in_view)
         return highlighted_in_view
 
+    def row_of(name: str, style: Style) -> tuple[Chunk, ...]:
+        if (section := bars.get(name)) is not None:
+            return bar_row(section, style, choice.inner_width, is_current=name == current)
+        return option_row(name, descriptions[name] if choice.is_described else None, style, is_current=name == current)
+
     rows = tuple(
         Text(
-            content=option_row(
+            content=row_of(
                 name,
-                descriptions[name] if choice.is_described else None,
                 (text_bg("sky", 800) if index == highlighted else default) | (CURRENT if name == current else default),
-                is_current=name == current,
             ),
             style=text_wrap_none,
             handle=highlighted_match if index == highlighted else None,
@@ -253,6 +311,18 @@ def picker(
             ),
             Text(content=HINT, style=dim | text_wrap_none),
         ),
+    )
+
+
+def bar_row(section: Section, style: Style, width: int, is_current: bool) -> tuple[Chunk, ...]:
+    """
+    A section's bar: a rule across the picker `width` cells wide with its title and what choosing it does in it,
+    marked if it's the current choice. One line, even in a described picker.
+    """
+    text = f"{'▸' if is_current else '─'}{section.bar}"
+    return (
+        Chunk(content=text, style=(style | Style(text_style=CellStyle(bold=True))).text_style),
+        Chunk(content="─" * (width - len(text)), style=(style | dim).text_style),
     )
 
 

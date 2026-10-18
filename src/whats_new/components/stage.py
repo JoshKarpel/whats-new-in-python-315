@@ -1,6 +1,7 @@
 """
 Where the live slide shows, and the transition into it plays: a `Swipe` moves the slide being left and the live one
 across together, and a `Crossing` draws its frames over the live slide, which shows as itself once it ends.
+A `cover` draws the grid's crossings the same way, over the grid or the stage.
 """
 
 from typing import assert_never
@@ -53,6 +54,21 @@ def stage(live: Component, playing: Playing | None) -> Div:
             )
         case _ as unreachable:
             assert_never(unreachable)
+
+
+@component
+def cover(crossing: Crossing) -> Div:
+    """
+    `crossing` drawn over whatever is beneath it, as the grid's transitions drawn from pictures are drawn over
+    the grid opening or the slide it closes to, both already live; once it ends, nothing.
+    """
+    progress = use_progress_since(crossing, crossing.duration)
+    if progress >= 1.0:
+        return Div(style=display_none)
+    return Div(
+        style=position_absolute | inset_top(0) | inset_left(0) | STAGE_SIZE,
+        children=(Canvas(painter=Drawing(crossing, progress), style=STAGE_SIZE),),
+    )
 
 
 def placed_at(left: int, slide: Component) -> Component:

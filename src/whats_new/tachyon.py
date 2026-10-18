@@ -89,11 +89,11 @@ MODES = (
 )
 MODES_BY_NAME = {mode.name: mode for mode in MODES}
 
-MODE_CHOICE = Choice(
+MODE_CHOICE = Choice.listing(
     label="profiler mode", options=tuple(Option(mode.name, mode.description) for mode in MODES), key="m"
 )
 NO_WORKLOAD = "none"
-WORKLOAD_CHOICE = Choice(
+WORKLOAD_CHOICE = Choice.listing(
     label="workload",
     options=(
         Option(NO_WORKLOAD, "stop the workload: the deck alone"),

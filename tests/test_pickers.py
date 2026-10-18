@@ -17,6 +17,7 @@ from counterweight.events import AnyEvent
 from counterweight.events import KeyPressed
 from counterweight.keys import Key
 from counterweight.output import Frame
+from counterweight.styles import Style
 
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEME
@@ -24,9 +25,13 @@ from whats_new.components.code import CODE_THEMES
 from whats_new.components.code import has_dark_background
 from whats_new.components.picker import SHOWN_OPTIONS
 from whats_new.components.picker import Choice
+from whats_new.components.picker import bar_row
 from whats_new.components.picker import matches
+from whats_new.components.transitions import GRID_GROUPS
+from whats_new.components.transitions import GRID_OFFERED
 from whats_new.components.transitions import OFF
 from whats_new.components.transitions import OFFERED
+from whats_new.components.transitions import RANDOM
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
@@ -59,6 +64,10 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
     assert matches(text, CODE_THEMES) == expected
 
 
+def test_matches_puts_the_option_named_exactly_first() -> None:
+    assert matches("ab", ("a-b", "cab", "AB", "abc")) == ("AB", "a-b", "cab", "abc")
+
+
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
@@ -74,7 +83,7 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
             Checkpoint(slide=12, code_theme="monokai", transition="wipe"),
         ),
         (
-            '{"slide": 12, "code_theme": "monokai", "speed": "11x", "grid_transition": "melt"}',
+            '{"slide": 12, "code_theme": "monokai", "speed": "11x", "grid_transition": "swipe"}',
             Checkpoint(slide=12, code_theme="monokai"),
         ),
         ("12", Checkpoint(slide=0)),
@@ -141,8 +150,9 @@ async def test_choosing_a_theme_checkpoints_it_and_gives_the_slide_its_keys_back
         (Key.F6, "mor", Checkpoint(slide=0, transition="morph"), "slide transition"),
         (Key.F8, "0.2", Checkpoint(slide=0, speed="0.25x"), "transition speed"),
         (Key.F7, "zoo", Checkpoint(slide=0, grid_transition="zoom"), "grid transition"),
+        (Key.F7, "grid eff", Checkpoint(slide=0, grid_transition="grid effects"), "grid transition"),
     ],
-    ids=["a transition", "a speed", "a grid transition"],
+    ids=["a transition", "a speed", "a grid transition", "a group of grid transitions, by its bar"],
 )
 async def test_choosing_a_transition_setting_checkpoints_it_and_gives_the_slide_its_keys_back(
     host: Host, key: Key, typed: str, expected: Checkpoint, label: str
@@ -236,6 +246,33 @@ async def test_a_picker_opened_in_place_of_another_takes_the_keys(host: Host) ->
 def test_a_picker_fits_inside_the_slide(choice: Choice) -> None:
     # The slide body has a column of padding either side, and the picker sits one more in from the right.
     assert choice.width <= PRESENTING.columns - 3
+
+
+def test_f7_lists_every_name_the_grid_transition_can_be_set_to_in_order() -> None:
+    assert GRID_TRANSITION.names == GRID_OFFERED
+
+
+def test_f7_lists_off_and_random_first_under_no_bar() -> None:
+    first, *grouped = GRID_TRANSITION.sections
+
+    assert (first.title, tuple(option.name for option in first.options)) == (None, (OFF, RANDOM))
+    assert [section.title for section in grouped] == [group.title for group in GRID_GROUPS]
+
+
+@pytest.mark.parametrize("name", [name for group in GRID_GROUPS for name in group.transitions])
+def test_typing_a_grid_transitions_name_matches_it_and_not_its_bar(name: str) -> None:
+    assert matches(name, GRID_TRANSITION.names)[0] == name
+
+
+def test_a_bar_runs_across_the_picker() -> None:
+    section = GRID_TRANSITION.bars["slide effects"]
+
+    (title, rule) = bar_row(section, Style(), GRID_TRANSITION.inner_width, is_current=False)
+
+    assert (title.content.startswith("─── slide effects ─ "), len(title.content + rule.content)) == (
+        True,
+        GRID_TRANSITION.inner_width,
+    )
 
 
 @pytest.mark.parametrize(

@@ -804,6 +804,11 @@ Dockerfile           the image others run the deck from
     offering `off`, `random`, or an effect, each with a line saying what it does.
     F7 picks the grid's transition, from a picker of its own,
     and F8 the speed both play at.
+    A picker's options can come in sections, each under a bar naming it. A bar
+    is chosen as an option is, by its title, and F7 takes a section's title to
+    mean one of that section at random. Typing narrows to the options and bars
+    the letters spell, with the one named exactly first, so typing an option's
+    whole name and Enter chooses it rather than a bar that spells it too.
     Not F5, which the browser keeps. See [Slide transitions](#slide-transitions).
   - Slide-specific keys on Tachyon slides only.
 
@@ -1126,7 +1131,7 @@ effect's module docstring says what it looks like.
   a mask's edge in `wipe`, `iris` and `blinds`, each character's flight in
   `morph`, and the grid's zoom.
   Something happening at a steady rate doesn't ease, since its pace is part of
-  what it shows: typing, a sweep, a snake, a spreading wave, falling rain.
+  what it shows: typing, a sweep, a spreading wave, falling rain.
   Nor does an effect that models its own physics (`gravity`'s fall, `shatter`'s
   throw, `swap`'s hop, `melt`'s run), which a curve would only distort.
   `vortex` eases in toward the plughole and out onto each place.
@@ -1134,7 +1139,7 @@ effect's module docstring says what it looks like.
   as a clock, uncovering cells or keying characters as it passes thresholds,
   so a springy curve finishes them in the first fifth of the time and
   one that bounces runs them backwards: a typewriter backspacing what it typed,
-  a snake reversing.
+  a sweep sweeping back.
 - Only moving from one slide straight to another plays one, as in spiel: not
   opening or leaving the grid, jumping from it, or `r`. Opening and leaving the
   grid play the grid's own transition instead, which F7 picks the same way
@@ -1183,11 +1188,12 @@ from the two, cell by cell, for one `Canvas` drawn over the stage.
   arriving one, so a transition starts and ends without a jump. The arriving slide
   is mounted and live beneath the canvas throughout, so it takes the keys at once,
   and shows as itself when the canvas goes.
-- Each effect is a module in `components/effects/`. Three modules hold what
+- Each effect is a module in `components/effects/`. Four modules hold what
   several share: `masks` for uncovering the arriving slide cell by cell at
   per-cell thresholds, `characters` for moving cells about (where each one is,
-  what a cell shows once it has gone, drawing them where they've got to), and
-  `shading` for darkening or tinting cells by steps.
+  what a cell shows once it has gone, drawing them where they've got to),
+  `shading` for darkening or tinting cells by steps, and `cards` for the grid's
+  effects that move whole pictures about.
 - What moves, in the effects that move cells about, is everything there is to
   see: each character, and each cell shaded off the slide's backdrop, such as the
   inside of a code box, which carries its color with it. Only the backdrop stays
@@ -1264,6 +1270,36 @@ Design:
   mounts, and takes focus, beneath it as the zoom starts, as an arriving slide
   does in a swipe. The grid draws nothing once the zoom ends, and unmounts on the
   next move. Any move while a zoom plays ends it at once.
+- F7 also offers transitions drawn from pictures, as F6's effects are. It
+  lists `off` and `random` first, then two sections under bars:
+  `grid effects`, the zoom and the transitions made for the grid, and
+  `slide effects`, every F6 effect drawn from pictures. Picking a bar plays one
+  of its section at random each time, as `random` does from all of them.
+- The grid effects other than the zoom are `flip` (a card turning over, the
+  grid on its back) and those that know where each thumbnail is, so they can
+  move the slide into its own: `scale`, `expose`, `deal`, `unpack`, `fold`
+  and `slice`.
+  An F6 effect plays opening as moving on to the next slide, and closing as
+  moving back. A grid effect is written once, opening, and plays backwards
+  closing.
+- The grid's picture is a headless render of the grid around the slide it opens
+  from or closes to, the same grid the zoom draws. So closing with Escape, after
+  moving the selection into another section, starts from the grid around the
+  slide being returned to, as the zoom does. The slide's picture is the screen
+  as it was left, opening, and a headless render of the slide at the step it
+  returns to, closing. The frames draw in a `cover` over whichever of the grid
+  or the slide is live beneath.
+- `tiles` works out where each thumbnail is from the layout's arithmetic, each
+  track edge rounded to the nearest cell as the layout rounds equal `fr` tracks.
+  A test checks it against a render of the grid at three sizes.
+- The effects that move thumbnails about whole share `effects/cards.py`. A card
+  scales by taking the nearest cell, so at its own size it's its picture
+  exactly. Shrinking drops rows and columns, which garbles text much less than
+  growing repeats them, so a slide shrinking into its thumbnail keeps its own
+  face until it has nearly landed.
+- The same contract tests hold every grid transition to its first and last
+  frames, opening and closing, and each grid effect is played in the deck both
+  ways.
 
 ### The Tachyon stage
 

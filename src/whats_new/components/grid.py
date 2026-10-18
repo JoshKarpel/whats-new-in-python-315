@@ -10,6 +10,8 @@ With F7's `zoom` picked, the grid zooms, easing in and out, at F8's speed. Openi
 starts filling the grid and shrinks into its place while the others grow in around it; leaving, the selected
 thumbnail grows back to fill it. Its content reflows as it changes size, as a thumbnail's always does, rather than
 scaling. The grid sits over the stage, so the slide it leaves for is already mounted, and live, beneath it.
+F7's other transitions are drawn from pictures of the grid (see `crossing`), and `tiles` says where in one
+each thumbnail is.
 """
 
 from collections.abc import Callable
@@ -21,13 +23,16 @@ from counterweight.components import component
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
+from counterweight.events import InputResponse
 from counterweight.focus import FocusHandle
+from counterweight.geometry import Region
 from counterweight.handlers import on_click
 from counterweight.hooks import use_state
 from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
 from whats_new.components.animation import use_progress_since
+from whats_new.components.crossing import Tiles
 from whats_new.components.easing import ease_in_out
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
@@ -39,6 +44,8 @@ from whats_new.slides import sections
 
 COLUMNS = 3
 ROWS = 3
+HEADER = 1
+"""How many rows the line naming the section takes, above the thumbnails."""
 
 
 class Toward(Enum):
@@ -139,12 +146,39 @@ def shares(selected: int, count: int, openness: float) -> tuple[float, ...]:
     return tuple(1 - others * (count - 1) if track == selected else others for track in range(count))
 
 
+def edges(length: int, count: int) -> tuple[int, ...]:
+    """
+    Where each of `count` equal tracks sharing `length` cells starts, and the last ends: each edge rounded to the
+    nearest cell, as the layout rounds the grid's equal `fr` tracks, so the odd cells go wherever rounding puts them.
+    """
+    return tuple(round(length * track / count) for track in range(count + 1))
+
+
+def tiles(width: int, height: int, selected: int, slides: tuple[Slide, ...]) -> Tiles:
+    """Where the open grid, drawn `width` by `height` with `selected` selected, draws its header and thumbnails."""
+    deck_sections = sections(slides)
+    visible = visible_range(selected, deck_sections[cell_of(selected, deck_sections).section])
+    across, down = edges(width, COLUMNS), edges(height - HEADER, ROWS)
+
+    def region(index: int) -> Region:
+        row, column = divmod(index - visible.start, COLUMNS)
+        return Region(
+            left=across[column], top=HEADER + down[row], right=across[column + 1], bottom=HEADER + down[row + 1]
+        )
+
+    return Tiles(
+        header=Region(left=0, top=0, right=width, bottom=HEADER),
+        thumbnails=tuple(region(index) for index in visible),
+        selected=selected - visible.start,
+    )
+
+
 @component
 def thumbnail(
     slides: tuple[Slide, ...],
     index: int,
     is_selected: bool,
-    jump: Callable[[int], None],
+    jump: Callable[[int], InputResponse],
     host: Host,
     code_theme: str,
 ) -> Div:
@@ -172,7 +206,7 @@ def thumbnail(
 def grid(
     slides: tuple[Slide, ...],
     selected: int,
-    jump: Callable[[int], None],
+    jump: Callable[[int], InputResponse],
     host: Host,
     code_theme: str,
     zoom: Zoom | None,

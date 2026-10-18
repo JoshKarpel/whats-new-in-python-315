@@ -3,6 +3,7 @@ F6's swipe: where the two slides sit, which moves swipe,
 and the swipe itself, drawn on the export's frozen clock and stopped halfway; and the grid shrinking open.
 """
 
+import random
 from collections.abc import Sequence
 
 import pytest
@@ -26,13 +27,13 @@ from whats_new.components.swipe import offsets
 from whats_new.components.transitions import GRID_TRANSITIONS
 from whats_new.components.transitions import OFF
 from whats_new.components.transitions import RANDOM
+from whats_new.components.transitions import ChooseGrid
 from whats_new.components.transitions import GridTransition
 from whats_new.components.transitions import grid_transition_for
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
 from whats_new.presenter import Position
-from whats_new.presenter import grid_motion
 from whats_new.presenter import root
 from whats_new.presenter import swipe_direction
 from whats_new.presenter import zoom_toward
@@ -93,15 +94,24 @@ def slide_rows(frame: Frame) -> list[str]:
 
 
 async def drive(
-    host: Host, index: int, steps: Sequence[AnyEvent | AnyControl], grid_transition: str = "zoom", speed: str = "1x"
+    host: Host,
+    index: int,
+    steps: Sequence[AnyEvent | AnyControl],
+    grid_transition: str = "zoom",
+    speed: str = "1x",
+    choose_grid: ChooseGrid = random.choice,
 ) -> None:
-    """Starts the deck on slide `index` swiping at `speed`, the grid on `grid_transition`, then drives it through `steps`."""
+    """
+    Starts the deck on slide `index` swiping at `speed`, the grid on `grid_transition`, `random` picking the grid's
+    with `choose_grid`, then drives it through `steps`.
+    """
     await app(
         root(
             SLIDES,
             host,
             Checkpoint(slide=index, transition="swipe", speed=speed, grid_transition=grid_transition),
             lambda checkpoint: None,
+            choose_grid=choose_grid,
         ),
         headless=True,
         dimensions=PRESENTING.dimensions,
@@ -240,10 +250,6 @@ def test_random_picks_one_of_the_grid_transitions() -> None:
     )
 
 
-def test_with_off_picked_the_grid_doesnt_move() -> None:
-    assert grid_motion(Toward.GRID, grid_transition_for(OFF, lambda options: options[0]), SWIPE) is None
-
-
 GRID_TOP = 1
 """The grid's first row, under the line naming the section."""
 OPEN = (KeyPressed(key="d"), AdvanceClock(by=SWIPE))
@@ -252,7 +258,10 @@ JUMP = (*OPEN, KeyPressed(key=Key.Right), KeyPressed(key=Key.Enter))
 
 
 async def screens(
-    host: Host, steps: Sequence[AnyEvent | AnyControl | None], grid_transition: str = "zoom"
+    host: Host,
+    steps: Sequence[AnyEvent | AnyControl | None],
+    grid_transition: str = "zoom",
+    choose_grid: ChooseGrid = random.choice,
 ) -> list[Frame]:
     """What `steps` from `EDITED` draw, a screenshot for each `None` among them."""
     frames: list[Frame] = []
@@ -261,6 +270,7 @@ async def screens(
         EDITED,
         tuple(Screenshot(handler=frames.append) if step is None else step for step in steps),
         grid_transition=grid_transition,
+        choose_grid=choose_grid,
     )
     return frames
 
@@ -282,8 +292,10 @@ async def test_f7_picks_the_grid_zoom(host: Host) -> None:
     assert slide_rows(zoomed)[GRID_TOP + 1].startswith(f"│{EDITED + 1} | {SLIDES[EDITED].title}")
 
 
-async def test_random_plays_one_of_the_grid_transitions(host: Host) -> None:
-    (randomly,) = await screens(host, (KeyPressed(key="d"), None), grid_transition=RANDOM)
+async def test_random_plays_the_grid_transition_it_chooses(host: Host) -> None:
+    (randomly,) = await screens(
+        host, (KeyPressed(key="d"), None), grid_transition=RANDOM, choose_grid=lambda options: GRID_TRANSITIONS["zoom"]
+    )
     (zoomed,) = await screens(host, (KeyPressed(key="d"), None))
 
     assert slide_rows(randomly) == slide_rows(zoomed)
