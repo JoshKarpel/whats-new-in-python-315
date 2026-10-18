@@ -14,7 +14,6 @@ from counterweight.styles import Style
 from counterweight.styles.utilities import *
 
 from whats_new.components.animation import use_loop
-from whats_new.components.animation import use_synced_loop
 
 PYTHON_BLUE = Color.from_hex("#4B8BBE")
 PYTHON_YELLOW = Color.from_hex("#FFD43B")
@@ -87,10 +86,10 @@ def title_card(title: str, *subtitles: str, is_live: bool) -> Div:
 
     Its border pulses between Python's blue and yellow, through slate, wherever the card is drawn,
     the slide grid's thumbnails included: there are few enough title cards in view at once that it's cheap.
-    Every card pulses in step, on the app's clock, however long ago it mounted.
+    Its pulse starts at rest when it mounts, so cards mounted at different times pulse out of step.
     While its slide is live, a shine also crosses the title every few seconds.
     """
-    border_phase = use_synced_loop(PULSE_PERIOD)
+    border_phase = use_loop(PULSE_PERIOD, is_playing=True)
     shine_phase = use_loop(SHINE_PERIOD, is_live)
     # Off the title's left edge at the start of each period, so a still frame (phase 0) has no shine.
     shine = -3 + shine_phase / SHINE_SWEEP * (len(title) + 6)

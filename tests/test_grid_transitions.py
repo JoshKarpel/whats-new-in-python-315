@@ -5,6 +5,7 @@ frames on small pictures, and each played in the deck, opening the grid and clos
 
 import random
 from collections.abc import Sequence
+from datetime import timedelta
 
 import pytest
 from counterweight.app import app
@@ -106,7 +107,9 @@ SELECTIONS = {"middle": MIDDLE, "corner": CORNER, "short section": SHORT}
 @pytest.mark.parametrize("size", [(STAGE_WIDTH, STAGE_HEIGHT), (STAGE_WIDTH + 1, STAGE_HEIGHT + 1), (80, 24)])
 async def test_tiles_are_where_the_grid_draws_its_thumbnails(host: Host, selected: int, size: tuple[int, int]) -> None:
     width, height = size
-    drawn = await photograph(grid(SLIDES, selected, lambda index: None, host, "dracula", None), width, height)
+    drawn = await photograph(
+        grid(SLIDES, selected, lambda index: None, host, "dracula", None), width, height, after=timedelta()
+    )
     where = tiles(width, height, selected, SLIDES)
 
     corners = [

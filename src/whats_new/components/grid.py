@@ -3,8 +3,9 @@ The slide grid: thumbnails of one section of the deck at a time, three across, w
 the selection, under a line naming the section. Moving the selection past a section's edge moves into the next one.
 
 Each thumbnail is the slide's own content component drawn at a third of the width and clipped at its border,
-not a picture, so it's exactly what the slide draws at that width. Thumbnails aren't live: they never take focus,
-so they never receive a slide's keys or start its runs.
+not a picture, so it's exactly what the slide draws at that width. It draws the slide's first reveal step, the one
+jumping to it lands on, so the grid's transitions into and out of a slide meet the slide as it shows.
+Thumbnails aren't live: they never take focus, so they never receive a slide's keys or start its runs.
 
 With F7's `zoom` picked, the grid zooms, easing in and out, at F8's speed. Opening, the selected thumbnail
 starts filling the grid and shrinks into its place while the others grow in around it; leaving, the selected
@@ -196,7 +197,7 @@ def thumbnail(
             Text(content=f"{index + 1} | {slide.title}", style=(text_color("amber", 300) if is_selected else dim)),
             Div(
                 style=col | fill(1) | overflow_hidden,
-                children=(slide_body(slide, slide.steps - 1, False, host, code_theme, thumbnail_focus),),
+                children=(slide_body(slide, 0, False, host, code_theme, thumbnail_focus),),
             ),
         ),
     )

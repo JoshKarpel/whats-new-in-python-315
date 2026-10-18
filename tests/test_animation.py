@@ -118,16 +118,15 @@ async def test_a_title_cards_border_pulses(is_live: bool) -> None:
     assert await card_colors(card, PULSE_PERIOD / 8, "━┃┏┓┗┛") != await card_colors(card, PULSE_PERIOD / 4, "━┃┏┓┗┛")
 
 
-async def test_a_title_card_mounted_late_pulses_in_step_with_one_mounted_at_the_start() -> None:
-    by = PULSE_PERIOD / 8
+async def test_a_title_card_mounted_late_starts_its_pulse_at_rest() -> None:
+    by = PULSE_PERIOD / 4
 
     @component
     def late() -> Div:
         tick = use_clock(FRAME)
         return Div(style=row | full, children=(title_card("Typing", is_live=True),) if tick.since_start >= by else ())
 
-    border = "━┃┏┓┗┛"
-    assert await card_colors(late(), by, border) == await card_colors(title_card("Typing", is_live=True), by, border)
+    assert set(await card_colors(late(), by, "━┃┏┓┗┛")) == {rgb(CARD_EDGE)}
 
 
 @pytest.mark.parametrize(("is_live", "is_shining"), [(True, True), (False, False)], ids=["live", "a thumbnail"])

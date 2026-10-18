@@ -6,6 +6,7 @@ the arriving slide's picture against what the live slide draws, and a crossing p
 import random
 from collections.abc import Callable
 from collections.abc import Sequence
+from datetime import timedelta
 
 import pytest
 from counterweight.app import app
@@ -160,15 +161,14 @@ def test_a_flight_changes_from_the_leaving_character_to_the_arriving_one_halfway
     assert (flight.at(0.3), flight.at(0.4)) == ((3, 1, old), (7, 3, new))
 
 
-def graphemes(grid: Grid) -> list[str]:
-    return ["".join(glyph.grapheme for glyph in row if glyph is not None) for row in grid]
+ARRIVED_FOR = timedelta(milliseconds=1700)
+"""How long a slide has been mounted when it's compared with its picture: partway through a title card's pulse."""
 
 
 async def test_the_arriving_slide_draws_its_picture(host: Host) -> None:
     """
-    Every slide, arrived at, draws the picture a crossing ends on, or the canvas would jump as it goes.
-    Only the characters are compared: a title card's border pulses with the time since its app started,
-    which the headless render's own clock counts from a moment of its own.
+    Every slide, mounted for as long as a crossing plays over it, draws the picture the crossing ends on,
+    colors included, or the canvas would jump as it goes.
     """
     frames: list[Frame] = []
     await app(
@@ -177,7 +177,11 @@ async def test_the_arriving_slide_draws_its_picture(host: Host) -> None:
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=(
-            *(step for _ in SLIDES for step in (Screenshot(handler=frames.append), KeyPressed(key=Key.Right))),
+            *(
+                step
+                for _ in SLIDES
+                for step in (AdvanceClock(by=ARRIVED_FOR), Screenshot(handler=frames.append), KeyPressed(key=Key.Right))
+            ),
             Quit(),
         ),
         clock=EXPORT_CLOCK,
@@ -185,14 +189,17 @@ async def test_the_arriving_slide_draws_its_picture(host: Host) -> None:
 
     pictures = [
         await photograph(
-            slide_view(slide, 0, True, host, Checkpoint(slide=0).code_theme, FocusHandle()), STAGE.width, STAGE.height
+            slide_view(slide, 0, True, host, Checkpoint(slide=0).code_theme, FocusHandle()),
+            STAGE.width,
+            STAGE.height,
+            after=ARRIVED_FOR,
         )
         for slide in SLIDES
     ]
     mismatched = [
         slide.title
         for slide, frame, picture in zip(SLIDES, frames, pictures, strict=True)
-        if graphemes(picture_of(frame.paint, STAGE)) != graphemes(picture)
+        if picture_of(frame.paint, STAGE) != picture
     ]
     assert mismatched == []
 

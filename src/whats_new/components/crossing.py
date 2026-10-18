@@ -9,8 +9,9 @@ one module each. The arriving slide is mounted and live beneath the canvas
 the whole time, so it takes the keys at once, and shows as itself when the canvas goes.
 
 The leaving picture is what the screen showed, from a `Screenshot`, so it's the slide as it was left, edits and run
-output included. The arriving picture is a headless render of the slide's first frame, which is what the live slide
-shows too, since a slide always arrives at its first step and mounting it starts nothing.
+output included. The arriving picture is a headless render of the slide as it will be when the canvas goes, after
+the transition's length mounted beneath it: a slide always arrives at its first step and mounting it starts nothing,
+so all that moves meanwhile is what loops by itself, such as a title card's pulsing border.
 
 The grid's transitions (F7) are drawn the same way, between a slide and the grid: any `Effect`, or a `GridEffect`,
 which knows where each thumbnail is, so it can move the slide into its own.
@@ -27,6 +28,7 @@ from functools import cache
 from counterweight.app import app
 from counterweight.clock import FrozenClock
 from counterweight.components import Component
+from counterweight.controls import AdvanceClock
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.elements import Rows
@@ -41,7 +43,7 @@ from counterweight.styles import CellStyle
 from whats_new.components.swipe import Direction
 
 PHOTOGRAPHED = FrozenClock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))
-"""The clock `photograph` renders on, which never moves, since it takes only the first frame."""
+"""The clock `photograph` renders on, which moves only as far as the picture asks."""
 
 type Grid = tuple[tuple[StyledGrapheme | None, ...], ...]
 """
@@ -182,12 +184,12 @@ class Drawing:
         return rows_of(self.crossing.frames(self.progress))
 
 
-async def photograph(slide: Component, width: int, height: int) -> Grid:
+async def photograph(slide: Component, width: int, height: int, after: timedelta) -> Grid:
     """
-    The first frame `slide` draws, rendered headless at `width` by `height`. In a task of its own,
+    What `slide` draws `after` it mounts, rendered headless at `width` by `height`. In a task of its own,
     so the app it runs sets its context variables in a copy of the caller's context, rather than in the deck's.
-    On a frozen clock, so a title card's pulse is where it starts rather than wherever the render's own few
-    milliseconds took it, which would make the showcases record differently every time.
+    On a frozen clock moved on by exactly `after`, so a title card's pulse is where `after` puts it rather than
+    wherever the render's own few milliseconds took it, which would make the showcases record differently every time.
     """
     frames: list[Frame] = []
     await create_task(
@@ -195,7 +197,7 @@ async def photograph(slide: Component, width: int, height: int) -> Grid:
             slide,
             headless=True,
             dimensions=(width, height),
-            autopilot=(Screenshot(handler=frames.append), Quit()),
+            autopilot=(AdvanceClock(by=after), Screenshot(handler=frames.append), Quit()),
             clock=PHOTOGRAPHED,
         )
     )

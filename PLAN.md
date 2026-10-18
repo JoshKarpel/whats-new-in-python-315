@@ -891,9 +891,7 @@ Diagrams are drawn by hand, as counterweight elements rather than text files.
 ### Animations
 
 They come in two kinds, which start differently. `components/animation.py` holds
-their hooks, `use_progress` and `use_loop`, and `use_synced_loop` for the title
-card's border, which counts from the app's start rather than the card's mount, so
-every card in view pulses in step.
+their hooks, `use_progress` and `use_loop`.
 
 Every animation runs on `use_clock`, ticking at 20 frames a second while it plays
 and not at all otherwise. Off the live slide (a thumbnail) nothing ticks: an
@@ -901,6 +899,11 @@ explanatory animation shows its last frame, a still of where it ends, and a
 decorative one its first. Nine thumbnails animating at once would cost frame time
 for nothing. The exception is a title card's pulsing border, which pulses in the
 grid too: few title cards are in view at once, so it's cheap.
+Every animation counts from its component's mount, never the app's start, the
+title card's border included, so cards mounted at different times pulse out of
+step. That's what lets a transition drawn from pictures render the arriving slide
+headless and get what the live slide draws when the transition ends (see
+[Effects drawn from pictures](#effects-drawn-from-pictures)).
 The export moves its frozen clock on by a minute after each reveal
 step (counterweight's `AdvanceClock`), so each screenshot shows where the step's
 animation ends, and the export stays deterministic.
@@ -1191,12 +1194,14 @@ from the two, cell by cell, for one `Canvas` drawn over the stage.
   handler runs before the render that mounts the arriving slide, so it's the
   screen as it was left, edits, run output, or a transition still playing
   included.
-- The arriving picture is a headless render of the arriving slide's first frame,
-  in an app of its own run from that handler. A slide always arrives at its first
-  step and mounting it starts nothing, so it's what the live slide draws too. A
-  title card's pulsing border is the exception: it pulses with the time since its
-  app started, so its color can differ by a step. A headless render took 4 ms on
-  this VM for most slides, and 25 ms for the slowest.
+- The arriving picture is a headless render of the arriving slide, in an app of
+  its own run from that handler, on a frozen clock moved on by the transition's
+  length. The live slide is mounted beneath the canvas for that long, so the
+  picture is what it draws as the canvas goes. A slide always arrives at its first
+  step and mounting it starts nothing, so all that moves meanwhile is what loops
+  by itself, such as a title card's pulsing border and shine, or the Tachyon
+  card's streak. A headless render took 4 ms on this VM for most slides, and 25 ms for
+  the slowest.
 - An effect is a pure function from the two pictures and the direction to its
   frames, and its first frame is the leaving picture and its last the
   arriving one, so a transition starts and ends without a jump. The arriving slide
@@ -1242,7 +1247,9 @@ needed nothing new in counterweight:
   (`12 | Lazy imports`) and the slide's own content component. The content
   reflows into the smaller box and clips at the border, as in spiel. It is the
   live component rather than a picture, so a thumbnail is exactly what the slide
-  draws at that width.
+  draws at that width. It draws the slide's first reveal step, the one jumping
+  to it lands on, so the grid's transitions into and out of a slide meet the
+  slide as it shows.
 - `on_click` on the thumbnail handles the mouse.
 
 Design:
@@ -1284,6 +1291,9 @@ Design:
   mounts, and takes focus, beneath it as the zoom starts, as an arriving slide
   does in a swipe. The grid draws nothing once the zoom ends, and unmounts on the
   next move. Any move while a zoom plays ends it at once.
+- The zoom draws live components, not pictures, so a title card's border can jump
+  color at either end of it: the thumbnail and the slide count their pulses from
+  different mounts.
 - F7 also offers transitions drawn from pictures, as F6's effects are. It
   lists `off` and `random` first, then two sections under bars:
   `grid effects`, the zoom and the transitions made for the grid, and

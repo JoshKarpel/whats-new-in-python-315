@@ -69,7 +69,8 @@ not from memory or its docs site.
   The slide grid, the smoke test and the export each mount many slides at once,
   so anything started on mount starts in all of them, and the smoke test fails if a child process is left over.
   A transition drawn from pictures (`components/crossing.py`) also renders the arriving slide headless, in an app
-  of its own, and ends on that picture, so the slide's first frame has to be the same however it's mounted.
+  of its own, moved on by the transition's length, and ends on that picture, so the slide has to draw the same
+  however it's mounted: anything that moves counts from its own mount, never the app's start.
 - Time comes only from counterweight's clock, through the hooks in `components/animation.py`.
   Tests and the export run on a frozen clock (`export.EXPORT_CLOCK`) moved by `AdvanceClock`,
   which is what keeps both deterministic.

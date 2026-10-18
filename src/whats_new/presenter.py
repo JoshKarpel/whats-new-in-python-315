@@ -313,17 +313,20 @@ def root(
                 opened = grid(slides, selected, jump, host, code_theme, None)
                 arriving = slide_view(slides[moved.index], moved.step, True, host, code_theme, FocusHandle())
                 where = tiles(area.width, area.height, selected, slides)
+                length = duration / pace
 
                 async def cross(frame: Frame) -> None:
                     """Taken before the render that opens the grid or mounts the slide, so that render draws the first frame."""
-                    pictured = await photograph(opened, area.width, area.height)
+                    # Whichever of the two mounts now is live beneath the canvas for `length`, so each is pictured
+                    # as it will be when the canvas goes.
+                    pictured = await photograph(opened, area.width, area.height, after=length)
                     slide = (
                         picture_of(frame.paint, area)
                         if toward is Toward.GRID
-                        else await photograph(arriving, area.width, area.height)
+                        else await photograph(arriving, area.width, area.height, after=length)
                     )
                     frames = grid_frames(transition_picked, slide, pictured, where, toward)
-                    set_motion(Crossing(frames=frames, duration=duration / pace))
+                    set_motion(Crossing(frames=frames, duration=length))
 
                 return (Screenshot(handler=cross),)
             case _ as unreachable:
@@ -358,16 +361,17 @@ def root(
                 set_playing(Swipe(leaving=leaving, direction=direction, duration=SWIPE / pace))
                 return ()
             case Crossed(effect=effect, duration=duration):
-                # As the live slide will draw its first frame, though with a focus handle of its own.
+                # As the live slide will draw once the canvas goes, though with a focus handle of its own.
                 arriving = slide_view(slides[moved.index], moved.step, True, host, code_theme, FocusHandle())
                 area = stage_area
+                length = duration / pace
 
                 async def cross(frame: Frame) -> None:
                     """Taken before the render that mounts the arriving slide, so that render draws the first frame."""
                     leaving = picture_of(frame.paint, area)
-                    arrived = await photograph(arriving, area.width, area.height)
+                    arrived = await photograph(arriving, area.width, area.height, after=length)
                     frames = effect(leaving, arrived, direction)
-                    set_playing(Crossing(frames=frames, duration=duration / pace))
+                    set_playing(Crossing(frames=frames, duration=length))
 
                 return (Screenshot(handler=cross),)
             case _ as unreachable:
