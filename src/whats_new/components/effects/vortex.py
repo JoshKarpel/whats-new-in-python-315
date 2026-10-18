@@ -5,10 +5,10 @@ The arriving slide's characters then pour out of the center the same way, still 
 and unwind onto their places.
 
 Each character's path is a logarithmic spiral around the middle, in polar coordinates taken as the stage looks
-on screen (cells being taller than wide), so the swirl is round rather than squashed. Its radius follows
-the easing curve F7 picked over the character's own part of the transition, so a curve that overshoots
-flings it past its place and back. A shaded cell, such as the inside of a code box, spirals too, carrying its color,
-so a box drains away and pours back out with its text; only the backdrop stays put.
+on screen (cells being taller than wide), so the swirl is round rather than squashed. Its radius eases over
+the character's own part of the transition: going in, speeding up toward the plughole, and coming out, slowing
+onto its place. A shaded cell, such as the inside of a code box, spirals too, carrying its color, so a box drains
+away and pours back out with its text; only the backdrop stays put.
 """
 
 import random
@@ -28,7 +28,8 @@ from whats_new.components.crossing import CELL_ASPECT
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
+from whats_new.components.easing import ease_in
+from whats_new.components.easing import ease_out
 from whats_new.components.effects.characters import backdrop_of
 from whats_new.components.effects.characters import characters
 from whats_new.components.effects.characters import drawn_over
@@ -64,14 +65,13 @@ class Spiral:
     twist: float
     is_inward: bool
 
-    def at(self, t: float, easing: Easing) -> tuple[int, int, StyledGrapheme] | None:
+    def at(self, t: float) -> tuple[int, int, StyledGrapheme] | None:
         """Which cell the character is in `t` of the way through the transition, or `None` while it isn't showing."""
         spun = between(t, self.begin, self.begin + SPIRAL)
         is_hidden = spun >= 1.0 if self.is_inward else spun <= 0.0
         if is_hidden:
             return None
-        eased = easing(spun)
-        out = max(1 - eased if self.is_inward else eased, 0.0) * self.radius
+        out = (1 - ease_in(spun) if self.is_inward else ease_out(spun)) * self.radius
         angle = self.angle + self.twist * log((self.radius + CORE) / (out + CORE))
         x = self.center[0] + out * cos(angle) - 0.5
         y = self.center[1] + out * sin(angle) / CELL_ASPECT - 0.5
@@ -108,7 +108,7 @@ def spirals(
     return tuple(placed)
 
 
-def vortex(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def vortex(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The vortex's frames. Each draws the backdrop, then everything that moves showing where its spiral has reached,
     those arriving over those leaving, so a cell back in its place looks exactly as its slide draws it.
@@ -123,6 +123,6 @@ def vortex(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) 
     def frame(t: float) -> Grid:
         # The two backdrops look the same, so they change over only at the end, where the last frame has to be exact.
         behind = over if t >= 1 else under
-        return drawn_over(behind, (place for path in paths if (place := path.at(t, easing)) is not None), backdrop)
+        return drawn_over(behind, (place for path in paths if (place := path.at(t)) is not None), backdrop)
 
     return frame

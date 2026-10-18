@@ -20,7 +20,6 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.swipe import Direction
 
 WAVELENGTH = 9
@@ -78,11 +77,11 @@ def drips(width: int, direction: Direction) -> tuple[Drip, ...]:
     )
 
 
-def melt(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def melt(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The melt's frames. Until a column starts to run it's the leaving column as it is, and once it has run off the
-    bottom it's the arriving one, which every column has by the end. The eased progress drives every column, so a
-    curve that overshoots runs them off sooner, and one that comes back pulls the last of them back up.
+    bottom it's the arriving one, which every column has by the end. Each column runs faster and faster on its own,
+    as paint does, so the progress needs no easing.
     """
     width, height = dimensions(leaving)
     schedule = drips(width, direction)
@@ -98,7 +97,6 @@ def melt(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) ->
         return tuple(after[y] if y < top else before[floor((y - top) / stretch)] for y in range(height))
 
     def frame(t: float) -> Grid:
-        progress = easing(t)
-        return tuple(zip(*(column(x, progress) for x in range(width)), strict=True)) if width else leaving
+        return tuple(zip(*(column(x, t) for x in range(width)), strict=True)) if width else leaving
 
     return frame

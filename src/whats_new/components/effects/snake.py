@@ -19,7 +19,6 @@ from counterweight.styles import Color
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.swipe import Direction
@@ -104,10 +103,10 @@ def length_at(head: int, eaten_at: tuple[int, ...]) -> int:
     return LENGTH + GROWTH * sum(1 for apple in eaten_at if apple < head)
 
 
-def snake(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def snake(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
-    The snake's frames. The eased progress moves its head along the curve and on past the end by its full length,
-    so the tail leaves too; a cell shows the arriving slide once the head has passed its block.
+    The snake's frames. The progress moves its head at a steady pace along the curve and on past the end by its
+    full length, so the tail leaves too; a cell shows the arriving slide once the head has passed its block.
     """
     width, height = dimensions(leaving)
     path = generalized_hilbert(-(-width // BLOCK), height)
@@ -121,13 +120,12 @@ def snake(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -
     travel = len(path) + length_at(len(path), food)
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
-        head = int(eased * travel)
+        head = int(t * travel)
         cells: list[list[StyledGrapheme | None]] = [
             [new if step < head else old for old, new, step in zip(before, after, steps, strict=True)]
             for before, after, steps in zip(leaving, arriving, step_of, strict=True)
         ]
-        if eased <= 0:
+        if t <= 0:
             return tuple(tuple(row) for row in cells)
         for apple in food:
             if apple < head:

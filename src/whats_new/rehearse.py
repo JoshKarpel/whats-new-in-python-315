@@ -14,7 +14,7 @@ from whats_new.runs import Interpreters
 
 MANUAL = (
     "every deck key arrives through the browser and zellij's locked mode (Ctrl+G), Escape and Enter included",
-    "F1 through F4 and F6 through F9 reach the deck; F2 is green at the presenting zoom",
+    "F1 through F4 and F6 through F8 reach the deck; F2 is green at the presenting zoom",
     "Tab and Shift+Tab reach the deck: they move between a slide's code and its runs, "
     "and Tab takes the keyboard back from Tachyon's pane (f)",
     "clicking a thumbnail in the slide grid (d) reaches the deck",

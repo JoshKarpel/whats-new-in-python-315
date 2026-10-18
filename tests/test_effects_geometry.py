@@ -14,8 +14,6 @@ from counterweight.styles import Color
 
 from whats_new.components.crossing import SPACE
 from whats_new.components.crossing import Grid
-from whats_new.components.easing import Easing
-from whats_new.components.easing import linear
 from whats_new.components.effects.cube import Face
 from whats_new.components.effects.cube import cube
 from whats_new.components.effects.curl import curl
@@ -74,11 +72,6 @@ def brightness(color: object) -> int:
     return color.red + color.green + color.blue
 
 
-def held(progress: float) -> Easing:
-    """An easing curve that's `progress` the whole time, as one past its end is at its peak."""
-    return lambda t: progress
-
-
 LETTERS = grid("abcdefghijklmnopqrst", style=RED)
 CAPITALS = grid("ABCDEFGHIJKLMNOPQRST", style=BLUE)
 
@@ -91,7 +84,7 @@ CAPITALS = grid("ABCDEFGHIJKLMNOPQRST", style=BLUE)
 def test_a_curl_peels_from_the_bottom_corner_the_arriving_slide_comes_from(
     direction: Direction, peeled: tuple[int, int], flat: tuple[int, int]
 ) -> None:
-    frame = curl(filled("L", 20, 6, RED), filled("A", 20, 6, BLUE), direction, linear)(0.3)
+    frame = curl(filled("L", 20, 6, RED), filled("A", 20, 6, BLUE), direction)(0.3)
 
     assert (at(frame, *peeled).grapheme, at(frame, *flat).grapheme) == ("A", "L")
 
@@ -104,20 +97,20 @@ def test_a_curl_peels_from_the_bottom_corner_the_arriving_slide_comes_from(
 def test_the_back_of_a_curling_page_shows_the_peeled_cells_mirrored_across_the_fold(
     direction: Direction, expected: str
 ) -> None:
-    (row,) = curl(LETTERS, CAPITALS, direction, linear)(0.2)
+    (row,) = curl(LETTERS, CAPITALS, direction)(0.37)
 
     assert text(row) == expected
 
 
 def test_the_back_of_a_curling_page_is_paler_than_its_front() -> None:
-    frame = curl(LETTERS, CAPITALS, Direction.NEXT, linear)(0.2)
+    frame = curl(LETTERS, CAPITALS, Direction.NEXT)(0.37)
     back = at(frame, text(frame[0]).index("t"), 0)
 
     assert brightness(back.style.background) > brightness(RED.background)
 
 
 def test_a_curling_page_casts_a_shadow_on_the_arriving_slide_beside_the_fold() -> None:
-    frame = curl(LETTERS, CAPITALS, Direction.NEXT, linear)(0.2)
+    frame = curl(LETTERS, CAPITALS, Direction.NEXT)(0.37)
     beside = at(frame, text(frame[0]).index("P"), 0)
 
     assert brightness(beside.style.background) < brightness(BLUE.background)
@@ -134,27 +127,21 @@ def test_shading_blends_a_glyphs_colors_toward_another(level: int, expected: Col
     ("direction", "expected"), [(Direction.NEXT, "L" * 10 + "A" * 10), (Direction.PREVIOUS, "A" * 10 + "L" * 10)]
 )
 def test_halfway_round_a_cube_the_shared_edge_is_in_the_middle(direction: Direction, expected: str) -> None:
-    frame = cube(filled("L", 20, 7, RED), filled("A", 20, 7, BLUE), direction, linear)(0.5)
+    frame = cube(filled("L", 20, 7, RED), filled("A", 20, 7, BLUE), direction)(0.5)
 
     assert text(frame[3]) == expected
 
 
 def test_a_cube_face_darkens_as_it_turns_away() -> None:
-    frame = cube(filled("L", 20, 7, RED), filled("A", 20, 7, BLUE), Direction.NEXT, linear)(0.3)
+    frame = cube(filled("L", 20, 7, RED), filled("A", 20, 7, BLUE), Direction.NEXT)(0.42)
 
     assert brightness(at(frame, 0, 3).style.foreground) < brightness(RED.foreground)
 
 
 def test_a_cube_faces_far_side_is_drawn_shorter_than_its_near_side() -> None:
-    frame = cube(filled("L", 20, 7, RED), filled("A", 20, 7, BLUE), Direction.NEXT, linear)(0.5)
+    frame = cube(filled("L", 20, 7, RED), filled("A", 20, 7, BLUE), Direction.NEXT)(0.5)
 
     assert (frame[0][0], at(frame, 9, 0).grapheme) == (SPACE, "L")
-
-
-def test_a_cube_turned_past_the_arriving_face_shows_a_blank_face_beyond_it() -> None:
-    frame = cube(filled("L", 20, 7, RED), filled("A", 20, 7, BLUE), Direction.NEXT, held(1.2))(0.5)
-
-    assert (at(frame, 0, 3).grapheme, frame[3][-1]) == ("A", SPACE)
 
 
 @pytest.mark.parametrize(("angle", "expected"), [(0.0, True), (pi / 3, True), (pi / 2 - 0.05, False), (pi, False)])
@@ -196,7 +183,7 @@ def test_shards_nearer_the_middle_set_off_first() -> None:
 
 
 def test_cracks_show_along_shard_edges_before_the_shards_move() -> None:
-    frame = shatter(PANE, filled("A", 30, 9, BLUE), Direction.NEXT, linear)(CRACKING)
+    frame = shatter(PANE, filled("A", 30, 9, BLUE), Direction.NEXT)(CRACKING)
     edges = {(x, y) for shard in shards(PANE, Direction.NEXT) for x, y, _, is_edge in shard.cells if is_edge}
     changed = {(x, y) for y, row in enumerate(frame) for x, glyph in enumerate(row) if glyph != PANE[y][x]}
 
@@ -212,7 +199,7 @@ def columns_of(frame: Grid) -> list[str]:
 
 
 def test_a_melting_column_shows_the_arriving_slide_above_the_leaving_one() -> None:
-    frame = melt(COLUMN, filled("A", 40, 10, BLUE), Direction.NEXT, linear)(0.6)
+    frame = melt(COLUMN, filled("A", 40, 10, BLUE), Direction.NEXT)(0.6)
 
     assert all(re.fullmatch("A*[0-9]*", column) for column in columns_of(frame))
 
@@ -224,7 +211,7 @@ def is_smeared(column: str) -> bool:
 
 
 def test_a_melting_column_smears_its_cells_down_in_order() -> None:
-    frame = melt(COLUMN, filled("A", 40, 10, BLUE), Direction.NEXT, linear)(0.6)
+    frame = melt(COLUMN, filled("A", 40, 10, BLUE), Direction.NEXT)(0.6)
     sagging = [column.lstrip("A") for column in columns_of(frame) if 3 < len(column.lstrip("A")) < 10]
 
     assert (len(sagging) > 0, [column for column in sagging if not is_smeared(column)]) == (True, [])

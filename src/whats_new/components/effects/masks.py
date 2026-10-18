@@ -1,6 +1,7 @@
 """
 Effects that uncover the arriving picture cell by cell, each cell at its own threshold of the eased progress,
-and the thresholds that make `dissolve`, `wipe`, `iris` and `blinds`.
+and the thresholds that make `dissolve`, `wipe`, `iris` and `blinds`. A dissolve has no edge to move, so it
+uncovers at a steady rate; the others move an edge across the stage, which eases in and out.
 """
 
 import random
@@ -12,25 +13,26 @@ from whats_new.components.crossing import Effect
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
+from whats_new.components.easing import ease_in_out
+from whats_new.components.easing import linear
 from whats_new.components.swipe import Direction
 
 type Thresholds = tuple[tuple[float, ...], ...]
 """For each cell, how far along the eased progress has to get, from 0 up to (not including) 1, to uncover it."""
 
 
-def masked(thresholds: Callable[[int, int, Direction], Thresholds]) -> Effect:
+def masked(thresholds: Callable[[int, int, Direction], Thresholds], curve: Callable[[float], float]) -> Effect:
     """
-    An effect that uncovers the arriving picture cell by cell, each cell once the eased progress passes its threshold.
-    A curve that goes past the end uncovers everything, and as it comes back covers the last cells again.
+    An effect that uncovers the arriving picture cell by cell, each cell once the progress, eased along `curve`,
+    passes its threshold.
     """
 
-    def prepare(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+    def prepare(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
         width, height = dimensions(leaving)
         when = thresholds(width, height, direction)
 
         def frame(t: float) -> Grid:
-            eased = easing(t)
+            eased = curve(t)
             return tuple(
                 tuple(a if w < eased else b for b, a, w in zip(before, after, at, strict=True))
                 for before, after, at in zip(leaving, arriving, when, strict=True)
@@ -78,7 +80,7 @@ def slatted(width: int, height: int, direction: Direction) -> Thresholds:
     return (columns,) * height
 
 
-dissolve = masked(scattered)
-wipe = masked(across)
-iris = masked(circular)
-blinds = masked(slatted)
+dissolve = masked(scattered, linear)
+wipe = masked(across, ease_in_out)
+iris = masked(circular, ease_in_out)
+blinds = masked(slatted, ease_in_out)

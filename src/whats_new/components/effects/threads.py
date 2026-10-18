@@ -25,7 +25,6 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.swipe import Direction
@@ -57,7 +56,7 @@ class Paint(Enum):
 @dataclass(frozen=True, slots=True)
 class Job:
     """
-    One thread painting one row with `paint`, from when the eased progress reaches `start` to when it reaches `end`.
+    One thread painting one row with `paint`, from when the progress reaches `start` to when it reaches `end`.
     Jobs on the same row paint in the order they started, so the later one covers the earlier one where both have got.
     """
 
@@ -134,7 +133,7 @@ def tinted(glyph: StyledGrapheme | None, color: Color) -> StyledGrapheme | None:
     return StyledGrapheme(grapheme=glyph.grapheme, style=glyph.style | CellStyle(background=color))
 
 
-def threads(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def threads(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The race's frames. Each row starts as the leaving slide's, and each job that has started on it, in order, paints
     as far across it as its brush has got; then each brush still going draws its fresh paint in its thread's color
@@ -155,21 +154,20 @@ def threads(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing)
         for thread, color in enumerate(THREAD_COLORS)
     )
 
-    def painted(eased: float, job: Job) -> int:
+    def painted(t: float, job: Job) -> int:
         """How many cells of its row `job` has painted."""
-        return floor(between(eased, job.start, job.end) * width)
+        return floor(between(t, job.start, job.end) * width)
 
     def span(cells: int) -> range:
         """The columns the first `cells` painted cover, from the side the arriving slide comes from."""
         return range(width - cells, width) if direction is Direction.NEXT else range(cells)
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
         rows = [list(row) for row in leaving]
         brushes: list[tuple[Job, int]] = []
         for y, row in enumerate(rows):
             for job in by_row[y]:
-                cells = painted(eased, job)
+                cells = painted(t, job)
                 if cells <= 0:
                     continue
                 columns = span(cells)

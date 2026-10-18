@@ -36,8 +36,8 @@ def stage(live: Component, playing: Playing | None) -> Div:
     if playing is None or progress >= 1.0:
         return Div(style=fill(1) | position_relative, children=(placed_at(0, live),))
     match playing:
-        case Swipe(leaving=leaving, direction=direction, easing=easing):
-            left, right = offsets(direction, easing(progress), width)
+        case Swipe(leaving=leaving, direction=direction):
+            left, right = offsets(direction, progress, width)
             return Div(
                 style=fill(1) | position_relative | overflow_hidden,
                 children=(placed_at(left, leaving), placed_at(right, live)),

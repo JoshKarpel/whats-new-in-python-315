@@ -26,13 +26,12 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.effects.characters import backgrounds
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.swipe import Direction
 
 MARK = 0.4
-"""How much of the eased progress the mark phase takes; the sweep takes the rest."""
+"""How much of the progress the mark phase takes; the sweep takes the rest."""
 
 REACH = 2
 """How many columns apart two characters can be and still reach each other, so tracing crosses a word's spaces."""
@@ -88,7 +87,7 @@ def traced(arriving: Grid) -> dict[tuple[int, int], int]:
 
 def marks(arriving: Grid) -> tuple[tuple[float, ...], ...]:
     """
-    For each cell, how far the eased progress has to get to mark it: within the mark phase for a character, by how
+    For each cell, how far the progress has to get to mark it: within the mark phase for a character, by how
     deep the trace found it, and never for anything else. A continuation is marked with the grapheme it's half of.
     """
     depths = traced(arriving)
@@ -164,7 +163,7 @@ def cell_of(
     return Cell(leaving=leaving, marked=leaving, marked_at=marked_at, swept=swept, arriving=arriving)
 
 
-def garbage(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def garbage(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The garbage collection's frames. The sweep line starts just off the stage on the side the arriving slide comes
     from, label and all, and ends past the other side by enough that the last column has cooled.
@@ -183,19 +182,18 @@ def garbage(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing)
     middle = height // 2
     label_style = CellStyle(foreground=Color.from_hex("#000000"), background=PYTHON_YELLOW, bold=True)
 
-    def shown(cell: Cell, behind: int, eased: float) -> StyledGrapheme | None:
+    def shown(cell: Cell, behind: int, t: float) -> StyledGrapheme | None:
         if behind < 0:
-            return cell.marked if cell.marked_at < eased else cell.leaving
+            return cell.marked if cell.marked_at < t else cell.leaving
         if 0 < behind <= COOLING:
             return cell.swept[behind - 1]
         # Under the sweep line itself too, which is drawn over it.
         return cell.arriving
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
-        line = floor(start + between(eased, MARK, 1) * (end - start))
+        line = floor(start + between(t, MARK, 1) * (end - start))
         behind = tuple(line - column for column in from_start)
-        rows = [[shown(cell, back, eased) for cell, back in zip(row, behind, strict=True)] for row in cells]
+        rows = [[shown(cell, back, t) for cell, back in zip(row, behind, strict=True)] for row in cells]
         line_x = width - 1 - line if direction is Direction.NEXT else line
         if 0 <= line_x < width:
             for y, row in enumerate(rows):

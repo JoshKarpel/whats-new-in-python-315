@@ -23,7 +23,6 @@ from counterweight.styles import Color
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.effects.characters import Backgrounds
 from whats_new.components.effects.characters import backgrounds
 from whats_new.components.effects.masks import scattered
@@ -214,9 +213,9 @@ class Cell:
         return self.arriving
 
 
-def lazy_import(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def lazy_import(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
-    The lazy import's frames, cell by cell along the eased progress: the leaving slide dissolving, the proxies
+    The lazy import's frames, cell by cell along the progress: the leaving slide dissolving, the proxies
     appearing over the arriving slide's backgrounds, and each region resolving in its turn.
     """
     width, height = dimensions(leaving)
@@ -258,7 +257,6 @@ def lazy_import(leaving: Grid, arriving: Grid, direction: Direction, easing: Eas
     cells = tuple(tuple(cell(x, y) for x in range(width)) for y in range(height))
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
-        return tuple(tuple(each.at(eased) for each in row) for row in cells)
+        return tuple(tuple(each.at(t) for each in row) for row in cells)
 
     return frame

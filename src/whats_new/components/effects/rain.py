@@ -5,8 +5,7 @@ the trail washes over the cells it has passed, and above it the arriving slide i
 
 Partway up the trail the arriving slide's own characters come through the rain, green at first, settling into
 their own colors by the trail's end, so each column of the arriving slide develops out of its drop.
-The drops follow the eased progress, and the rain glyphs flicker with the raw progress, so the flicker keeps
-its pace whatever the curve.
+Each drop falls at a steady speed of its own, so the rain doesn't ease.
 """
 
 import random
@@ -25,7 +24,6 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.swipe import Direction
 
 GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$+-*=<>:.!?#&|"
@@ -44,10 +42,10 @@ FLICKERS = 36
 SHORTEST, LONGEST = 6, 14
 """The range of a trail's length, in rows."""
 QUICKEST, SLOWEST = 0.3, 0.55
-"""The range of how much of the eased progress a drop takes to fall from above the top until its trail is gone."""
+"""The range of how much of the progress a drop takes to fall from above the top until its trail is gone."""
 STAGGER = 0.35
 """
-How much of the eased progress the drops' departures are biased across, from the side the arriving slide comes from,
+How much of the progress the drops' departures are biased across, from the side the arriving slide comes from,
 on top of their random delays, so the rain sweeps over the slide rather than starting everywhere at once.
 """
 
@@ -55,7 +53,7 @@ on top of their random delays, so the rain sweeps over the slide rather than sta
 @dataclass(frozen=True, slots=True)
 class Drop:
     """
-    One column's drop: it sets off `delay` of the way through the eased progress, takes `fall` of it to fall from
+    One column's drop: it sets off `delay` of the way through the progress, takes `fall` of it to fall from
     just above the stage until its trail, `trail` rows long, has passed the bottom.
     """
 
@@ -112,7 +110,7 @@ def settling(glyph: StyledGrapheme, shade: int) -> StyledGrapheme:
     return StyledGrapheme(grapheme=glyph.grapheme, style=glyph.style | CellStyle(foreground=foreground))
 
 
-def rain(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def rain(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     Digital rain's frames. Each cell is the leaving slide's below its column's drop, the arriving slide's once the
     drop's trail has passed, and in between a rain glyph, or partway up the trail, the arriving character settling.
@@ -156,8 +154,7 @@ def rain(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) ->
         )
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
-        heads = [drop.head(eased, height) for drop in columns]
+        heads = [drop.head(t, height) for drop in columns]
         flicker = int(t * FLICKERS)
         return tuple(
             row_at(y, before, after, heads, flicker)

@@ -23,7 +23,6 @@ from whats_new.components.crossing import CELL_ASPECT
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.effects.characters import Point
 from whats_new.components.effects.shading import BLACK
 from whats_new.components.effects.shading import shaded
@@ -178,22 +177,21 @@ def shards(leaving: Grid, direction: Direction) -> tuple[Shard, ...]:
     return tuple(sorted(found, key=lambda shard: -shard.delay))
 
 
-def shatter(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def shatter(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The shatter's frames: the arriving picture, with every shard drawn over it where its flight has taken it.
     At the start every shard is in place and uncracked, so the first frame is the leaving picture, and by the end
-    every shard has landed beyond the stage, so the last is the arriving one. The eased progress drives the flights;
-    a curve that overshoots throws each shard a little further, and back.
+    every shard has landed beyond the stage, so the last is the arriving one. Each flight's
+    own pace, a push and then a fall, is all the easing it needs.
     """
     width, height = dimensions(leaving)
     pieces = shards(leaving, direction)
 
     def frame(t: float) -> Grid:
-        progress = easing(t)
-        crack = round(between(progress, 0.0, CRACKING) * CRACK_DEPTH)
+        crack = round(between(t, 0.0, CRACKING) * CRACK_DEPTH)
         rows = [list(row) for row in arriving]
         for shard in pieces:
-            flown = shard.flown(progress)
+            flown = shard.flown(t)
             across, down = shard.offset(flown)
             if shard.bounds.is_off(across, down, width, height):
                 continue

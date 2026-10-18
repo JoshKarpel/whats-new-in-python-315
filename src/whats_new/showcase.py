@@ -42,7 +42,7 @@ PICKING = timedelta(seconds=0.6)
 SETTLED = timedelta(seconds=1)
 """How long the showcase holds on each slide a transition arrives at, before picking the next one."""
 
-START = Checkpoint(slide=0, code_theme="dracula", transition=RANDOM, easing="ease-in-out", speed="0.5x")
+START = Checkpoint(slide=0, code_theme="dracula", transition=RANDOM, speed="0.5x")
 """
 Where the showcase starts: on the first slide, with `random`, the option just ahead of the transitions, so moving
 one option down picks the first,

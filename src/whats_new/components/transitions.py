@@ -1,7 +1,7 @@
 """
 What F6 offers: no transition, a different one at random on every move, or one of the effects, by name.
-What F9 offers the grid the same way: none, one at random each time it opens or closes, or one by name.
-Every one follows whichever easing curve F7 picked, at whichever speed F8 picked.
+What F7 offers the grid the same way: none, one at random each time it opens or closes, or one by name.
+Every one plays at whichever speed F8 picked, following the curve that suits it (see `easing`).
 """
 
 from collections.abc import Callable
@@ -23,9 +23,7 @@ from whats_new.components.effects.masks import wipe
 from whats_new.components.effects.melt import melt
 from whats_new.components.effects.morph import morph
 from whats_new.components.effects.rain import rain
-from whats_new.components.effects.raindrops import raindrops
-from whats_new.components.effects.ripple import ripple
-from whats_new.components.effects.sampling import sampling
+from whats_new.components.effects.ripples import ripples
 from whats_new.components.effects.shatter import shatter
 from whats_new.components.effects.slots import slots
 from whats_new.components.effects.snake import snake
@@ -40,7 +38,7 @@ RANDOM = "random"
 AHEAD: frozendict[str, str] = frozendict(
     {OFF: "no transition: cut straight to it", RANDOM: "a different one each time"}
 )
-"""The names F6 and F9 list ahead of their transitions, and what their pickers say about each."""
+"""The names F6 and F7 list ahead of their transitions, and what their pickers say about each."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,10 +86,8 @@ TRANSITIONS: frozendict[str, Transition] = frozendict(
         "shatter": Crossed(shatter, SWIPE * 2, "cracks like glass and falls away"),
         "melt": Crossed(melt, SWIPE * 2, "runs down the screen like wet paint"),
         "gc": Crossed(garbage, SWIPE * 3, "marks what's reachable, sweeps the rest"),
-        "sampling": Crossed(sampling, SWIPE * 2, "a profiler samples a few rows a tick"),
         "threads": Crossed(threads, SWIPE * 3, "free threads race to repaint the rows"),
-        "ripple": Crossed(ripple, SWIPE * 2, "a drop lands and a wave spreads out"),
-        "raindrops": Crossed(raindrops, SWIPE * 2, "drops whose ripples run together"),
+        "ripples": Crossed(ripples, SWIPE * 2, "drops whose ripples run together"),
         "snake": Crossed(snake, SWIPE * 3, "a snake eats it along a Hilbert curve"),
     }
 )
@@ -115,7 +111,7 @@ def transition_for(name: str, choose: Choose) -> Transition | None:
 class Zoomed:
     """
     The grid zooming (see `grid`): out from the selected slide as it opens, and back in to it as it closes.
-    `description` is what F9's picker says.
+    `description` is what F7's picker says.
     """
 
     description: str
@@ -128,7 +124,7 @@ GRID_TRANSITIONS: frozendict[str, GridTransition] = frozendict({"zoom": Zoomed("
 GRID_DESCRIBED: frozendict[str, str] = AHEAD | {
     name: transition.description for name, transition in GRID_TRANSITIONS.items()
 }
-"""Every name F9 offers, in the order it lists them, and what its picker says about each."""
+"""Every name F7 offers, in the order it lists them, and what its picker says about each."""
 GRID_OFFERED = tuple(GRID_DESCRIBED)
 
 type ChooseGrid = Callable[[tuple[GridTransition, ...]], GridTransition]

@@ -7,8 +7,8 @@ sweeps across the stage the way the slides travel.
 Each frame projects the cube in perspective, a face's nearer side drawn larger than its farther, then stretches the
 picture sideways so the cube's outline always spans the stage. Each column of the stage shows one column of whichever
 face is in front of it, so a turning face drops columns as it squashes and repeats them as it opens out, and its far
-side shrinks toward the middle row. A face darkens as it turns away from the viewer. A curve that overshoots turns the
-cube past the arriving face, and a blank face (the cube's next side) peeks in before it turns back.
+side shrinks toward the middle row. A face darkens as it turns away from the viewer. The cube eases
+into its turn and out of it, as something with weight does.
 """
 
 from dataclasses import dataclass
@@ -23,7 +23,7 @@ from whats_new.components.crossing import SPACE
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
+from whats_new.components.easing import ease_in_out
 from whats_new.components.effects.shading import BLACK
 from whats_new.components.effects.shading import shaded
 from whats_new.components.swipe import Direction
@@ -79,14 +79,13 @@ class Column:
     scale: float
 
 
-def cube(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def cube(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The cube's frames. Turned not at all, the leaving face fills the stage square on, each column its own and
     undarkened, so the first frame is the leaving picture; turned a quarter, the arriving face does, so the last is
     the arriving picture.
     """
     width, height = dimensions(leaving)
-    blank: Grid = ((SPACE,) * width,) * height
     # The arriving face is the next one round from the leaving face, the way the cube turns.
     turn = direction.value
     pictures = {0: leaving, turn: arriving}
@@ -98,15 +97,13 @@ def cube(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) ->
         """Column `source` of face `index`'s picture, top to bottom, darkened `darkness` of `SHADES`."""
         key = (index, source, darkness)
         if (cells := darkened.get(key)) is None:
-            cells = darkened[key] = tuple(shaded(row[source], BLACK, darkness) for row in pictures.get(index, blank))
+            cells = darkened[key] = tuple(shaded(row[source], BLACK, darkness) for row in pictures[index])
         return cells
 
     def columns(t: float) -> tuple[Column, ...]:
         """What each column of the stage shows `t` of the way through the turn."""
-        turned = easing(t) * pi / 2
-        faces = {
-            index: face for index in range(-2, 3) if (face := Face(angle=index * pi / 2 - turned * turn)).is_facing
-        }
+        turned = ease_in_out(t) * pi / 2
+        faces = {index: face for index in pictures if (face := Face(angle=index * pi / 2 - turned * turn)).is_facing}
         # Left to right, each face starting where the one before it ends.
         in_order = sorted(faces.items(), key=lambda indexed: indexed[1].screen(-0.5))
         left, right = in_order[0][1].screen(-0.5), in_order[-1][1].screen(0.5)

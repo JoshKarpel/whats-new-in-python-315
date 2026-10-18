@@ -22,7 +22,7 @@ from whats_new.components.crossing import CELL_ASPECT
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
+from whats_new.components.easing import ease_in_out
 from whats_new.components.effects.shading import BLACK
 from whats_new.components.effects.shading import GLYPHS_KEPT
 from whats_new.components.effects.shading import blended
@@ -59,11 +59,11 @@ def back_of(glyph: StyledGrapheme | None) -> StyledGrapheme:
     return StyledGrapheme(grapheme=glyph.grapheme, style=style | CellStyle(foreground=faded, background=paper))
 
 
-def curl(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def curl(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
-    The page curl's frames. The fold starts at the corner, so the first frame is all page, and the eased progress
-    carries it past the far corner by the shadow's reach, so the last is all arriving slide, shadow gone.
-    A curve that overshoots carries it further, which changes nothing, and back.
+    The page curl's frames. The fold starts at the corner, so the first frame is all page, and the progress, easing
+    in and out as a hand turns a page, carries it past the far corner by the shadow's reach, so the last is all
+    arriving slide, shadow gone.
     """
     width, height = dimensions(leaving)
     diagonal = hypot(width, height * CELL_ASPECT)
@@ -92,7 +92,7 @@ def curl(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) ->
         return back_of(leaving[y][mirrored])
 
     def frame(t: float) -> Grid:
-        fold = easing(t) * (diagonal + SHADOW)
+        fold = ease_in_out(t) * (diagonal + SHADOW)
         flap = min(fold, FLAP)
         rows: list[tuple[StyledGrapheme | None, ...]] = []
         for y, (before, after, distances) in enumerate(zip(leaving, arriving, along, strict=True)):

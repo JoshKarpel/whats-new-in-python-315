@@ -6,7 +6,7 @@ Each thumbnail is the slide's own content component drawn at a third of the widt
 not a picture, so it's exactly what the slide draws at that width. Thumbnails aren't live: they never take focus,
 so they never receive a slide's keys or start its runs.
 
-With F9's `zoom` picked, the grid zooms, along F7's easing curve at F8's speed. Opening, the selected thumbnail
+With F7's `zoom` picked, the grid zooms, easing in and out, at F8's speed. Opening, the selected thumbnail
 starts filling the grid and shrinks into its place while the others grow in around it; leaving, the selected
 thumbnail grows back to fill it. Its content reflows as it changes size, as a thumbnail's always does, rather than
 scaling. The grid sits over the stage, so the slide it leaves for is already mounted, and live, beneath it.
@@ -28,7 +28,7 @@ from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
 from whats_new.components.animation import use_progress_since
-from whats_new.components.easing import Easing
+from whats_new.components.easing import ease_in_out
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
 from whats_new.components.slide_body import slide_body
@@ -55,17 +55,15 @@ class Zoom:
     """
 
     toward: Toward
-    easing: Easing
     duration: timedelta
 
     def openness(self, progress: float) -> float:
         """
         How open the grid is `progress` of the way through the zoom: 0 with the selected thumbnail filling it,
-        1 with every thumbnail in its place. Zooming in, a curve that overshoots would carry the selected thumbnail
-        past the grid's edges, which a track can't reach, so it holds there while the curve is past its end.
+        1 with every thumbnail in its place.
         """
-        eased = self.easing(progress)
-        return eased if self.toward is Toward.GRID else max(1 - eased, 0.0)
+        eased = ease_in_out(progress)
+        return eased if self.toward is Toward.GRID else 1 - eased
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,8 +133,7 @@ def visible_range(selected: int, section: range) -> range:
 def shares(selected: int, count: int, openness: float) -> tuple[float, ...]:
     """
     The share of the grid's width (or height) each of `count` tracks takes, `openness` of the way from the `selected`
-    track taking all of it to every track taking an equal share. An `openness` past 1 shrinks the selected track
-    past its place, which stays positive up to `count / (count - 1)`, well beyond the furthest any curve overshoots.
+    track taking all of it to every track taking an equal share.
     """
     others = openness / count
     return tuple(1 - others * (count - 1) if track == selected else others for track in range(count))

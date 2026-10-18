@@ -1,6 +1,6 @@
 """
 The swipe: the slide being left and the one arriving, side by side, sliding across together, as spiel's `Swipe` does,
-along whichever easing curve F7 picked. `stage` plays it.
+easing in and out. `stage` plays it.
 
 Both slides are mounted for the length of the swipe. The one being left keeps its state (its run output, its edits),
 since it continues under its own key, but stops being live, which moves focus to the arriving slide at once:
@@ -14,7 +14,7 @@ from enum import Enum
 
 from counterweight.components import Component
 
-from whats_new.components.easing import Easing
+from whats_new.components.easing import ease_in_out
 
 SWIPE = timedelta(seconds=0.75)
 """How long a swipe takes, and the grid's zoom, as long as spiel's swipe: long enough to see a curve's shape, short enough not to wait on."""
@@ -36,15 +36,14 @@ class Swipe:
 
     leaving: Component
     direction: Direction
-    easing: Easing
     duration: timedelta
 
 
-def offsets(direction: Direction, eased: float, width: int) -> tuple[int, int]:
+def offsets(direction: Direction, progress: float, width: int) -> tuple[int, int]:
     """
-    How many columns from the stage's left edge the leaving and arriving slides sit, `eased` of the way across
-    a stage `width` wide. They're always exactly a width apart, so they never overlap or leave a gap between them,
-    and an `eased` past 1 carries both past the end.
+    How many columns from the stage's left edge the leaving and arriving slides sit, `progress` of the way through
+    the swipe across a stage `width` wide. They're always exactly a width apart, so they never overlap or leave a gap
+    between them.
     """
-    leaving = -round(direction.value * eased * width)
+    leaving = -round(direction.value * ease_in_out(progress) * width)
     return leaving, leaving + direction.value * width

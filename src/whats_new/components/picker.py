@@ -1,5 +1,5 @@
 """
-The pickers keys open: the function keys' F4 code theme, F6 slide transition, F7 easing curve, F8 speed and F9 grid transition, and the Tachyon
+The pickers keys open: the function keys' F4 code theme, F6 slide transition, F7 grid transition and F8 speed, and the Tachyon
 stage's workload and profiler mode. Each is an autocomplete field over its parent's top right corner, as in counterweight's autocomplete
 cookbook. Typing narrows the list of options, Down and Up move the highlight, Enter or Tab chooses the highlighted
 option, and Escape closes it unchanged. Either way, focus goes back to the slide.

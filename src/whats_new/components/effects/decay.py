@@ -23,7 +23,6 @@ from whats_new.components.crossing import SPACE
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.effects.masks import Thresholds
 from whats_new.components.swipe import Direction
 
@@ -34,7 +33,7 @@ DUST = "·"
 DUST_COLOR = Color.from_hex("#334155")
 """The color an empty cell decays in: Tailwind's slate 700, dim on the deck's black, but there."""
 SPAN = 0.3
-"""How much of the eased progress each cell takes to go from the leaving character to the arriving one."""
+"""How much of the progress each cell takes to go from the leaving character to the arriving one."""
 STEPS = 2 * len(CRUMBLING) + 1
 """How many steps a cell shows between its two characters: down the shades, the dust, and back up."""
 TILT = 0.45
@@ -122,9 +121,9 @@ def stages(before: StyledGrapheme | None, after: StyledGrapheme | None) -> tuple
     )
 
 
-def decay(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def decay(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
-    Decay's frames. Each cell is the leaving character until the eased progress reaches its turn, the arriving one
+    Decay's frames. Each cell is the leaving character until the progress reaches its turn, the arriving one
     `SPAN` later, and in between, the step of its decay that far through.
     """
     width, height = dimensions(leaving)
@@ -136,11 +135,10 @@ def decay(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -
     last = STEPS + 1
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
         return tuple(
             tuple(
                 steps[0]
-                if (through := (eased - turn) / SPAN) <= 0
+                if (through := (t - turn) / SPAN) <= 0
                 else steps[last]
                 if through >= 1
                 else steps[1 + int(through * STEPS)]

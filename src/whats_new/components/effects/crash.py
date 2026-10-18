@@ -7,8 +7,7 @@ and the arriving slide switches on, opening out from a line across the middle.
 The glitches are drawn afresh at each of `GLITCH_STEPS` steps of the transition, from a random seeded by the step,
 so the picture jitters as it plays and plays the same way every time. Only parts of the screen ever glitch at once,
 and nothing flashes: the darkness comes in and goes out by squashing, never by a cut to a bright screen.
-The phases keep their own timing, since a crash isn't a movement to ease, and `easing` sets how the glitching
-builds instead, so a curve that overshoots makes it peak early. The direction plays no part.
+The phases keep their own timing, since a crash isn't a movement to ease. The direction plays no part.
 """
 
 import random
@@ -22,7 +21,6 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.swipe import Direction
@@ -175,7 +173,7 @@ def report_on(width: int, height: int, lines: tuple[Printed, ...], progress: flo
     return tuple(tuple(row) for row in cells)
 
 
-def crash(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def crash(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """The crash's frames: glitching, switching off, the report on the dark, and switching on."""
     width, height = dimensions(leaving)
     lines = printed(REPORT)
@@ -186,7 +184,7 @@ def crash(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -
         if t >= DARK:
             return report_on(width, height, lines, between(t, DARK, SWITCHING_ON))
         chance = random.Random(SEED * GLITCH_STEPS + int(t * GLITCH_STEPS))
-        broken = glitched(leaving, easing(between(t, 0, GLITCHING)), chance)
+        broken = glitched(leaving, between(t, 0, GLITCHING), chance)
         return squashed(broken, 1 - between(t, GLITCHING, DARK))
 
     return frame

@@ -32,7 +32,6 @@ from counterweight.paint import Cell
 from counterweight.paint import Paint
 from counterweight.styles import CellStyle
 
-from whats_new.components.easing import Easing
 from whats_new.components.swipe import Direction
 
 type Grid = tuple[tuple[StyledGrapheme | None, ...], ...]
@@ -44,10 +43,11 @@ as a `Paint`'s continuation cell is, so every row is as long as the picture is w
 type Frames = Callable[[float], Grid]
 """One transition's frames: the picture to show `t` of the way through it, from 0 to 1."""
 
-type Effect = Callable[[Grid, Grid, Direction, Easing], Frames]
+type Effect = Callable[[Grid, Grid, Direction], Frames]
 """
 How one kind of transition turns the leaving and arriving pictures (the same size) into its frames,
-given which way the presenter moved and the easing curve F7 picked. Whatever an effect works out from the pictures
+given which way the presenter moved. Each effect eases its own motion, if it eases at all (see `easing`).
+Whatever an effect works out from the pictures
 alone, it works out once, here, rather than in every frame. Its first frame is the leaving picture and its last
 the arriving one, so the transition starts and ends without a jump.
 """

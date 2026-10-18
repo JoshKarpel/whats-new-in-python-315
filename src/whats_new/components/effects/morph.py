@@ -5,8 +5,7 @@ each straight out from (or in toward) the middle, so the leftovers burst outward
 
 A shaded cell, such as the inside of a code box, flies too, carrying its color, so a box breaks up and reforms with
 its text; only the backdrop stays put. A character on the backdrop takes the background of whatever it's crossing. Each character sets off at its own moment in the first part of the transition,
-so they don't all move as one, and follows the easing curve F7 picked over its own flight: a curve that overshoots
-carries it past its place and back.
+so they don't all move as one, and eases in and out over its own flight.
 """
 
 import random
@@ -20,7 +19,7 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
+from whats_new.components.easing import ease_in_out
 from whats_new.components.effects.characters import Point
 from whats_new.components.effects.characters import backdrop_of
 from whats_new.components.effects.characters import beyond
@@ -47,10 +46,10 @@ class Flight:
     arriving: StyledGrapheme
     delay: float
 
-    def at(self, t: float, easing: Easing) -> tuple[int, int, StyledGrapheme]:
+    def at(self, t: float) -> tuple[int, int, StyledGrapheme]:
         """Which cell the character is in, and what it shows, `t` of the way through the transition."""
         flown = between(t, self.delay, self.delay + 1 - STAGGER)
-        eased = easing(flown)
+        eased = ease_in_out(flown)
         x = self.start[0] + (self.end[0] - self.start[0]) * eased
         y = self.start[1] + (self.end[1] - self.start[1]) * eased
         return round(x), round(y), self.leaving if flown < 0.5 else self.arriving
@@ -81,7 +80,7 @@ def flights(leaving: Grid, arriving: Grid, direction: Direction, backdrop: AnyCo
     return (*departing, *moving, *landing)
 
 
-def morph(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def morph(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The morph's frames. Each draws the backdrop, then everything that moves where its flight has reached,
     so a cell that has landed looks exactly as its slide draws it.
@@ -93,6 +92,6 @@ def morph(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -
     def frame(t: float) -> Grid:
         # The two backdrops look the same, so they change over only at the end, where the last frame has to be exact.
         behind = over if t >= 1 else under
-        return drawn_over(behind, (path.at(t, easing) for path in paths), backdrop)
+        return drawn_over(behind, (path.at(t) for path in paths), backdrop)
 
     return frame

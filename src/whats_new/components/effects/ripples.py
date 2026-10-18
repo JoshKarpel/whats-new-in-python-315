@@ -1,18 +1,19 @@
 """
-The ripple: a drop lands toward the side the arriving slide comes from, and a circular wave spreads out from it until
-it has crossed the whole stage. Inside the wavefront is the arriving slide and outside it the slide being left, as in
-the iris, but the water near the front is still moving: behind the front each character is pushed in or out along
-the line from the drop by a sine wave that dies away with distance behind the front, so the arriving slide wobbles as
-it's uncovered and settles once the front has gone by.
+The ripples: three to five drops land at once, spread out over the stage, and a circular wave spreads out from each,
+all at the same speed, until they have crossed the whole stage. A cell shows the arriving slide once any of the fronts
+has passed it, so the arriving slide opens in several circles that grow into each other. The water near a front is
+still moving: behind it each character is pushed in or out along the line from its drop by a sine wave that dies away
+with distance behind the front, so the arriving slide wobbles as it's uncovered and settles once the front has gone
+by. Where the waves overlap their pushes add up, so they interfere.
 
-`rippling` makes the frames for any number of drops landing at once, each wave spreading at the same speed, a cell
-showing the arriving slide once any front has passed it. Where waves overlap their pushes add up, so they interfere.
-`ripple` is the case of one drop; `raindrops` is several.
+Where the drops land is drawn once, the same way every run: the stage is cut into a grid of patches, a few of them
+picked, and a drop put somewhere near the middle of each, so no two drops bunch up.
 
 How far each cell is from each drop, and which way is outward, is worked out once; a frame only finds the cells close
 behind each front and looks up how far the wave pushes them.
 """
 
+import random
 from bisect import bisect_left
 from bisect import bisect_right
 from dataclasses import dataclass
@@ -25,7 +26,6 @@ from whats_new.components.crossing import CELL_ASPECT
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.effects.characters import Point
 from whats_new.components.swipe import Direction
 
@@ -53,12 +53,34 @@ PROFILE = tuple(
 
 SETTLING = 0.3
 """
-How much of the end of the eased progress the water takes to settle, every push dying away to nothing, so the last
+How much of the end of the progress the water takes to settle, every push dying away to nothing, so the last
 frame is unmoved even where another drop's wave is still crossing it.
 """
 
-LANDING = 0.25
-"""How far toward the side the arriving slide comes from the drop lands, from the middle, as a share of the width."""
+PATCHES = (3, 2)
+"""How many patches across and down the stage is cut into, at most one drop to a patch."""
+
+FEWEST, MOST = 3, 5
+"""How many drops there can be."""
+
+INSET = 0.2
+"""How far in from each side of its patch a drop lands at least, as a share of the patch, so drops in neighboring
+patches stay apart."""
+
+
+def landings(width: int, height: int) -> tuple[Point, ...]:
+    """Where the drops land on a `width` by `height` stage, in cells: one each in a few patches picked at random."""
+    chance = random.Random(315)
+    across, down = PATCHES
+    patches = [(column, row) for row in range(down) for column in range(across)]
+    picked = chance.sample(patches, chance.randint(FEWEST, MOST))
+    return tuple(
+        (
+            width * (column + chance.uniform(INSET, 1 - INSET)) / across,
+            height * (row + chance.uniform(INSET, 1 - INSET)) / down,
+        )
+        for column, row in picked
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +112,7 @@ def wave_from(drop: Point, width: int, height: int) -> Wave:
     )
 
 
-def rippling(leaving: Grid, arriving: Grid, easing: Easing, drops: tuple[Point, ...]) -> Frames:
+def rippling(leaving: Grid, arriving: Grid, drops: tuple[Point, ...]) -> Frames:
     """
     The frames of a wave spreading from each of `drops`, in cells, all at the same speed: fast enough that by the
     end every cell is a whole tail behind the nearest front. The water settles as the end nears, so the last frame
@@ -109,10 +131,9 @@ def rippling(leaving: Grid, arriving: Grid, easing: Easing, drops: tuple[Point, 
     after = tuple(glyph for row in arriving for glyph in row)
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
-        front = eased * reach
+        front = t * reach
         cells = [new if near < front else old for old, new, near in zip(before, after, nearest, strict=True)]
-        calm = min(max((1 - eased) / SETTLING, 0.0), 1.0)
+        calm = min(max((1 - t) / SETTLING, 0.0), 1.0)
         pushes: dict[int, tuple[float, float]] = {}
         for wave in waves if calm else ():
             first = bisect_right(wave.distances, front - TAIL)
@@ -135,8 +156,7 @@ def rippling(leaving: Grid, arriving: Grid, easing: Easing, drops: tuple[Point, 
     return frame
 
 
-def ripple(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
-    """The ripple's frames: one drop, a little off the middle toward the side the arriving slide comes from."""
+def ripples(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
+    """The ripples' frames. The drops land in the same places whichever way the presenter moved."""
     width, height = dimensions(leaving)
-    drop = (width * (0.5 + LANDING * direction.value), height / 2)
-    return rippling(leaving, arriving, easing, (drop,))
+    return rippling(leaving, arriving, landings(width, height))

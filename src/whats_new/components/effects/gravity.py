@@ -4,8 +4,7 @@ faster and faster, and the arriving slide's characters fall in from above the to
 the lowest rows first, so the slide stacks up from the floor the way a game of Tetris settles.
 
 Every character falls under the same pull, so one with farther to go falls for longer and lands harder.
-An arriving character's fall follows the easing curve F7 picked, applied to the fall's own constant acceleration,
-so a curve that bounces bounces it off where it lands, and one that overshoots sinks it past its row and back.
+The falls need no easing: a fall's constant acceleration is its own.
 A shaded cell, such as the inside of a code box, falls too, carrying its color, so a box crumbles and stacks up
 again with its text; only the backdrop stays put.
 """
@@ -21,7 +20,6 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.effects.characters import backdrop_of
 from whats_new.components.effects.characters import characters
 from whats_new.components.effects.characters import drawn_over
@@ -72,12 +70,12 @@ class Landing:
     start: float
     land: float
 
-    def at(self, t: float, easing: Easing) -> tuple[int, int, StyledGrapheme]:
+    def at(self, t: float) -> tuple[int, int, StyledGrapheme]:
         """
-        Where the character has fallen to `t` of the way through the transition: the eased fall is the time
-        squared, so under a linear curve it accelerates just as a leaving character does.
+        Where the character has fallen to `t` of the way through the transition: the time squared,
+        so it accelerates just as a leaving character does.
         """
-        fallen = easing(between(t, self.start, self.land) ** 2)
+        fallen = between(t, self.start, self.land) ** 2
         return self.x, round(-1 + (self.y + 1) * fallen), self.glyph
 
 
@@ -111,8 +109,8 @@ def landings(arriving: Grid, height: int, chance: random.Random, backdrop: AnyCo
     Every arriving character's fall, the lowest rows landing first, each falling for as long as gravity takes
     to bring it from above the stage down to its row, so the lowest characters fall farthest and fastest.
     """
-    # Drawn from the top row down, so a character a springy curve carries past its row passes behind the row
-    # below, which has already landed.
+    # Drawn from the top row down, so a character still falling passes behind the rows below,
+    # which have already landed.
     found = sorted(cells(arriving, backdrop), key=lambda cell: cell[1])
     order = heights({y for _, y, _ in found})
     placed: list[Landing] = []
@@ -123,7 +121,7 @@ def landings(arriving: Grid, height: int, chance: random.Random, backdrop: AnyCo
     return tuple(placed)
 
 
-def gravity(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def gravity(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     Gravity's frames. Each draws the backdrop, then the leaving cells wherever they've fallen to, then the arriving
     ones over them, so a cell that has landed looks exactly as its slide draws it.
@@ -138,7 +136,7 @@ def gravity(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing)
         # The two backdrops look the same, so they change over only at the end, where the last frame has to be exact.
         behind = over if t >= 1 else under
         return drawn_over(
-            behind, (*(drop.at(t) for drop in falling), *(landing.at(t, easing) for landing in settling)), backdrop
+            behind, (*(drop.at(t) for drop in falling), *(landing.at(t) for landing in settling)), backdrop
         )
 
     return frame

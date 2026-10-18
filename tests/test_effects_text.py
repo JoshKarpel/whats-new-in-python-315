@@ -13,7 +13,6 @@ from counterweight.styles import Color
 
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import rows_of
-from whats_new.components.easing import linear
 from whats_new.components.effects.crash import crash
 from whats_new.components.effects.crash import glitched
 from whats_new.components.effects.crash import squashed
@@ -58,14 +57,14 @@ def test_a_row_is_typed_a_character_per_keystroke_skipping_blanks_and_never_spli
 
 
 def test_partway_through_typing_a_row_the_cursor_is_just_past_the_typed_part() -> None:
-    frames = typewriter(grid("    ", style=RED), grid("wxyz", style=BLUE), Direction.NEXT, linear)
+    frames = typewriter(grid("    ", style=RED), grid("wxyz", style=BLUE), Direction.NEXT)
 
     # The erasing takes the first 0.35, with nothing to erase, and the typing the rest: 0.6 of it is 2.4 keystrokes.
     assert text(frames(0.35 + 0.65 * 0.6)) == ("wx█ ",)
 
 
 def test_backspacing_starts_on_the_bottom_row() -> None:
-    frames = typewriter(grid("abcd", "efgh", style=RED), grid("    ", "    ", style=BLUE), Direction.NEXT, linear)
+    frames = typewriter(grid("abcd", "efgh", style=RED), grid("    ", "    ", style=BLUE), Direction.NEXT)
 
     # The erasing is the first 0.35 of the transition. The bottom row erases over its first 0.6, so 0.24 into it
     # is 1.6 keystrokes, and the top row starts 0.4 into it.
@@ -76,13 +75,13 @@ GLITCHABLE = grid("abcdefghij" * 4, "klmnopqrst" * 4, "uvwxyzabcd" * 4, style=RE
 
 
 def test_partway_through_glitching_the_leaving_picture_is_glitched() -> None:
-    frames = crash(GLITCHABLE, GLITCHABLE, Direction.NEXT, linear)
+    frames = crash(GLITCHABLE, GLITCHABLE, Direction.NEXT)
 
     assert frames(0.3) != GLITCHABLE
 
 
 def test_a_glitched_frame_is_the_same_every_time_its_drawn() -> None:
-    first, again = (crash(GLITCHABLE, GLITCHABLE, Direction.NEXT, linear) for _ in range(2))
+    first, again = (crash(GLITCHABLE, GLITCHABLE, Direction.NEXT) for _ in range(2))
 
     assert first(0.3) == again(0.3)
 
@@ -107,7 +106,7 @@ def test_a_squashed_picture_ends_as_a_shrinking_line_across_the_middle() -> None
 def test_the_crash_report_prints_on_the_dark_screen() -> None:
     picture = grid(" " * 60, " " * 60, " " * 60, style=RED)
 
-    frames = crash(picture, picture, Direction.NEXT, linear)
+    frames = crash(picture, picture, Direction.NEXT)
 
     assert text(frames(0.7))[1].strip() == "Fatal Python error: Segmentation fault"
 
@@ -164,6 +163,6 @@ def test_before_anything_resolves_a_region_shows_its_label_and_placeholders() ->
     blank = grid(" " * 24, " " * 24, style=RED)
     arriving = grid("Title of it" + " " * 13, "with more" + " " * 15, style=BLUE)
 
-    frames = lazy_import(blank, arriving, Direction.NEXT, linear)
+    frames = lazy_import(blank, arriving, Direction.NEXT)
 
     assert text(frames(0.32)) == ("<lazy_import 'title'>   ", "░░░░ ░░░░" + " " * 15)

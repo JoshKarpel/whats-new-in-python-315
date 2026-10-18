@@ -29,9 +29,6 @@ from whats_new.components.crossing import Grid
 from whats_new.components.crossing import photograph
 from whats_new.components.crossing import picture_of
 from whats_new.components.crossing import rows_of
-from whats_new.components.easing import EASINGS
-from whats_new.components.easing import Easing
-from whats_new.components.easing import linear
 from whats_new.components.effects.characters import beyond
 from whats_new.components.effects.masks import Thresholds
 from whats_new.components.effects.masks import across
@@ -85,19 +82,17 @@ CROSSINGS = {name: transition for name, transition in TRANSITIONS.items() if isi
 
 
 @pytest.mark.parametrize("direction", Direction)
-@pytest.mark.parametrize("easing", EASINGS.values(), ids=EASINGS.keys())
 @pytest.mark.parametrize("transition", CROSSINGS.values(), ids=CROSSINGS.keys())
-def test_a_crossing_starts_on_the_leaving_picture(transition: Crossed, easing: Easing, direction: Direction) -> None:
-    frames = transition.effect(LEAVING, ARRIVING, direction, easing)
+def test_a_crossing_starts_on_the_leaving_picture(transition: Crossed, direction: Direction) -> None:
+    frames = transition.effect(LEAVING, ARRIVING, direction)
 
     assert frames(0.0) == LEAVING
 
 
 @pytest.mark.parametrize("direction", Direction)
-@pytest.mark.parametrize("easing", EASINGS.values(), ids=EASINGS.keys())
 @pytest.mark.parametrize("transition", CROSSINGS.values(), ids=CROSSINGS.keys())
-def test_a_crossing_ends_on_the_arriving_picture(transition: Crossed, easing: Easing, direction: Direction) -> None:
-    frames = transition.effect(LEAVING, ARRIVING, direction, easing)
+def test_a_crossing_ends_on_the_arriving_picture(transition: Crossed, direction: Direction) -> None:
+    frames = transition.effect(LEAVING, ARRIVING, direction)
 
     assert frames(1.0) == ARRIVING
 
@@ -122,7 +117,7 @@ def test_a_wipe_halfway_shows_the_arriving_slide_on_the_side_it_comes_from(
 ) -> None:
     leaving, arriving = grid("abc de  ", "  fgh   ", style=RED), grid("  edcba ", "😭 xyz  ", style=BLUE)
 
-    halfway = wipe(leaving, arriving, direction, linear)(0.5)
+    halfway = wipe(leaving, arriving, direction)(0.5)
 
     assert tuple("".join(glyph.grapheme for glyph in row) for row in rows_of(halfway)) == expected
 
@@ -162,7 +157,7 @@ def test_a_flight_changes_from_the_leaving_character_to_the_arriving_one_halfway
     old, new = StyledGrapheme(grapheme="q", style=RED), StyledGrapheme(grapheme="q", style=BLUE)
     flight = Flight(start=(0, 0), end=(10, 4), leaving=old, arriving=new, delay=0.0)
 
-    assert (flight.at(0.3, linear), flight.at(0.4, linear)) == ((4, 2, old), (6, 2, new))
+    assert (flight.at(0.3), flight.at(0.4)) == ((3, 1, old), (7, 3, new))
 
 
 def graphemes(grid: Grid) -> list[str]:
@@ -206,7 +201,7 @@ def root_at(host: Host, index: int, transition: str = "off", choose: Choose = ra
     return root(
         SLIDES,
         host,
-        Checkpoint(slide=index, transition=transition, easing="linear"),
+        Checkpoint(slide=index, transition=transition),
         lambda checkpoint: None,
         choose=choose,
     )

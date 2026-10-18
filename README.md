@@ -54,9 +54,8 @@ What doesn't work in a default container:
 | F1 / F2 | the clock / the size check |
 | F4 | pick the code theme: type to narrow the list, Up and Down move, Enter chooses, F4 closes |
 | F6 | pick the slide transition: off, random for a different one each move, swipe, or one of the effects (type to narrow the list); as F4's picker, F6 closes |
-| F7 | pick the easing curve the transition and the grid's zoom follow; F7 closes |
+| F7 | pick the grid's transition as it opens and closes: off, random, or zoom; F7 closes |
 | F8 | pick the transition speed, from a quarter to twice as fast; F8 closes |
-| F9 | pick the grid's transition as it opens and closes: off, random, or zoom; F9 closes |
 | Ctrl+C | quit |
 
 ## Developing

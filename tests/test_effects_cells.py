@@ -15,7 +15,6 @@ from counterweight.styles import Color
 
 from whats_new.components.crossing import Effect
 from whats_new.components.crossing import Grid
-from whats_new.components.easing import linear
 from whats_new.components.effects.decay import DUST_COLOR
 from whats_new.components.effects.decay import decay
 from whats_new.components.effects.decay import rippling
@@ -47,8 +46,8 @@ def grid(*rows: str, style: CellStyle) -> Grid:
 
 
 def every_frame(leaving: Grid, arriving: Grid, effect: Effect, direction: Direction = Direction.NEXT) -> list[Grid]:
-    """`effect`'s frames from `leaving` to `arriving`, at a thousandth of the way apart, on a linear curve."""
-    frames = effect(leaving, arriving, direction, linear)
+    """`effect`'s frames from `leaving` to `arriving`, at a thousandth of the way apart."""
+    frames = effect(leaving, arriving, direction)
     return [frames(step / 1000) for step in range(1001)]
 
 
@@ -63,7 +62,7 @@ def kinds(row: tuple[StyledGrapheme | None, ...], leaving: Grid, arriving: Grid,
 def test_the_same_progress_always_draws_the_same_frame(effect: Effect) -> None:
     leaving = grid("abc de😭", "  fgh   ", "ab    ab", style=RED)
     arriving = grid("  edcba ", "😭 xyz  ", "zz   ba ", style=BLUE)
-    first, second = effect(leaving, arriving, Direction.NEXT, linear), effect(leaving, arriving, Direction.NEXT, linear)
+    first, second = effect(leaving, arriving, Direction.NEXT), effect(leaving, arriving, Direction.NEXT)
 
     drawn = [first(t) for t in (0.61, 0.37, 0.52)]
 
@@ -123,7 +122,7 @@ def test_a_decaying_cell_steps_down_the_shades_to_dust_and_back_up() -> None:
     ids=["a character, in its own color", "an empty cell, in dust"],
 )
 def test_a_cell_decays_in_its_own_color(leaving: Grid, ink: Color) -> None:
-    frames = decay(leaving, grid("z", style=BLUE), Direction.NEXT, linear)
+    frames = decay(leaving, grid("z", style=BLUE), Direction.NEXT)
 
     assert frames(0.02) == (
         (StyledGrapheme(grapheme="▓", style=CellStyle(foreground=ink, background=Color.from_name("black"))),),
@@ -176,7 +175,7 @@ def test_a_cell_the_same_on_both_slides_never_spins() -> None:
 
 
 def test_a_spinning_cell_changes_face_as_it_spins() -> None:
-    frames = slots(grid("q", style=RED), grid("z", style=BLUE), Direction.NEXT, linear)
+    frames = slots(grid("q", style=RED), grid("z", style=BLUE), Direction.NEXT)
 
     assert len({frames(t) for t in (0.1, 0.15, 0.2, 0.25)}) == 4
 

@@ -6,7 +6,7 @@ itself rather than be replaced.
 
 A character is matched only to one close by, nearest pairs first, so nothing flies across the stage as in the
 morph, and one already in its place on both slides stays put. A hop arcs up over the row, higher the farther
-it goes, following the easing curve F7 picked over its own part of the transition. A shaded cell, such as the inside
+it goes, as something thrown does: steadily across, and up and down again. A shaded cell, such as the inside
 of a code box, hops or decays too, carrying its color, so a box rearranges itself with its text; only the backdrop
 stays put.
 """
@@ -25,7 +25,6 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import CELL_ASPECT
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
-from whats_new.components.easing import Easing
 from whats_new.components.effects.characters import Point
 from whats_new.components.effects.characters import backdrop_of
 from whats_new.components.effects.characters import characters
@@ -65,12 +64,11 @@ class Hop:
     begin: float
     lift: float
 
-    def at(self, t: float, easing: Easing) -> tuple[int, int, StyledGrapheme]:
+    def at(self, t: float) -> tuple[int, int, StyledGrapheme]:
         """Which cell the character is in, and what it shows, `t` of the way through the transition."""
         hopped = between(t, self.begin, self.begin + HOP)
-        eased = easing(hopped)
-        x = self.start[0] + (self.end[0] - self.start[0]) * eased
-        y = self.start[1] + (self.end[1] - self.start[1]) * eased - self.lift * sin(pi * eased)
+        x = self.start[0] + (self.end[0] - self.start[0]) * hopped
+        y = self.start[1] + (self.end[1] - self.start[1]) * hopped - self.lift * sin(pi * hopped)
         return round(x), round(y), self.leaving if hopped < 0.5 else self.arriving
 
 
@@ -176,7 +174,7 @@ def rearranging(
     return tuple(fading), tuple(hops), tuple(condensing)
 
 
-def swap(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def swap(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The swap's frames. Each draws the backdrop, then the decaying cells, the condensing ones, and the hopping ones
     over all of those, so a cell in its place looks exactly as its slide draws it.
@@ -189,6 +187,6 @@ def swap(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) ->
         # The two backdrops look the same, so they change over only at the end, where the last frame has to be exact.
         behind = over if t >= 1 else under
         decays = (place for decay in (*fading, *condensing) if (place := decay.at(t)) is not None)
-        return drawn_over(behind, (*decays, *(hop.at(t, easing) for hop in hops)), backdrop)
+        return drawn_over(behind, (*decays, *(hop.at(t) for hop in hops)), backdrop)
 
     return frame

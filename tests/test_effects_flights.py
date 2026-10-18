@@ -16,8 +16,6 @@ from counterweight.styles import Color
 from whats_new.components.crossing import CELL_ASPECT
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import rows_of
-from whats_new.components.easing import bounce
-from whats_new.components.easing import linear
 from whats_new.components.effects.characters import drawn_over
 from whats_new.components.effects.characters import emptied
 from whats_new.components.effects.characters import moves
@@ -92,15 +90,7 @@ def test_the_lowest_row_of_the_arriving_slide_lands_first() -> None:
 def test_an_arriving_character_is_above_its_row_partway_through_its_fall() -> None:
     landing = Landing(x=4, y=9, glyph=Q, start=0.2, land=0.8)
 
-    assert landing.at(0.5, linear)[1] < 9
-
-
-def test_a_bouncing_curve_bounces_a_landing_character_back_up_off_its_row() -> None:
-    landing = Landing(x=4, y=10, glyph=Q, start=0.0, land=1.0)
-
-    touching, bounced = landing.at(0.45, bounce)[1], landing.at(0.6, bounce)[1]
-
-    assert (touching, bounced < touching) == (10, True)
+    assert landing.at(0.5)[1] < 9
 
 
 def spiral(direction: Direction) -> Spiral:
@@ -112,7 +102,7 @@ def spiral(direction: Direction) -> Spiral:
 
 def shown_at(path: Spiral, t: float) -> tuple[int, int]:
     """Which cell `path`'s character is in `t` of the way through the transition, which it must be showing at."""
-    place = path.at(t, linear)
+    place = path.at(t)
     if place is None:
         raise AssertionError(f"the character isn't showing at {t}")
     return place[0], place[1]
@@ -120,7 +110,7 @@ def shown_at(path: Spiral, t: float) -> tuple[int, int]:
 
 def test_a_spiralling_character_gets_closer_to_the_center() -> None:
     inward = spiral(Direction.NEXT)
-    x, y = shown_at(inward, inward.begin + SPIRAL / 2)
+    x, y = shown_at(inward, inward.begin + SPIRAL * 3 / 4)
 
     assert hypot(x + 0.5 - inward.center[0], (y + 0.5 - inward.center[1]) * CELL_ASPECT) < inward.radius * 0.75
 
@@ -133,13 +123,13 @@ def test_a_spiralling_character_gets_closer_to_the_center() -> None:
 def test_a_spiral_turns_clockwise_moving_forward(direction: Direction, expected: int) -> None:
     inward = spiral(direction)
 
-    assert shown_at(inward, inward.begin + SPIRAL / 2)[1] == expected
+    assert shown_at(inward, inward.begin + SPIRAL * 3 / 4)[1] == expected
 
 
 def test_a_leaving_character_is_gone_once_it_reaches_the_center() -> None:
     inward = spiral(Direction.NEXT)
 
-    assert inward.at(inward.begin + SPIRAL, linear) is None
+    assert inward.at(inward.begin + SPIRAL) is None
 
 
 def test_an_arriving_character_starts_out_from_the_center() -> None:
@@ -157,7 +147,7 @@ def test_characters_too_far_apart_are_not_matched() -> None:
 
 
 def test_a_character_in_the_same_place_on_both_slides_stays_put() -> None:
-    frames = swap(grid("q   ", "  ab", style=RED), grid("q   ", "x   ", style=BLUE), Direction.NEXT, linear)
+    frames = swap(grid("q   ", "  ab", style=RED), grid("q   ", "x   ", style=BLUE), Direction.NEXT)
 
     assert {text(frames(step / 20))[0][0] for step in range(21)} == {"q"}
 
@@ -165,7 +155,7 @@ def test_a_character_in_the_same_place_on_both_slides_stays_put() -> None:
 def test_a_hop_arcs_above_its_row() -> None:
     hop = Hop(start=(2, 5), end=(18, 5), leaving=Q, arriving=Q, begin=0.0, lift=2.0)
 
-    assert hop.at(0.2, linear)[1] < 5
+    assert hop.at(0.2)[1] < 5
 
 
 @pytest.mark.parametrize(
@@ -232,7 +222,7 @@ def test_gravity_drops_a_code_boxs_shading_with_its_text() -> None:
     )
     blank = grid(*["    "] * 6, style=RED)
 
-    falling = gravity(boxed, blank, Direction.NEXT, linear)(0.25)
+    falling = gravity(boxed, blank, Direction.NEXT)(0.25)
 
     assert all(cell is not None and cell.style.background == BACKDROP for cell in falling[0])
     assert any(cell is not None and cell.style.background == SHADE.background for row in falling[1:] for cell in row)

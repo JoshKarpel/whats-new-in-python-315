@@ -1,5 +1,5 @@
 """
-F6's swipe and F7's easing curves: the curves, where the two slides sit, which moves swipe,
+F6's swipe: where the two slides sit, which moves swipe,
 and the swipe itself, drawn on the export's frozen clock and stopped halfway; and the grid shrinking open.
 """
 
@@ -17,8 +17,6 @@ from counterweight.keys import Key
 from counterweight.output import Frame
 
 from whats_new.checkpoint import Checkpoint
-from whats_new.components.easing import EASINGS
-from whats_new.components.easing import Easing
 from whats_new.components.grid import Toward
 from whats_new.components.grid import Zoom
 from whats_new.components.grid import shares
@@ -40,43 +38,17 @@ from whats_new.presenter import swipe_direction
 from whats_new.presenter import zoom_toward
 from whats_new.size import PRESENTING
 
-SAMPLES = [step / 100 for step in range(101)]
 FOOTER_ROWS = 2
 """The footer's rule and its line, which stay put while the slides above them swipe."""
 HALF = PRESENTING.columns // 2
 
 
-@pytest.mark.parametrize("easing", EASINGS.values(), ids=EASINGS.keys())
-def test_easing_starts_at_rest_and_ends_in_place(easing: Easing) -> None:
-    assert (easing(0.0), easing(1.0)) == pytest.approx((0.0, 1.0))
-
-
 @pytest.mark.parametrize(
-    ("name", "goes_past"),
-    [
-        ("linear", False),
-        ("ease-out", False),
-        ("ease-in-out", False),
-        ("overshoot", True),
-        ("spring", True),
-        ("bounce", False),
-    ],
-)
-def test_only_overshoot_and_spring_go_past_the_end(name: str, goes_past: bool) -> None:
-    assert (max(EASINGS[name](t) for t in SAMPLES) > 1.0 + 1e-9) is goes_past
-
-
-def test_every_curve_is_offered() -> None:
-    assert set(EASINGS) == {"linear", "ease-out", "ease-in-out", "overshoot", "spring", "bounce"}
-
-
-@pytest.mark.parametrize(
-    ("direction", "eased", "expected"),
+    ("direction", "progress", "expected"),
     [
         (Direction.NEXT, 0.0, (0, 90)),
         (Direction.NEXT, 0.5, (-45, 45)),
         (Direction.NEXT, 1.0, (-90, 0)),
-        (Direction.NEXT, 1.2, (-108, -18)),
         (Direction.PREVIOUS, 0.0, (0, -90)),
         (Direction.PREVIOUS, 0.5, (45, -45)),
         (Direction.PREVIOUS, 1.0, (90, 0)),
@@ -85,14 +57,15 @@ def test_every_curve_is_offered() -> None:
         "next, start",
         "next, half",
         "next, end",
-        "next, past the end",
         "previous, start",
         "previous, half",
         "previous, end",
     ],
 )
-def test_offsets_place_the_slides_a_width_apart(direction: Direction, eased: float, expected: tuple[int, int]) -> None:
-    assert offsets(direction, eased, 90) == expected
+def test_offsets_place_the_slides_a_width_apart(
+    direction: Direction, progress: float, expected: tuple[int, int]
+) -> None:
+    assert offsets(direction, progress, 90) == expected
 
 
 LAST = len(SLIDES) - 1
@@ -127,7 +100,7 @@ async def drive(
         root(
             SLIDES,
             host,
-            Checkpoint(slide=index, transition="swipe", easing="linear", speed=speed, grid_transition=grid_transition),
+            Checkpoint(slide=index, transition="swipe", speed=speed, grid_transition=grid_transition),
             lambda checkpoint: None,
         ),
         headless=True,
@@ -225,9 +198,8 @@ async def test_the_arriving_slide_takes_the_keys_while_the_swipe_plays(host: Hos
         (2, 0.0, (0.0, 0.0, 1.0)),
         (0, 0.5, (2 / 3, 1 / 6, 1 / 6)),
         (2, 1.0, (1 / 3, 1 / 3, 1 / 3)),
-        (1, 1.2, (0.4, 0.2, 0.4)),
     ],
-    ids=["closed", "closed, last track", "half open", "open", "past open"],
+    ids=["closed", "closed, last track", "half open", "open"],
 )
 def test_shares_shrink_the_selected_track_into_place(
     selected: int, openness: float, expected: tuple[float, ...]
@@ -235,16 +207,9 @@ def test_shares_shrink_the_selected_track_into_place(
     assert shares(selected, 3, openness) == pytest.approx(expected)
 
 
-@pytest.mark.parametrize("easing", EASINGS.values(), ids=EASINGS.keys())
-@pytest.mark.parametrize("toward", Toward)
-def test_no_curve_zooms_a_share_below_zero(toward: Toward, easing: Easing) -> None:
-    zoom = Zoom(toward=toward, easing=easing, duration=SWIPE)
-    assert min(min(shares(0, 3, zoom.openness(t))) for t in SAMPLES) >= 0.0
-
-
-@pytest.mark.parametrize(("toward", "expected"), [(Toward.GRID, 0.25), (Toward.SLIDE, 0.75)])
+@pytest.mark.parametrize(("toward", "expected"), [(Toward.GRID, 0.0625), (Toward.SLIDE, 0.9375)])
 def test_zooming_in_runs_the_opening_backwards(toward: Toward, expected: float) -> None:
-    assert Zoom(toward=toward, easing=EASINGS["linear"], duration=SWIPE).openness(0.25) == pytest.approx(expected)
+    assert Zoom(toward=toward, duration=SWIPE).openness(0.25) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(
@@ -276,9 +241,7 @@ def test_random_picks_one_of_the_grid_transitions() -> None:
 
 
 def test_with_off_picked_the_grid_doesnt_move() -> None:
-    assert (
-        grid_motion(Toward.GRID, grid_transition_for(OFF, lambda options: options[0]), EASINGS["linear"], SWIPE) is None
-    )
+    assert grid_motion(Toward.GRID, grid_transition_for(OFF, lambda options: options[0]), SWIPE) is None
 
 
 GRID_TOP = 1
@@ -310,8 +273,8 @@ async def test_opening_the_grid_starts_with_the_selected_thumbnail_filling_it(ho
     assert rows[GRID_TOP + 1].startswith(f"│{EDITED + 1} | {SLIDES[EDITED].title}")
 
 
-async def test_f9_picks_the_grid_zoom(host: Host) -> None:
-    picked = (KeyPressed(key=Key.F9), *(KeyPressed(key=character) for character in "zoom"), KeyPressed(key=Key.Enter))
+async def test_f7_picks_the_grid_zoom(host: Host) -> None:
+    picked = (KeyPressed(key=Key.F7), *(KeyPressed(key=character) for character in "zoom"), KeyPressed(key=Key.Enter))
     (zoomed,) = await screens(host, (*picked, KeyPressed(key="d"), None), grid_transition=OFF)
     (instant,) = await screens(host, (KeyPressed(key="d"), None), grid_transition=OFF)
 

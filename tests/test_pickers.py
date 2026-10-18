@@ -1,5 +1,5 @@
 """
-F4's code theme picker, F6's transition picker, F7's easing curve picker and F9's grid transition picker,
+F4's code theme picker, F6's transition picker, F7's grid transition picker and F8's speed picker,
 the themes F4 offers,
 the checkpoint that remembers each choice across a restart,
 and the Tachyon stage's workload and mode pickers.
@@ -22,7 +22,6 @@ from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CODE_THEME
 from whats_new.components.code import CODE_THEMES
 from whats_new.components.code import has_dark_background
-from whats_new.components.easing import EASING
 from whats_new.components.picker import SHOWN_OPTIONS
 from whats_new.components.picker import Choice
 from whats_new.components.picker import matches
@@ -31,7 +30,6 @@ from whats_new.components.transitions import OFFERED
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
-from whats_new.presenter import CURVE
 from whats_new.presenter import GRID_TRANSITION
 from whats_new.presenter import PACE
 from whats_new.presenter import THEME
@@ -65,23 +63,15 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
     ("text", "expected"),
     [
         (
-            '{"slide": 12, "code_theme": "monokai", "transition": "morph", "easing": "spring", "speed": "0.5x",'
-            ' "grid_transition": "zoom"}',
-            Checkpoint(
-                slide=12,
-                code_theme="monokai",
-                transition="morph",
-                easing="spring",
-                speed="0.5x",
-                grid_transition="zoom",
-            ),
+            '{"slide": 12, "code_theme": "monokai", "transition": "morph", "speed": "0.5x", "grid_transition": "zoom"}',
+            Checkpoint(slide=12, code_theme="monokai", transition="morph", speed="0.5x", grid_transition="zoom"),
         ),
         ('{"slide": 12, "code_theme": "monokai"}', Checkpoint(slide=12, code_theme="monokai", transition=OFF)),
         ('{"slide": 12, "code_theme": "solarized-light"}', Checkpoint(slide=12, code_theme=CODE_THEME)),
         ('{"slide": 12, "code_theme": "monokai", "transition": "zoom"}', Checkpoint(slide=12, code_theme="monokai")),
         (
-            '{"slide": 12, "code_theme": "monokai", "transition": "wipe", "easing": "wobble"}',
-            Checkpoint(slide=12, code_theme="monokai", transition="wipe", easing=EASING),
+            '{"slide": 12, "code_theme": "monokai", "transition": "wipe", "easing": "spring"}',
+            Checkpoint(slide=12, code_theme="monokai", transition="wipe"),
         ),
         (
             '{"slide": 12, "code_theme": "monokai", "speed": "11x", "grid_transition": "melt"}',
@@ -95,7 +85,7 @@ def test_matches_finds_themes_with_the_typed_letters_in_order(text: str, expecte
         "one from before transitions",
         "a theme the picker doesn't offer",
         "a transition the picker doesn't offer",
-        "a curve the picker doesn't offer",
+        "a field the deck doesn't read",
         "a speed and a grid transition the pickers don't offer",
         "not an object",
         "not JSON",
@@ -106,9 +96,7 @@ def test_checkpoint_parse(text: str, expected: Checkpoint) -> None:
 
 
 def test_checkpoint_round_trips() -> None:
-    checkpoint = Checkpoint(
-        slide=7, code_theme="nord", transition="morph", easing="bounce", speed="2x", grid_transition="zoom"
-    )
+    checkpoint = Checkpoint(slide=7, code_theme="nord", transition="morph", speed="2x", grid_transition="zoom")
 
     assert Checkpoint.parse(checkpoint.serialized()) == checkpoint
 
@@ -151,11 +139,10 @@ async def test_choosing_a_theme_checkpoints_it_and_gives_the_slide_its_keys_back
     ("key", "typed", "expected", "label"),
     [
         (Key.F6, "mor", Checkpoint(slide=0, transition="morph"), "slide transition"),
-        (Key.F7, "spr", Checkpoint(slide=0, easing="spring"), "easing curve"),
         (Key.F8, "0.2", Checkpoint(slide=0, speed="0.25x"), "transition speed"),
-        (Key.F9, "zoo", Checkpoint(slide=0, grid_transition="zoom"), "grid transition"),
+        (Key.F7, "zoo", Checkpoint(slide=0, grid_transition="zoom"), "grid transition"),
     ],
-    ids=["a transition", "a curve", "a speed", "a grid transition"],
+    ids=["a transition", "a speed", "a grid transition"],
 )
 async def test_choosing_a_transition_setting_checkpoints_it_and_gives_the_slide_its_keys_back(
     host: Host, key: Key, typed: str, expected: Checkpoint, label: str
@@ -243,7 +230,7 @@ async def test_a_picker_opened_in_place_of_another_takes_the_keys(host: Host) ->
 
 @pytest.mark.parametrize(
     "choice",
-    [THEME, TRANSITION, CURVE, PACE, GRID_TRANSITION, MODE_CHOICE, WORKLOAD_CHOICE],
+    [THEME, TRANSITION, PACE, GRID_TRANSITION, MODE_CHOICE, WORKLOAD_CHOICE],
     ids=lambda choice: choice.label,
 )
 def test_a_picker_fits_inside_the_slide(choice: Choice) -> None:

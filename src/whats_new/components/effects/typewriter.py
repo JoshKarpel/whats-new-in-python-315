@@ -20,14 +20,13 @@ from counterweight.styles import CellStyle
 from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
-from whats_new.components.easing import Easing
 from whats_new.components.effects.characters import Backgrounds
 from whats_new.components.effects.characters import backgrounds
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.swipe import Direction
 
 ERASING = 0.35
-"""How much of the eased progress the backspacing takes; the typing takes the rest."""
+"""How much of the progress the backspacing takes; the typing takes the rest."""
 STAGGER = 0.4
 """How much of each phase the rows' starts are spread over, top to bottom typing and bottom to top erasing."""
 CURSOR = "█"
@@ -103,24 +102,23 @@ def keyed_row(row: Row, behind: tuple[StyledGrapheme, ...], keying: Keying | Non
     return (*row[:end], cursor_over(behind[end]), *behind[end + 1 :])
 
 
-def typewriter(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def typewriter(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
     The typewriter's frames: backspacing the leaving slide over its own backgrounds for the first part of the
-    eased progress, then typing the arriving slide over its own.
+    progress, then typing the arriving slide over its own.
     """
     erasings, typings = keyings(leaving, is_top_first=False), keyings(arriving, is_top_first=True)
     left_behind: Backgrounds = backgrounds(leaving)
     to_type_over: Backgrounds = backgrounds(arriving)
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
-        if eased < ERASING:
-            erased = between(eased, 0, ERASING)
+        if t < ERASING:
+            erased = between(t, 0, ERASING)
             return tuple(
                 keyed_row(row, behind, keying, 1 - keying.typed(erased) if keying else 1)
                 for row, behind, keying in zip(leaving, left_behind, erasings, strict=True)
             )
-        typed = between(eased, ERASING, 1)
+        typed = between(t, ERASING, 1)
         return tuple(
             keyed_row(row, behind, keying, keying.typed(typed) if keying else 1)
             for row, behind, keying in zip(arriving, to_type_over, typings, strict=True)

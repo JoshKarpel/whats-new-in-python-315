@@ -39,8 +39,6 @@ from whats_new.components.code import CODE_THEMES
 from whats_new.components.crossing import Crossing
 from whats_new.components.crossing import photograph
 from whats_new.components.crossing import picture_of
-from whats_new.components.easing import EASINGS
-from whats_new.components.easing import Easing
 from whats_new.components.frame import footer
 from whats_new.components.frame import heading
 from whats_new.components.grid import Toward
@@ -156,13 +154,13 @@ def zoom_toward(before: Position, after: Position) -> Toward | None:
             return None
 
 
-def grid_motion(toward: Toward, transition: GridTransition | None, easing: Easing, duration: timedelta) -> Zoom | None:
+def grid_motion(toward: Toward, transition: GridTransition | None, duration: timedelta) -> Zoom | None:
     """How the grid moves opening or closing, `toward` the grid or the slide, with `transition`: not at all for `None`."""
     match transition:
         case None:
             return None
         case Zoomed():
-            return Zoom(toward=toward, easing=easing, duration=duration)
+            return Zoom(toward=toward, duration=duration)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -186,10 +184,9 @@ THEME = Choice(label="code theme", options=tuple(Option(theme) for theme in CODE
 TRANSITION = Choice(
     label="slide transition", options=tuple(Option(name, about) for name, about in DESCRIBED.items()), key="F6"
 )
-CURVE = Choice(label="easing curve", options=tuple(Option(name) for name in EASINGS), key="F7")
 PACE = Choice(label="transition speed", options=tuple(Option(name) for name in SPEEDS), key="F8")
 GRID_TRANSITION = Choice(
-    label="grid transition", options=tuple(Option(name, about) for name, about in GRID_DESCRIBED.items()), key="F9"
+    label="grid transition", options=tuple(Option(name, about) for name, about in GRID_DESCRIBED.items()), key="F7"
 )
 
 CHICAGO = ZoneInfo("America/Chicago")
@@ -223,11 +220,11 @@ def root(
 ) -> Div:
     """
     The deck. It starts from `start` and calls `remember` with a new checkpoint whenever the slide, the code theme,
-    the transition, its curve or speed, or the grid's transition changes, so a restart (live reload, or a crash on stage)
+    the transition, its speed, or the grid's transition changes, so a restart (live reload, or a crash on stage)
     comes back to the same slide, looking the same. The footer's clock reads the time in `timezone`, and `choose`
-    picks each move's transition while F6 has `random` picked, and `choose_grid` the grid's while F9 has.
-    F4 opens the code theme picker, F6 the slide transition picker, F7 the easing curve picker, F8 the speed
-    picker, and F9 the grid transition picker (see `picker`); the same key closes it unchanged.
+    picks each move's transition while F6 has `random` picked, and `choose_grid` the grid's while F7 has.
+    F4 opens the code theme picker, F6 the slide transition picker, F7 the grid transition picker,
+    and F8 the speed picker (see `picker`); the same key closes it unchanged.
     Not F5, which the presenting browser keeps for itself.
     """
     position, set_position = use_state(Position(index=clamp(start.slide, 0, len(slides) - 1)))
@@ -241,7 +238,6 @@ def root(
     show_size, set_show_size = use_state(False)
     code_theme, set_code_theme = use_state(start.code_theme)
     transition, set_transition = use_state(start.transition)
-    curve, set_curve = use_state(start.easing)
     speed, set_speed = use_state(start.speed)
     grid_transition, set_grid_transition = use_state(start.grid_transition)
     no_picker: Picking | None = None
@@ -256,13 +252,12 @@ def root(
                 slide=position.index,
                 code_theme=code_theme,
                 transition=transition,
-                easing=curve,
                 speed=speed,
                 grid_transition=grid_transition,
             )
         )
 
-    use_effect(checkpoint, deps=(position.index, code_theme, transition, curve, speed, grid_transition))
+    use_effect(checkpoint, deps=(position.index, code_theme, transition, speed, grid_transition))
 
     def view(at: Position, of: Mounting, is_live: bool) -> Component:
         return slide_view(slides[at.index], at.step, is_live, host, code_theme, of.focus).with_key(of.key)
@@ -274,13 +269,12 @@ def root(
         A crossing can't start until it has a picture of the screen, so `go` returns the screenshot that starts it.
         """
         set_position(moved)
-        easing = EASINGS[curve]
         pace = SPEEDS[speed]
         toward = zoom_toward(position, moved)
         set_zoom(
             None
             if toward is None
-            else grid_motion(toward, grid_transition_for(grid_transition, choose_grid), easing, SWIPE / pace)
+            else grid_motion(toward, grid_transition_for(grid_transition, choose_grid), SWIPE / pace)
         )
         if moved.selected is not None:
             # The grid replaces the stage, which would replay a transition left here when it came back.
@@ -297,7 +291,7 @@ def root(
                 return ()
             case Swiped():
                 leaving = view(position, mounting, is_live=False)
-                set_playing(Swipe(leaving=leaving, direction=direction, easing=easing, duration=SWIPE / pace))
+                set_playing(Swipe(leaving=leaving, direction=direction, duration=SWIPE / pace))
                 return ()
             case Crossed(effect=effect, duration=duration):
                 # As the live slide will draw its first frame, though with a focus handle of its own.
@@ -308,7 +302,7 @@ def root(
                     """Taken before the render that mounts the arriving slide, so that render draws the first frame."""
                     leaving = picture_of(frame.paint, area)
                     arrived = await photograph(arriving, area.width, area.height)
-                    frames = effect(leaving, arrived, direction, easing)
+                    frames = effect(leaving, arrived, direction)
                     set_playing(Crossing(frames=frames, duration=duration / pace))
 
                 return (Screenshot(handler=cross),)
@@ -330,8 +324,6 @@ def root(
         """What `choice`'s picker shows as chosen, and what choosing another calls."""
         if choice is TRANSITION:
             return transition, set_transition
-        if choice is CURVE:
-            return curve, set_curve
         if choice is PACE:
             return speed, set_speed
         if choice is GRID_TRANSITION:
@@ -353,11 +345,9 @@ def root(
             case Key.F6:
                 return toggle(TRANSITION)
             case Key.F7:
-                return toggle(CURVE)
+                return toggle(GRID_TRANSITION)
             case Key.F8:
                 return toggle(PACE)
-            case Key.F9:
-                return toggle(GRID_TRANSITION)
             case _:
                 pass
         moved = navigate(position, event.key, slides)

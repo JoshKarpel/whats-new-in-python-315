@@ -4,8 +4,8 @@ onto its arriving character, column after column in the direction the slides tra
 slide. A cell the same on both slides stays still, as a flap with nothing to change doesn't turn.
 
 Spinning cells are drawn in the colors of the character they're spinning toward (or away from, for one that ends
-empty), so each column's text is already its own color as it locks. The spinning and locking follow the eased
-progress; the characters change with the raw progress, so the board spins at a steady clip whatever the curve.
+empty), so each column's text is already its own color as it locks. The columns lock at a
+steady clip, as a board's mechanism turns them.
 """
 
 import random
@@ -22,7 +22,6 @@ from whats_new.components.crossing import SPACE
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
-from whats_new.components.easing import Easing
 from whats_new.components.swipe import Direction
 
 FACES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&*+=?@<>"
@@ -35,9 +34,9 @@ BLANK_FACE = Color.from_hex("#64748b")
 FLIPS = 40
 """How many times a spinning cell changes face over the whole transition."""
 STARTING = 0.3
-"""How much of the eased progress the columns set off spinning over, one after another."""
+"""How much of the progress the columns set off spinning over, one after another."""
 FIRST_LOCK, LAST_LOCK = 0.3, 0.95
-"""When, in the eased progress, the first column and the last lock onto the arriving slide."""
+"""When, in the progress, the first column and the last lock onto the arriving slide."""
 JITTER = 0.04
 """How far a cell's start and lock stray from its column's, so a column doesn't move as one rigid strip."""
 
@@ -64,9 +63,9 @@ def spinning_faces(before: StyledGrapheme | None, after: StyledGrapheme | None) 
     return faces(foreground, (after or SPACE).style.background)
 
 
-def slots(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -> Frames:
+def slots(leaving: Grid, arriving: Grid, direction: Direction) -> Frames:
     """
-    The departure board's frames. Each cell is its leaving character until the eased progress reaches its start,
+    The departure board's frames. Each cell is its leaving character until the progress reaches its start,
     a spinning face until it reaches its lock, and its arriving character after.
     """
     width, height = dimensions(leaving)
@@ -101,11 +100,10 @@ def slots(leaving: Grid, arriving: Grid, direction: Direction, easing: Easing) -
     strides = tuple(tuple(chance.randrange(1, len(FACES)) for _ in range(width)) for _ in range(height))
 
     def frame(t: float) -> Grid:
-        eased = easing(t)
         flip = int(t * FLIPS)
         return tuple(
             tuple(
-                before if eased <= begun else after if eased >= locked else reel[(offset + flip * stride) % len(FACES)]
+                before if t <= begun else after if t >= locked else reel[(offset + flip * stride) % len(FACES)]
                 for before, after, begun, locked, reel, offset, stride in zip(*rows, strict=True)
             )
             for rows in zip(leaving, arriving, starts, locks, reels, offsets, strides, strict=True)

@@ -802,8 +802,8 @@ Dockerfile           the image others run the deck from
     light ones would clash with the deck. The deck starts in `github-dark`.
   - F6: the slide transition picker, the same autocomplete field as F4's,
     offering `off`, `random`, or an effect, each with a line saying what it does.
-    F7 picks the easing curve the transition and the grid's transition follow,
-    F8 their speed, and F9 the grid's transition, from a picker of its own.
+    F7 picks the grid's transition, from a picker of its own,
+    and F8 the speed both play at.
     Not F5, which the browser keeps. See [Slide transitions](#slide-transitions).
   - Slide-specific keys on Tachyon slides only.
 
@@ -997,7 +997,7 @@ The reference talk, presented from the same laptop, used 90x30.
   target width and red otherwise, so a wrong width is visible before the first
   diagram. At the venue, press F2 and adjust browser zoom until it goes green.
   - The readout shows the rows too. They turn red only below the floor.
-  - F1 through F4, F6 through F9, Tab and Shift+Tab aren't among the keys the
+  - F1 through F4, F6 through F8, Tab and Shift+Tab aren't among the keys the
     browser keeps (see
     [Presenting over zellij web](#presenting-over-zellij-web)), but confirm they
     reach the deck through zellij web. `just rehearse` covers it.
@@ -1011,8 +1011,8 @@ The reference talk did this with two pieces, and the deck keeps both:
   under `src/` or `examples/` changes. `watchfiles` goes in the dev dependency group.
 - The deck writes a checkpoint to a file in the temp directory whenever the slide
   or a setting changes, and reads it at startup: the slide's index, clamped to the
-  deck's length, the theme F4 picked, the transition, curve and speed F6 through
-  F8 picked, and the grid's transition F9 picked. A restart lands on the same
+  deck's length, the theme F4 picked, the transition F6 picked, the grid's
+  transition F7 picked, and the speed F8 picked. A restart lands on the same
   slide, looking the same. Reveal steps and run output start fresh. A checkpoint
   that doesn't parse starts over from the first slide, since a deck relaunched on
   stage mustn't refuse to start.
@@ -1114,21 +1114,31 @@ half speed as the deck moves on from its first slide, a chapter each.
 
 Moving to the next or previous slide can play a transition. F6 picks which:
 `off`, `random`, which picks one afresh on every move, `swipe`,
-or one of the effects drawn from pictures, each with a line in the picker saying what it does. F7 picks the easing curve it follows, and F8 its speed,
-from `0.25x` to `2x`. The effects are an open-ended collection to try out and cut
+or one of the effects drawn from pictures,
+each with a line in the picker saying what it does.
+F8 picks its speed, from `0.25x` to `2x`. The effects are an open-ended collection to try out and cut
 down: `components/transitions.py` names each one and its duration, and each
 effect's module docstring says what it looks like.
 
-- The curves are the deck's own, a short list named for how they move: `linear`,
-  `ease-out`, `ease-in-out`, `overshoot`, `spring` and `bounce`. `overshoot` and
-  `spring` go past the end and come back, so nothing that places cells from a
-  curve clamps it: a swipe carries the slides past their place, a wipe uncovers
-  everything and covers the last of it again, and a morph's characters overshoot
-  their cells.
+- Each transition follows the easing curve that matches what its progress
+  stands for, so the curve isn't a separate choice.
+  Something moving whole eases in and out: the swipe, the cube, the curl,
+  a mask's edge in `wipe`, `iris` and `blinds`, each character's flight in
+  `morph`, and the grid's zoom.
+  Something happening at a steady rate doesn't ease, since its pace is part of
+  what it shows: typing, a sweep, a snake, a spreading wave, falling rain.
+  Nor does an effect that models its own physics (`gravity`'s fall, `shatter`'s
+  throw, `swap`'s hop, `melt`'s run), which a curve would only distort.
+  `vortex` eases in toward the plughole and out onto each place.
+- No curve goes past the end and comes back. Most effects read their progress
+  as a clock, uncovering cells or keying characters as it passes thresholds,
+  so a springy curve finishes them in the first fifth of the time and
+  one that bounces runs them backwards: a typewriter backspacing what it typed,
+  a snake reversing.
 - Only moving from one slide straight to another plays one, as in spiel: not
   opening or leaving the grid, jumping from it, or `r`. Opening and leaving the
-  grid play the grid's own transition instead, which F9 picks the same way
-  (`off`, `random`, or one by name), along the same curve at the same speed.
+  grid play the grid's own transition instead, which F7 picks the same way
+  (`off`, `random`, or one by name), at the same speed.
   See [The slide grid](#the-slide-grid).
 - `random` draws from `random.choice` by default. The root component takes a
   chooser for each picker as an argument, so a test can fix which transition plays.
@@ -1168,8 +1178,8 @@ from the two, cell by cell, for one `Canvas` drawn over the stage.
   title card's pulsing border is the exception: it pulses with the time since its
   app started, so its color can differ by a step. A headless render took 4 ms on
   this VM for most slides, and 25 ms for the slowest.
-- An effect is a pure function from the two pictures, the direction and the
-  curve to its frames, and its first frame is the leaving picture and its last the
+- An effect is a pure function from the two pictures and the direction to its
+  frames, and its first frame is the leaving picture and its last the
   arriving one, so a transition starts and ends without a jump. The arriving slide
   is mounted and live beneath the canvas throughout, so it takes the keys at once,
   and shows as itself when the canvas goes.
@@ -1191,7 +1201,7 @@ from the two, cell by cell, for one `Canvas` drawn over the stage.
   costs up to about 35 ms, once, as the key is pressed.
 - Two tests hold every effect in `TRANSITIONS` to the contract: its first and
   last frames match the pictures exactly on small pictures with two-cell-wide
-  graphemes, for every curve and direction, and in the deck, moving on with it
+  graphemes, in both directions, and in the deck, moving on with it
   lands on exactly what moving on without a transition shows.
 
 ### The slide grid
@@ -1242,15 +1252,13 @@ Design:
   mounted underneath, including a live Tachyon pane still costing frame time.
 - The Tachyon stage leaves the grid while its pane has focus: there, `d` goes to
   the profiler. Take focus back with Tab first.
-- With F9's `zoom` picked, the grid zooms. Opening, the selected thumbnail
+- With F7's `zoom` picked, the grid zooms. Opening, the selected thumbnail
   starts filling the grid and shrinks into its place while the others grow in
   around it. Leaving, by a jump or Escape, it runs backwards: the selected
   thumbnail grows back to fill the grid. Both interpolate the grid's `fr` track
   weights from the selected column and row taking everything to equal thirds, so
   the thumbnails reflow as they resize rather than scaling, as a thumbnail always
-  does. A curve that overshoots shrinks the selected thumbnail past its place
-  opening, but holds it at the grid's edges closing, since a track can't grow
-  past the grid. Tracks narrower than a border show only that border for the
+  does. Tracks narrower than a border show only that border for the
   first frame or two.
 - Only while it zooms in does the grid sit over a slide: the slide it leaves for
   mounts, and takes focus, beneath it as the zoom starts, as an arriving slide
@@ -1469,7 +1477,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   from the presenting browser:
   - every deck key arrives through the browser and zellij's locked mode,
     Escape and Enter included
-  - F1 through F4, F6 through F9, Tab and Shift+Tab reach the deck; Tab moves between a slide's
+  - F1 through F4, F6 through F8, Tab and Shift+Tab reach the deck; Tab moves between a slide's
     code and its runs, and takes the keyboard back from Tachyon's pane
   - clicking a thumbnail in the slide grid reaches the deck
   - the flamegraph URL opens from a click
