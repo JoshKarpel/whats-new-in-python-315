@@ -48,7 +48,7 @@ from whats_new.components.grid import below
 from whats_new.components.grid import grid
 from whats_new.components.picker import Choice
 from whats_new.components.picker import Option
-from whats_new.components.picker import PickerHandles
+from whats_new.components.picker import Picking
 from whats_new.components.picker import picker
 from whats_new.components.slide_body import slide_body
 from whats_new.components.stage import Playing
@@ -220,9 +220,8 @@ def root(
     curve, set_curve = use_state(start.easing)
     speed, set_speed = use_state(start.speed)
     zooms_grid, set_zooms_grid = use_state(start.zooms_grid)
-    no_picker: Choice | None = None
+    no_picker: Picking | None = None
     picking, set_picking = use_state(no_picker)
-    picker_handles, _ = use_state(PickerHandles.fresh)
     stage_handle, _ = use_state(ElementHandle)
     screen = use_rects().border
     stage_area = use_rects(stage_handle).content
@@ -294,11 +293,12 @@ def root(
         go(Position(index=index))
 
     def toggle(choice: Choice) -> InputResponse:
-        if picking is choice:
+        if picking is not None and picking.choice is choice:
             set_picking(None)
             return (FocusOn(mounting.focus),)
-        set_picking(choice)
-        return picker_handles.opened()
+        opening = Picking(choice)
+        set_picking(opening)
+        return opening.opened()
 
     def chosen(choice: Choice) -> tuple[str, Callable[[str], None]]:
         """What `choice`'s picker shows as chosen, and what choosing another calls."""
@@ -364,12 +364,12 @@ def root(
             *(
                 (
                     picker(
-                        picking,
-                        *chosen(picking),
+                        picking.choice,
+                        *chosen(picking.choice),
                         lambda: set_picking(None),
                         FocusOn(mounting.focus),
-                        picker_handles,
-                    ).with_key(f"picker-{picking.key}"),
+                        picking.handles,
+                    ).with_key(picking.key),
                 )
                 if picking is not None
                 else ()

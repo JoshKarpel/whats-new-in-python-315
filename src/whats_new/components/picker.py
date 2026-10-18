@@ -8,6 +8,7 @@ option, and Escape closes it unchanged. Either way, focus goes back to the slide
 import glob
 from collections.abc import Callable
 from dataclasses import dataclass
+from dataclasses import field
 from dataclasses import replace
 from fnmatch import fnmatchcase
 from functools import partial
@@ -112,8 +113,8 @@ HINT = "↑ ↓ · Enter · Esc closes"
 @dataclass(frozen=True, slots=True, eq=False)
 class PickerHandles:
     """
-    A picker's handles, which whatever opens it owns, so the key that opens it can act on it in the frame it opens:
-    its field's focus handle, and the element handle of its highlighted option.
+    A picker's handles, which whatever opens it holds in its `Picking`, so the key that opens it can act on it
+    in the frame it opens: its field's focus handle, and the element handle of its highlighted option.
     """
 
     focus: FocusHandle
@@ -121,8 +122,24 @@ class PickerHandles:
 
     @classmethod
     def fresh(cls) -> PickerHandles:
-        """New handles, naming no element until a picker is given them: `use_state(PickerHandles.fresh)`."""
+        """New handles, naming no element until a picker is given them."""
         return cls(focus=FocusHandle(), highlighted=ElementHandle())
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class Picking:
+    """
+    One opening of a picker: what it offers, and handles of its own. A key that opens another picker while one is
+    open focuses the new one in the frame the open one unmounts in, so a handle the two shared would still name
+    the open one, and focus would leave with it.
+    """
+
+    choice: Choice
+    handles: PickerHandles = field(default_factory=PickerHandles.fresh)
+
+    @property
+    def key(self) -> str:
+        return f"picker-{self.choice.key}"
 
     def opened(self) -> tuple[AnyControl, ...]:
         """
@@ -130,7 +147,7 @@ class PickerHandles:
         the slide, which always has it, and its current option scrolled into view, which can be past the rows
         the list shows. Returned with the state change that opens it, both apply to the frame it opens in.
         """
-        return FocusOn(self.focus), ScrollIntoView(self.highlighted, block="nearest")
+        return FocusOn(self.handles.focus), ScrollIntoView(self.handles.highlighted, block="nearest")
 
 
 @component
@@ -146,7 +163,8 @@ def picker(
     Opens with the field empty and `current`, the name of one of `choice`'s options, marked and highlighted,
     or the first option highlighted if there's no `current`. Choosing an option calls `choose` with its name,
     and choosing or Escape calls `close` and does `leave`, which gives focus back to the slide.
-    The key that opens it returns `handles.opened()`, which focuses it and shows its current option.
+    `handles` are a `Picking`'s, and the key that opens it returns that `Picking.opened()`,
+    which focuses it and shows its current option.
     """
     names = choice.names
     completion, set_completion = use_state(

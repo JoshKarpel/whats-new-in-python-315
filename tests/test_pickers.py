@@ -205,6 +205,34 @@ async def test_each_function_key_opens_its_own_picker_in_place_of_the_other(host
     assert all(option in text for option in OFFERED[:SHOWN_OPTIONS])
 
 
+async def test_a_picker_opened_in_place_of_another_takes_the_keys(host: Host) -> None:
+    checkpoints: list[Checkpoint] = []
+    frames: list[Frame] = []
+
+    async def settle(frame: Frame) -> None:
+        await asyncio.sleep(0.05)
+
+    autopilot: tuple[AnyEvent | AnyControl, ...] = (
+        KeyPressed(key=Key.F4),
+        KeyPressed(key=Key.F6),
+        KeyPressed(key=Key.Down),
+        KeyPressed(key=Key.Enter),
+        Screenshot(handler=frames.append),
+        Screenshot(handler=settle),
+        Quit(),
+    )
+    await app(
+        root(SLIDES, host, Checkpoint(slide=0), checkpoints.append),
+        headless=True,
+        dimensions=PRESENTING.dimensions,
+        autopilot=autopilot,
+        clock=EXPORT_CLOCK,
+    )
+
+    assert "slide transition" not in frames[0].text(ansi=False)
+    assert checkpoints[-1] == Checkpoint(slide=0, transition=OFFERED[1])
+
+
 @pytest.mark.parametrize(
     "choice", [THEME, TRANSITION, CURVE, PACE, MODE_CHOICE, WORKLOAD_CHOICE], ids=lambda choice: choice.label
 )
