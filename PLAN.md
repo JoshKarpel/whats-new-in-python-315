@@ -1145,8 +1145,12 @@ effect's module docstring says what it looks like.
   grid play the grid's own transition instead, which F7 picks the same way
   (`off`, `random`, or one by name), at the same speed.
   See [The slide grid](#the-slide-grid).
-- `random` draws from `random.choice` by default. The root component takes a
-  chooser for each picker as an argument, so a test can fix which transition plays.
+- On stage, `random` (and each of F7's section bars) deals its transitions
+  like a shuffled deck (`Shuffled`): every one plays once before any plays
+  again, and none plays twice in a row across a reshuffle, so a run of moves
+  never repeats the way independent draws do.
+  The root component takes a chooser for each picker as an argument,
+  defaulting to `random.choice`, so a test can fix which transition plays.
 - Everything is `off` by default, so the export doesn't change. The checkpoint
   remembers each choice, as it does the code theme.
 - A transition ticks at the deck's 20 frames a second. Whether that reads as

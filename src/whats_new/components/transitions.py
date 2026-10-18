@@ -6,8 +6,10 @@ drawn from pictures.
 Every one plays at whichever speed F8 picked, following the curve that suits it (see `easing`).
 """
 
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
+from dataclasses import field
 from datetime import timedelta
 
 from whats_new.components.crossing import Effect
@@ -106,6 +108,34 @@ OFFERED = tuple(DESCRIBED)
 
 type Choose = Callable[[tuple[Transition, ...]], Transition]
 """How `random` picks one of the transitions, such as `random.choice`."""
+
+
+@dataclass(frozen=True, slots=True)
+class Shuffled[T]:
+    """
+    Picks the way a shuffled deck deals rather than as `random.choice` does: every option once, in a random order,
+    before any comes round again, and never the same one twice in a row, even across a reshuffle.
+    Each tuple of options it's offered gets a deck of its own, so F7's `random` and each group's bar cycle separately.
+    """
+
+    chance: random.Random = field(default_factory=random.Random)
+    decks: dict[tuple[T, ...], list[T]] = field(default_factory=dict)
+
+    def __call__(self, options: tuple[T, ...]) -> T:
+        deck = self.decks.get(options) or self.shuffled(options, after=None)
+        dealt = deck.pop()
+        # Reshuffled as soon as it runs out, while what it dealt last is still at hand to keep off the top.
+        self.decks[options] = deck or self.shuffled(options, after=dealt)
+        return dealt
+
+    def shuffled(self, options: tuple[T, ...], after: T | None) -> list[T]:
+        """`options` shuffled into a deck dealt from the end, which doesn't deal `after` first."""
+        deck = list(options)
+        self.chance.shuffle(deck)
+        if len(deck) > 1 and deck[-1] == after:
+            other = self.chance.randrange(len(deck) - 1)
+            deck[other], deck[-1] = deck[-1], deck[other]
+        return deck
 
 
 def transition_for(name: str, choose: Choose) -> Transition | None:

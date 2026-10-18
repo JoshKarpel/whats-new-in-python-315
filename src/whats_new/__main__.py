@@ -20,6 +20,9 @@ from whats_new import recording
 from whats_new import showcase
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.transitions import TRANSITIONS
+from whats_new.components.transitions import GridTransition
+from whats_new.components.transitions import Shuffled
+from whats_new.components.transitions import Transition
 from whats_new.deck import SLIDES
 from whats_new.host import EXPORT_FLAMEGRAPH_SITE
 from whats_new.host import EXPORT_PID
@@ -122,7 +125,14 @@ def main() -> None:
                 )
                 asyncio.run(
                     app(
-                        root(SLIDES, host, load_checkpoint(), save_checkpoint),
+                        root(
+                            SLIDES,
+                            host,
+                            load_checkpoint(),
+                            save_checkpoint,
+                            choose=Shuffled[Transition](),
+                            choose_grid=Shuffled[GridTransition](),
+                        ),
                         title="What's New in Python 3.15",
                     )
                 )
