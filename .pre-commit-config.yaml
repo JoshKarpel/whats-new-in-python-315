@@ -10,7 +10,7 @@ repos:
         language: unsupported
         # The export is one page of SVGs, and the recordings every frame of the deck presented and of every transition,
         # which all outgrow the default limit as the deck grows.
-        exclude: ^(slides\.(html|cast)|transitions\.cast)$
+        exclude: ^(slides\.(html|cast)|(grid-)?transitions\.cast)$
       - id: check-case-conflict
         name: check for case conflicts
         entry: uv run --frozen check-case-conflict
@@ -118,6 +118,12 @@ repos:
       - id: showcase-transitions
         name: record transitions.cast
         entry: uv run --frozen python -m whats_new showcase
+        language: unsupported
+        files: ^(src/|examples/|uv\.lock$)
+        pass_filenames: false
+      - id: showcase-grid-transitions
+        name: record grid-transitions.cast
+        entry: uv run --frozen python -m whats_new grid-showcase
         language: unsupported
         files: ^(src/|examples/|uv\.lock$)
         pass_filenames: false

@@ -49,6 +49,10 @@ record:
 showcase:
     uv run --frozen python -m whats_new showcase
 
+[doc("Record grid-transitions.cast: every one of the grid's own transitions F7 offers, played one after another")]
+grid-showcase:
+    uv run --frozen python -m whats_new grid-showcase
+
 [doc('Upload slides.cast to asciinema, passing any arguments on to asciinema upload')]
 upload *ARGS:
     asciinema upload slides.cast {{ ARGS }}

@@ -19,10 +19,13 @@ which knows where each thumbnail is, so it can move the slide into its own.
 from asyncio import create_task
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC
+from datetime import datetime
 from datetime import timedelta
 from functools import cache
 
 from counterweight.app import app
+from counterweight.clock import FrozenClock
 from counterweight.components import Component
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
@@ -36,6 +39,9 @@ from counterweight.paint import Paint
 from counterweight.styles import CellStyle
 
 from whats_new.components.swipe import Direction
+
+PHOTOGRAPHED = FrozenClock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))
+"""The clock `photograph` renders on, which never moves, since it takes only the first frame."""
 
 type Grid = tuple[tuple[StyledGrapheme | None, ...], ...]
 """
@@ -180,10 +186,18 @@ async def photograph(slide: Component, width: int, height: int) -> Grid:
     """
     The first frame `slide` draws, rendered headless at `width` by `height`. In a task of its own,
     so the app it runs sets its context variables in a copy of the caller's context, rather than in the deck's.
+    On a frozen clock, so a title card's pulse is where it starts rather than wherever the render's own few
+    milliseconds took it, which would make the showcases record differently every time.
     """
     frames: list[Frame] = []
     await create_task(
-        app(slide, headless=True, dimensions=(width, height), autopilot=(Screenshot(handler=frames.append), Quit()))
+        app(
+            slide,
+            headless=True,
+            dimensions=(width, height),
+            autopilot=(Screenshot(handler=frames.append), Quit()),
+            clock=PHOTOGRAPHED,
+        )
     )
     (frame,) = frames
     return picture_of(frame.paint, frame.paint.bounds)

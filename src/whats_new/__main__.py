@@ -1,6 +1,7 @@
 """
 The deck's entry point: `python -m whats_new` presents it, `python -m whats_new export` writes `slides.html`,
-`python -m whats_new record` writes `slides.cast`, and `python -m whats_new showcase` writes `transitions.cast`.
+`python -m whats_new record` writes `slides.cast`, `python -m whats_new showcase` writes `transitions.cast`,
+and `python -m whats_new grid-showcase` writes `grid-transitions.cast`.
 
 Interpreters are resolved here, once, before anything draws, so a missing one fails at launch, not on stage.
 """
@@ -9,6 +10,7 @@ import argparse
 import asyncio
 import os
 import sys
+from collections.abc import Coroutine
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from tempfile import gettempdir
@@ -34,6 +36,9 @@ from whats_new.runs import ROOT
 from whats_new.runs import Interpreters
 from whats_new.runs import MissingInterpreter
 from whats_new.runs import available_capabilities
+
+SHOWCASES = {"showcase": "transitions.cast", "grid-showcase": "grid-transitions.cast"}
+"""Which tracked recording each showcase command writes, under the repository's root."""
 
 CHECKPOINT_FILE = Path(gettempdir()) / "whats-new-in-python-315-checkpoint"
 """The deck's checkpoint, so a restart (live reload, or a crash on stage) lands on the same slide, in the same theme."""
@@ -66,6 +71,14 @@ def main() -> None:
     showcase_parser = commands.add_parser("showcase", help="record every slide transition, one after another")
     showcase_parser.add_argument(
         "--output", type=Path, help="write the recording here instead of the repository's tracked transitions.cast"
+    )
+    grid_showcase_parser = commands.add_parser(
+        "grid-showcase", help="record every one of the grid's transitions, one after another"
+    )
+    grid_showcase_parser.add_argument(
+        "--output",
+        type=Path,
+        help="write the recording here instead of the repository's tracked grid-transitions.cast",
     )
     arguments = parser.parse_args()
 
@@ -101,21 +114,29 @@ def main() -> None:
                     examples_copy=Path(examples_copy),
                 )
                 asyncio.run(recording.record(SLIDES, host, available_capabilities(), arguments.output))
-            case "showcase":
+            case "showcase" | "grid-showcase" as command:
                 host = Host(
                     interpreters=interpreters,
                     flamegraph=EXPORT_FLAMEGRAPH_SITE,
                     pid=EXPORT_PID,
                     examples_copy=Path(examples_copy),
                 )
-                transitions = tuple(TRANSITIONS.items())
+
+                def record_to(path: Path) -> Coroutine[None, None, None]:
+                    if command == "showcase":
+                        return showcase.record_showcase(SLIDES, host, tuple(TRANSITIONS.items()), path)
+                    return showcase.record_grid_showcase(
+                        SLIDES, host, tuple(showcase.GRID_EFFECTS.transitions.items()), path
+                    )
+
                 if arguments.output is not None:
-                    asyncio.run(showcase.record_showcase(SLIDES, host, transitions, arguments.output))
+                    asyncio.run(record_to(arguments.output))
                     return
+                tracked = ROOT / SHOWCASES[command]
                 with TemporaryDirectory(prefix="whats-new-showcase-") as scratch:
-                    recorded = Path(scratch) / "transitions.cast"
-                    asyncio.run(showcase.record_showcase(SLIDES, host, transitions, recorded))
-                    export.write_tracked(ROOT / "transitions.cast", recorded.read_text())
+                    recorded = Path(scratch) / tracked.name
+                    asyncio.run(record_to(recorded))
+                    export.write_tracked(tracked, recorded.read_text())
             case "present" | None:
                 host = Host(
                     interpreters=interpreters,

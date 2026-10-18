@@ -7,7 +7,8 @@ and the code on screen is the code that runs, live, on 3.15 and on 3.14.
 [`slides.html`](slides.html) is a static copy of every slide,
 and [`slides.cast`](slides.cast) is a recording of the deck presented, every demo run,
 which [asciinema](https://asciinema.org/) plays with `asciinema play slides.cast`.
-[`transitions.cast`](transitions.cast) shows off every slide transition the deck can play, one after another.
+[`transitions.cast`](transitions.cast) shows off every slide transition the deck can play, one after another,
+and [`grid-transitions.cast`](grid-transitions.cast) every way the slide grid can open and close.
 
 ## Running it yourself
 

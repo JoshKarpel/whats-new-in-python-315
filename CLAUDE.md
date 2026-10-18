@@ -25,8 +25,9 @@ Each module's docstring says what role it plays; read those before adding a file
   when the file changes, so include the regenerated `slides.html` with the change rather than editing it.
 - `just record` regenerates `slides.cast`, the deck presented by an autopilot with every run and slide `tour`.
   It takes minutes of real time and differs on every run, so no hook regenerates it.
-- `just showcase` regenerates `transitions.cast`, every slide transition played one after another.
-  It waits for nothing real, so it comes out the same every time, and a pre-commit hook regenerates it as the export's does.
+- `just showcase` regenerates `transitions.cast`, every slide transition played one after another,
+  and `just grid-showcase` regenerates `grid-transitions.cast`, every one of the grid's own transitions.
+  They wait for nothing real, so they come out the same every time, and pre-commit hooks regenerate them as the export's does.
 - `pre-commit-autofix` (or `just pre-commit`) runs ruff and the other hooks.
 
 counterweight comes from git `main`, pinned by `uv.lock`, and moves fast.

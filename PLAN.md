@@ -1115,6 +1115,16 @@ half speed as the deck moves on from its first slide, a chapter each.
   clock, one animation frame at a time. So it records the same every time, in
   about three seconds, and a pre-commit hook regenerates it as the export's does.
 
+`grid-transitions.cast` is the grid's showcase, built the same way: each of the
+grid's own transitions F7 offers, a chapter each, played at half speed opening
+the grid and again closing it onto the next slide.
+`just grid-showcase` writes it.
+
+- It starts with the bar of the grid's own transitions picked, the option F7 lists
+  just ahead of them, so walking down the list reaches each in turn.
+- It leaves out F6's effects that F7 also offers, since `transitions.cast`
+  already shows what each of those looks like.
+
 ### Slide transitions
 
 Moving to the next or previous slide can play a transition. F6 picks which:
