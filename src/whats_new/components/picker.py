@@ -37,13 +37,12 @@ from counterweight.headless import use_text_input
 from counterweight.hooks import ElementHandle
 from counterweight.hooks import use_state
 from counterweight.keys import Key
-from counterweight.styles import CellStyle
 from counterweight.styles import Color
 from counterweight.styles import Style
 from counterweight.styles.utilities import *
 
-from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
+from whats_new.components.look import highlight
 
 SHOWN_OPTIONS = 10
 """How many options the list shows at once; it scrolls the rest."""
@@ -52,7 +51,7 @@ WIDTH = 28
 PICKER_BACKGROUND = Color.from_hex("#0f172a")
 """Opaque, so the slide under the picker doesn't show through it."""
 CURSOR = (text_color("slate", 900) | text_bg("sky", 300)).text_style
-CURRENT = Style(text_style=CellStyle(foreground=PYTHON_YELLOW, bold=True))
+CURRENT = highlight
 
 
 def matches(text: str, options: tuple[str, ...]) -> tuple[str, ...]:
@@ -321,8 +320,8 @@ def bar_row(section: Section, style: Style, width: int, is_current: bool) -> tup
     """
     text = f"{'▸' if is_current else '─'}{section.bar}"
     return (
-        Chunk(content=text, style=(style | Style(text_style=CellStyle(bold=True))).text_style),
-        Chunk(content="─" * (width - len(text)), style=(style | dim).text_style),
+        Chunk(content=text, style=style | text_bold),
+        Chunk(content="─" * (width - len(text)), style=style | dim),
     )
 
 
@@ -331,7 +330,7 @@ def option_row(name: str, description: str | None, style: Style, is_current: boo
     An option's row: its name, marked if it's the current one, and, in a described picker, its description under it,
     blank if it has none, so every option takes the same two lines. A chunk ignores its text's style, so each gets it.
     """
-    line = Chunk(content=f"{'▸' if is_current else ' '} {name}", style=style.text_style)
+    line = Chunk(content=f"{'▸' if is_current else ' '} {name}", style=style)
     if description is None:
         return (line,)
-    return (line, Chunk.newline(), Chunk(content=f"  {description}", style=(style | dim).text_style))
+    return (line, Chunk.newline(), Chunk(content=f"  {description}", style=style | dim))

@@ -11,7 +11,6 @@ from counterweight.gradients import ConicGradient
 from counterweight.gradients import LinearGradient
 from counterweight.gradients import conic_gradient
 from counterweight.gradients import linear_gradient
-from counterweight.styles import CellStyle
 from counterweight.styles import Color
 from counterweight.styles import Style
 from counterweight.styles.utilities import *
@@ -37,11 +36,20 @@ CREDIT_PERIOD = SPARK_STEP * len(SPARK_CYCLE) * 2
 CLAUDE_MASCOT = " ▐▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
 """Claude Code's mascot, as its welcome screen draws it."""
 
-bold = Style(text_style=CellStyle(bold=True))
+text_python_blue = text_color(PYTHON_BLUE)
+text_python_yellow = text_color(PYTHON_YELLOW)
+text_claude_orange = text_color(CLAUDE_ORANGE)
 dim = text_color("slate", 400)
 emphasis = text_color("amber", 300)
-heading_style = bold | Style(text_style=CellStyle(foreground=PYTHON_YELLOW))
-code_border = border | border_heavy | Style(border_style=CellStyle(foreground=PYTHON_BLUE))
+highlight = text_bold | text_python_yellow
+"""What stands out: headings, emphasized words, the current choice."""
+heading_style = highlight
+code_border = border | border_heavy | border_color(PYTHON_BLUE)
+
+
+def linked(url: str) -> Style:
+    """Blue and underlined, as an OSC 8 hyperlink to `url`, for a terminal that opens links."""
+    return text_python_blue | text_underline | text_link(url)
 
 
 SHADOW = linear_gradient((gray_700, 0.5), (gray_400, 1), to="bottom right")
@@ -126,15 +134,13 @@ def title_card(title: str, *subtitles: str, is_live: bool) -> Div:
             children=(
                 Text(
                     content=title,
-                    style=bold | text_gradient(light_across(len(title), shine, SHINE_WIDTH, PYTHON_YELLOW, SHINE)),
+                    style=text_bold | text_gradient(light_across(len(title), shine, SHINE_WIDTH, PYTHON_YELLOW, SHINE)),
                 ),
                 *(
                     (
                         Text(
                             content="\n".join(subtitles),
-                            style=Style(text_style=CellStyle(foreground=PYTHON_BLUE))
-                            | text_justify_center
-                            | align_self_stretch,
+                            style=text_python_blue | text_justify_center | align_self_stretch,
                         ),
                     )
                     if subtitles
@@ -156,7 +162,7 @@ def bullets(*items: str | Chunk | tuple[Chunk, ...]) -> Text:
     for item in items:
         if chunks:
             chunks.append(Chunk.newline())
-        chunks.append(Chunk(content="• ", style=CellStyle(foreground=PYTHON_BLUE)))
+        chunks.append(Chunk(content="• ", style=text_python_blue))
         match item:
             case str():
                 chunks.append(Chunk(content=item))
@@ -169,7 +175,7 @@ def bullets(*items: str | Chunk | tuple[Chunk, ...]) -> Text:
 
 def code(text: str) -> Chunk:
     """Inline code in prose."""
-    return Chunk(content=text, style=CellStyle(foreground=Color.from_hex("#79c0ff")))
+    return Chunk(content=text, style=text_color(Color.from_hex("#79c0ff")))
 
 
 def plain(text: str) -> Chunk:
@@ -177,15 +183,12 @@ def plain(text: str) -> Chunk:
 
 
 def em(text: str) -> Chunk:
-    return Chunk(content=text, style=CellStyle(foreground=PYTHON_YELLOW, bold=True))
+    return Chunk(content=text, style=highlight)
 
 
 def link(url: str) -> Chunk:
-    """`url` without its scheme, as an OSC 8 hyperlink to it, for a terminal that opens links."""
-    return Chunk(
-        content=url.removeprefix("https://"),
-        style=CellStyle(foreground=PYTHON_BLUE, underline=True, link=url),
-    )
+    """`url` without its scheme, linked to it."""
+    return Chunk(content=url.removeprefix("https://"), style=linked(url))
 
 
 @component
@@ -205,7 +208,7 @@ def made_with_claude(is_live: bool) -> Div:
     return Div(
         style=row | shrink(0),
         children=(
-            Text(content=f"{spark} ", style=bold | Style(text_style=CellStyle(foreground=CLAUDE_ORANGE))),
+            Text(content=f"{spark} ", style=text_bold | text_claude_orange),
             Text(
                 content=CREDIT,
                 style=text_gradient(light_across(len(CREDIT), center, SHIMMER_WIDTH, CLAUDE_ORANGE, CLAUDE_SHIMMER)),
@@ -215,6 +218,4 @@ def made_with_claude(is_live: bool) -> Div:
 
 
 def claude_mascot() -> Text:
-    return Text(
-        content=CLAUDE_MASCOT, style=Style(text_style=CellStyle(foreground=CLAUDE_ORANGE)) | text_wrap_none | shrink(0)
-    )
+    return Text(content=CLAUDE_MASCOT, style=text_claude_orange | text_wrap_none | shrink(0))

@@ -59,7 +59,7 @@ CODE_THEMES = tuple(sorted(theme for theme in get_all_styles() if has_dark_backg
 
 CURSOR = TextFieldStyles().cursor
 
-EDITING_BORDER = Style(border_style=CellStyle(foreground=PYTHON_YELLOW))
+EDITING_BORDER = border_color(PYTHON_YELLOW)
 INVALID_BORDER = border_color("red", 400)
 
 UNWRAPPED = 10_000

@@ -33,15 +33,14 @@ from counterweight.hooks import use_focus
 from counterweight.hooks import use_rects
 from counterweight.hooks import use_state
 from counterweight.keys import Key
-from counterweight.styles import CellStyle
 from counterweight.styles import Color
 from counterweight.styles.utilities import *
 from counterweight.widgets import ScrollAreaStyles
 from counterweight.widgets import scroll_area
 
 from whats_new.components.animation import use_loop
-from whats_new.components.look import PYTHON_BLUE
-from whats_new.components.look import PYTHON_YELLOW
+from whats_new.components.look import text_python_blue
+from whats_new.components.look import text_python_yellow
 from whats_new.runs import Run
 from whats_new.runs import copy_examples
 from whats_new.runs import rehomed
@@ -188,8 +187,9 @@ def orbiting(phase: float) -> ConicGradient:
 
 def run_name(index: int, run: Run, is_shown: bool) -> tuple[Chunk, ...]:
     """A run's key and label in the line above the box, bright for the run the box shows and dim for the rest."""
+    intensity = text_bold | (text_not_dim if is_shown else text_dim)
     return (
-        Chunk(content=f" {index + 1} ", style=CellStyle(foreground=PYTHON_YELLOW, bold=True, dim=not is_shown)),
-        Chunk(content=run.label, style=CellStyle(foreground=PYTHON_BLUE, bold=True, dim=not is_shown)),
+        Chunk(content=f" {index + 1} ", style=intensity | text_python_yellow),
+        Chunk(content=run.label, style=intensity | text_python_blue),
         Chunk(content="  "),
     )

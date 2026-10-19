@@ -29,16 +29,15 @@ from counterweight.focus import FocusHandle
 from counterweight.geometry import Region
 from counterweight.handlers import on_click
 from counterweight.hooks import use_state
-from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
 from whats_new.components.animation import use_loop
 from whats_new.components.animation import use_progress_since
 from whats_new.components.crossing import Tiles
 from whats_new.components.easing import ease_in_out
-from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import TURN_PERIOD
 from whats_new.components.look import dim
+from whats_new.components.look import highlight
 from whats_new.components.look import turning_edge
 from whats_new.components.slide_body import slide_body
 from whats_new.components.swipe import SWIPE
@@ -240,8 +239,8 @@ def grid(
         children=(
             Text(
                 content=(
-                    Chunk(content=slides[section.start].title, style=CellStyle(foreground=PYTHON_YELLOW, bold=True)),
-                    Chunk(content=f"  section {cell.section + 1} of {len(deck_sections)}", style=CellStyle(dim=True)),
+                    Chunk(content=slides[section.start].title, style=highlight),
+                    Chunk(content=f"  section {cell.section + 1} of {len(deck_sections)}", style=text_dim),
                 ),
                 style=pad_x(1) | shrink(0),
             ),

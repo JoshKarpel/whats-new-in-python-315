@@ -44,12 +44,12 @@ from counterweight.hooks import use_rects
 from counterweight.hooks import use_ref
 from counterweight.hooks import use_state
 from counterweight.keys import Key
-from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 from counterweight.widgets import terminal
 
-from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import dim
+from whats_new.components.look import linked
+from whats_new.components.look import text_python_blue
 from whats_new.components.picker import Choice
 from whats_new.components.picker import Option
 from whats_new.components.picker import Picking
@@ -247,7 +247,7 @@ def tachyon_stage(props: SlideProps) -> Div:
             Text(
                 content=(
                     Chunk(content="flamegraph: "),
-                    Chunk(content=url, style=CellStyle(foreground=PYTHON_BLUE, underline=True, link=url)),
+                    Chunk(content=url, style=linked(url)),
                 ),
             )
         )
@@ -275,13 +275,12 @@ def current_choice(choice: Choice, mode: Mode, workload: Workload | None) -> str
 
 def strip(mode: str, running: str | None) -> Text:
     """The profiler's mode and what's running, on one line, centered over the pane."""
-    value = CellStyle(foreground=PYTHON_BLUE)
     return Text(
         content=(
             Chunk(content="mode: "),
-            Chunk(content=mode, style=value),
+            Chunk(content=mode, style=text_python_blue),
             Chunk(content=" · running: "),
-            Chunk(content="idle" if running is None else running, style=value),
+            Chunk(content="idle" if running is None else running, style=text_python_blue),
         ),
         style=shrink(0) | text_wrap_none | text_justify_center,
     )

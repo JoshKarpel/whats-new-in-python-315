@@ -14,7 +14,6 @@ from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
-from counterweight.styles import Style
 from counterweight.styles.utilities import *
 
 from whats_new.diagrams.draw import CROSSED
@@ -34,7 +33,7 @@ STEPS = 5
 ABSTRACT_KEY = CellStyle(foreground=Color.from_hex("#94a3b8"))
 CONCRETE_KEY = CellStyle(foreground=Color.from_hex("#cbd5e1"))
 """The key's swatches, in the colors of the boxes they stand for."""
-ABSTRACT = border_lightrounded | border_color("slate", 400) | Style(text_style=CellStyle(italic=True))
+ABSTRACT = border_lightrounded | border_color("slate", 400) | text_italic
 
 # The boxes' left edges. dict sits under MutableMapping, and frozendict straight under Mapping, level with dict,
 # which leaves room between the two for the crossed-out arrows.

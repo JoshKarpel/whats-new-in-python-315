@@ -11,13 +11,13 @@ from counterweight.gradients import LinearGradient
 from counterweight.gradients import linear_gradient
 from counterweight.gradients import ramp
 from counterweight.hooks import use_clock
-from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
 from whats_new.components.look import heading_style
+from whats_new.components.look import linked
 from whats_new.size import PRESENTING
 from whats_new.slides import pep_url
 
@@ -42,7 +42,7 @@ def heading(title: str, peps: tuple[int, ...]) -> Text:
         links.append(
             Chunk(
                 content=f"PEP {number}",
-                style=CellStyle(foreground=PYTHON_BLUE, bold=True, underline=True, link=pep_url(number)),
+                style=text_bold | linked(pep_url(number)),
             )
         )
     prefix = (*links, Chunk(content=": ")) if links else ()
@@ -78,16 +78,14 @@ def footer(
                 content=(
                     Chunk(
                         content=f"{columns}",
-                        style=CellStyle(
-                            foreground=COLOR_OK if PRESENTING.fits_width(columns) else COLOR_BAD,
-                        ),
+                        style=text_color(COLOR_OK if PRESENTING.fits_width(columns) else COLOR_BAD),
                     ),
                     Chunk(content="x"),
                     Chunk(
                         content=f"{rows}",
-                        style=CellStyle(foreground=COLOR_OK if PRESENTING.fits_height(rows) else COLOR_BAD),
+                        style=text_color(COLOR_OK if PRESENTING.fits_height(rows) else COLOR_BAD),
                     ),
-                    Chunk(content=f" (want {PRESENTING.columns}x{PRESENTING.rows})", style=CellStyle(dim=True)),
+                    Chunk(content=f" (want {PRESENTING.columns}x{PRESENTING.rows})", style=text_dim),
                 ),
             )
         )
