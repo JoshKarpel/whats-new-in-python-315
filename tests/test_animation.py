@@ -20,18 +20,21 @@ from counterweight.styles import Color
 from counterweight.styles.utilities import *
 
 from whats_new.components.animation import FRAME
-from whats_new.components.look import CARD_EDGE
-from whats_new.components.look import PULSE_PERIOD
+from whats_new.components.grid import thumbnail
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import SHINE_PERIOD
 from whats_new.components.look import SHINE_SWEEP
 from whats_new.components.look import SPARK_STEP
+from whats_new.components.look import TURN_PERIOD
 from whats_new.components.look import made_with_claude
-from whats_new.components.look import pulse
 from whats_new.components.look import title_card
+from whats_new.deck import SLIDES
 from whats_new.diagrams import task_group
 from whats_new.export import EXPORT_CLOCK
+from whats_new.host import Host
+from whats_new.sections.performance import STREAK_PERIOD
+from whats_new.sections.performance import streak
 from whats_new.size import PRESENTING
 
 FINISHED = "✗ cancelled"
@@ -111,22 +114,46 @@ def rgb(color: Color) -> str:
     return f"{color.red};{color.green};{color.blue}"
 
 
+BORDER = "━┃┏┓┗┛"
+TYPING_WIDTH = len("┏" + " " * 4 + "Typing" + " " * 4 + "┓")
+"""How many of a "Typing" card's border cells are on its top row, and on its bottom one."""
+
+
 @pytest.mark.parametrize("is_live", [True, False], ids=["live", "a thumbnail"])
-async def test_a_title_cards_border_pulses(is_live: bool) -> None:
+async def test_a_title_cards_border_turns(is_live: bool) -> None:
     card = title_card("Typing", is_live=is_live)
 
-    assert await card_colors(card, PULSE_PERIOD / 8, "━┃┏┓┗┛") != await card_colors(card, PULSE_PERIOD / 4, "━┃┏┓┗┛")
+    assert await card_colors(card, TURN_PERIOD / 8, BORDER) != await card_colors(card, TURN_PERIOD / 4, BORDER)
 
 
-async def test_a_title_card_mounted_late_starts_its_pulse_at_rest() -> None:
-    by = PULSE_PERIOD / 4
+async def test_a_title_card_mounted_late_starts_its_turn_from_the_start() -> None:
+    by = TURN_PERIOD / 4
 
     @component
     def late() -> Div:
         tick = use_clock(FRAME)
         return Div(style=row | full, children=(title_card("Typing", is_live=True),) if tick.since_start >= by else ())
 
-    assert set(await card_colors(late(), by, "━┃┏┓┗┛")) == {rgb(CARD_EDGE)}
+    assert await card_colors(late(), by, BORDER) == await card_colors(
+        title_card("Typing", is_live=True), timedelta(), BORDER
+    )
+
+
+def near(color: str, expected: Color) -> bool:
+    """Whether `color`, as an ANSI truecolor escape spells it, is `expected`, give or take a little per channel."""
+    return all(abs(int(channel) - other) <= 8 for channel, other in zip(color.split(";"), expected, strict=True))
+
+
+@pytest.mark.parametrize(
+    ("by", "top", "bottom"),
+    [(timedelta(), PYTHON_BLUE, PYTHON_YELLOW), (TURN_PERIOD / 2, PYTHON_YELLOW, PYTHON_BLUE)],
+    ids=["at the start", "half a turn on"],
+)
+async def test_a_title_cards_border_turns_blue_and_yellow_around_it(by: timedelta, top: Color, bottom: Color) -> None:
+    colors = await card_colors(title_card("Typing", is_live=True), by, BORDER)
+
+    assert near(colors[TYPING_WIDTH // 2], top)
+    assert near(colors[-TYPING_WIDTH // 2], bottom)
 
 
 @pytest.mark.parametrize(("is_live", "is_shining"), [(True, True), (False, False)], ids=["live", "a thumbnail"])
@@ -136,13 +163,36 @@ async def test_a_shine_crosses_the_title_only_while_live(is_live: bool, is_shini
     assert any(color != rgb(PYTHON_YELLOW) for color in title) == is_shining
 
 
-@pytest.mark.parametrize(
-    ("phase", "expected"),
-    [(0.0, CARD_EDGE), (0.25, PYTHON_BLUE), (0.5, CARD_EDGE), (0.75, PYTHON_YELLOW)],
-    ids=["slate at rest", "out to blue", "back through slate", "out to yellow"],
-)
-def test_the_pulse_swings_between_blue_and_yellow_through_slate(phase: float, expected: Color) -> None:
-    # Within a unit per channel: sin(pi) is 1e-16, not 0, and `Color.blend` truncates to an int.
-    color = pulse(phase)
+def brightness(color: str) -> int:
+    """How bright `color`, as an ANSI truecolor escape spells it, is, by the sum of its channels."""
+    return sum(int(channel) for channel in color.split(";"))
 
-    assert all(abs(a - b) <= 1 for a, b in zip(color, expected, strict=True))
+
+async def test_the_tachyon_streaks_trail_fades_away_from_the_particle() -> None:
+    # A third of the way through the loop, the particle is halfway across, with its whole trail behind it.
+    trail = await card_colors(streak(True), STREAK_PERIOD / 3, "━─·")
+
+    brightnesses = [brightness(color) for color in trail]
+    assert brightnesses == sorted(brightnesses)
+    assert brightnesses[0] < brightnesses[-1]
+
+
+def typing_thumbnail(host: Host, is_selected: bool) -> Component:
+    index = next(index for index, slide in enumerate(SLIDES) if slide.title == "Typing")
+    return thumbnail(SLIDES, index, is_selected, lambda index: (), host, "github-dark")
+
+
+THUMBNAIL_BORDER = "╭╮╰╯─│"
+
+
+async def test_the_selected_thumbnails_border_turns(host: Host) -> None:
+    earlier = await card_colors(typing_thumbnail(host, is_selected=True), TURN_PERIOD / 8, THUMBNAIL_BORDER)
+    later = await card_colors(typing_thumbnail(host, is_selected=True), TURN_PERIOD / 4, THUMBNAIL_BORDER)
+
+    assert earlier != later
+
+
+async def test_the_other_thumbnails_borders_stay_slate(host: Host) -> None:
+    colors = await card_colors(typing_thumbnail(host, is_selected=False), TURN_PERIOD / 8, THUMBNAIL_BORDER)
+
+    assert set(colors) == {rgb(slate_600)}

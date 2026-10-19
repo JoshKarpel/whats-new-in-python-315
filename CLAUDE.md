@@ -15,7 +15,7 @@ Each module's docstring says what role it plays; read those before adding a file
 - `just setup` installs the six interpreters the runs need, the environment, and the git hook.
   Most tests need it first.
 - `just test` runs mypy, then pytest. Arguments go to pytest, so
-  `just test tests/test_animation.py -k pulse` runs a single test.
+  `just test tests/test_animation.py -k shine` runs a single test.
   Run pytest without mypy with `uv run pytest ...`.
 - `just check-examples` runs only `tests/test_examples.py`, which executes every slide's runs.
 - `just present` presents the deck; `just watch` restarts it on any change under `src/` or `examples/`,

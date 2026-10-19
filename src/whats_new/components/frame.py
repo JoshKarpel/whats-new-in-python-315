@@ -7,17 +7,26 @@ from counterweight.components import component
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
+from counterweight.gradients import LinearGradient
+from counterweight.gradients import linear_gradient
+from counterweight.gradients import ramp
 from counterweight.hooks import use_clock
 from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
 from whats_new.components.look import PYTHON_BLUE
+from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
 from whats_new.components.look import heading_style
 from whats_new.size import PRESENTING
 from whats_new.slides import pep_url
 
 TALK_TITLE = "What's New in Python 3.15"
+PROGRESS = linear_gradient(PYTHON_BLUE, PYTHON_YELLOW, to="right", interpolation="oklch")
+"""
+The colors the footer's rule fills with, left to right, as the deck goes on: Python's blue, through teal and green,
+to its yellow. Mixed in Oklch, since blue and yellow are opposites, which Oklab mixes through gray.
+"""
 
 
 def heading(title: str, peps: tuple[int, ...]) -> Text:
@@ -55,6 +64,7 @@ def footer(
     The clock reads 12-hour time in `timezone`, not the machine's, which on the presenting VM is UTC.
     The size check is green when the terminal is exactly the presenting width (and at least its height),
     and red otherwise, so a wrong browser zoom shows before the first diagram.
+    The rule above them is a progress bar through the deck (see `progress_rule`).
     """
     now = use_clock(timedelta(seconds=15)).now
     middle: list[Text] = []
@@ -82,12 +92,34 @@ def footer(
             )
         )
     return Div(
-        style=row | justify_children_space_between | shrink(0) | border_top | border_light | border_color("slate", 600),
+        style=row
+        | justify_children_space_between
+        | shrink(0)
+        | border_top
+        | border_light
+        | border_gradient(progress_rule(index, total)),
         children=(
             Text(content=TALK_TITLE, style=dim | pad_x(1)),
             Div(style=row | gap_width(2), children=tuple(middle)),
             Text(content=f"{index + 1} / {total}", style=dim | pad_x(1)),
         ),
+    )
+
+
+def progress_rule(index: int, total: int) -> LinearGradient:
+    """
+    The footer's rule on slide `index` of `total`: `PROGRESS` from the left as far across as the slide is through
+    the deck, and slate past it. The fill reveals `PROGRESS` in place rather than squeezing all of it into the fill,
+    so how far along the talk is reads from the color at the fill's end too.
+    """
+    done = (index + 1) / total
+    colors = ramp(PROGRESS)
+    return linear_gradient(
+        (PYTHON_BLUE, 0),
+        (colors.color(colors.index(done)), done),
+        (slate_600, done),
+        to="right",
+        interpolation="oklch",
     )
 
 

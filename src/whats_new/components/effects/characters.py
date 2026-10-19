@@ -17,6 +17,7 @@ from counterweight.styles.styles import AnyColor
 from whats_new.components.crossing import CELL_ASPECT
 from whats_new.components.crossing import SPACE
 from whats_new.components.crossing import Grid
+from whats_new.components.crossing import solid
 from whats_new.components.swipe import Direction
 
 type Point = tuple[float, float]
@@ -27,7 +28,7 @@ type Backgrounds = tuple[tuple[StyledGrapheme, ...], ...]
 
 def backdrop_of(*pictures: Grid) -> AnyColor | UNSET:
     """The background most of `pictures`' cells have: the slides' own, which their content sits on."""
-    counts = Counter(glyph.style.background for picture in pictures for row in picture for glyph in row if glyph)
+    counts = Counter(solid(glyph.style.background) for picture in pictures for row in picture for glyph in row if glyph)
     return counts.most_common(1)[0][0] if counts else UNSET
 
 

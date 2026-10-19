@@ -34,8 +34,9 @@ from whats_new.components.effects.vortex import Spiral
 from whats_new.components.effects.vortex import spirals
 from whats_new.components.swipe import Direction
 
-RED = CellStyle(foreground=Color.from_name("red"), background=Color.from_name("black"))
-BLUE = CellStyle(foreground=Color.from_name("blue"), background=Color.from_name("white"), bold=True)
+BLACK, WHITE = Color.from_name("black"), Color.from_name("white")
+RED = CellStyle(foreground=Color.from_name("red"), background=BLACK)
+BLUE = CellStyle(foreground=Color.from_name("blue"), background=WHITE, bold=True)
 
 Q = StyledGrapheme(grapheme="q", style=RED)
 
@@ -76,13 +77,13 @@ def test_a_falling_character_keeps_its_column() -> None:
 
 
 def test_the_lowest_row_of_the_leaving_slide_lets_go_first() -> None:
-    falls = drops(grid("q  ", "   ", " q ", style=RED), 3, random.Random(7), RED.background)
+    falls = drops(grid("q  ", "   ", " q ", style=RED), 3, random.Random(7), BLACK)
 
     assert min(falls, key=lambda drop: drop.release).y == 2
 
 
 def test_the_lowest_row_of_the_arriving_slide_lands_first() -> None:
-    falls = landings(grid("q  ", "   ", " q ", style=BLUE), 3, random.Random(7), BLUE.background)
+    falls = landings(grid("q  ", "   ", " q ", style=BLUE), 3, random.Random(7), WHITE)
 
     assert min(falls, key=lambda landing: landing.land).y == 2
 
@@ -96,7 +97,7 @@ def test_an_arriving_character_is_above_its_row_partway_through_its_fall() -> No
 def spiral(direction: Direction) -> Spiral:
     """The one character of a stage 41 by 11, on its middle row 18 columns right of center, spiralling in."""
     stage = grid(*[" " * 41] * 5, " " * 38 + "q  ", *[" " * 41] * 5, style=RED)
-    (only,) = spirals(stage, direction, is_inward=True, start=0.0, seed=5, backdrop=RED.background)
+    (only,) = spirals(stage, direction, is_inward=True, start=0.0, seed=5, backdrop=BLACK)
     return only
 
 
@@ -173,8 +174,9 @@ def test_a_character_only_one_slide_has_changes_through_the_shades(
     assert shown == expected
 
 
-BACKDROP = RED.background
-SHADE = CellStyle(foreground=Color.from_name("red"), background=Color.from_name("navy"))
+BACKDROP = BLACK
+NAVY = Color.from_name("navy")
+SHADE = CellStyle(foreground=Color.from_name("red"), background=NAVY)
 """A code box's shading: on a background other than the backdrop."""
 
 
@@ -212,7 +214,7 @@ def test_a_character_on_the_backdrop_takes_the_color_of_the_shading_it_crosses()
 
     ((drawn,),) = drawn_over(behind, [(0, 0, shading), (0, 0, letter)], BACKDROP)
 
-    assert drawn == StyledGrapheme(grapheme="q", style=RED | CellStyle(background=SHADE.background))
+    assert drawn == StyledGrapheme(grapheme="q", style=RED | CellStyle(background=NAVY))
 
 
 def test_gravity_drops_a_code_boxs_shading_with_its_text() -> None:
@@ -225,4 +227,4 @@ def test_gravity_drops_a_code_boxs_shading_with_its_text() -> None:
     falling = gravity(boxed, blank, Direction.NEXT)(0.25)
 
     assert all(cell is not None and cell.style.background == BACKDROP for cell in falling[0])
-    assert any(cell is not None and cell.style.background == SHADE.background for row in falling[1:] for cell in row)
+    assert any(cell is not None and cell.style.background == NAVY for row in falling[1:] for cell in row)

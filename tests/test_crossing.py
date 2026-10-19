@@ -57,8 +57,9 @@ from whats_new.size import PRESENTING
 FOOTER_ROWS = 2
 STAGE = Region(left=0, top=0, right=PRESENTING.columns, bottom=PRESENTING.rows - FOOTER_ROWS)
 
-RED = CellStyle(foreground=Color.from_name("red"), background=Color.from_name("black"))
-BLUE = CellStyle(foreground=Color.from_name("blue"), background=Color.from_name("white"), bold=True)
+BLACK, WHITE = Color.from_name("black"), Color.from_name("white")
+RED = CellStyle(foreground=Color.from_name("red"), background=BLACK)
+BLUE = CellStyle(foreground=Color.from_name("blue"), background=WHITE, bold=True)
 
 
 def grid(*rows: str, style: CellStyle) -> Grid:
@@ -133,14 +134,14 @@ def test_a_split_wide_grapheme_draws_as_a_space() -> None:
 
 
 def test_a_character_on_both_slides_flies_from_one_place_to_the_other() -> None:
-    paths = flights(grid("q   ", style=RED), grid("   q", style=RED), Direction.NEXT, RED.background)
+    paths = flights(grid("q   ", style=RED), grid("   q", style=RED), Direction.NEXT, BLACK)
 
     assert [(path.start, path.end) for path in paths] == [((0, 0), (3, 0))]
 
 
 def test_a_character_only_the_leaving_slide_has_flies_off_beyond_the_edges() -> None:
     (path,) = flights(
-        grid("    ", " q  ", "    ", style=RED), grid("    ", "    ", "    ", style=RED), Direction.NEXT, RED.background
+        grid("    ", " q  ", "    ", style=RED), grid("    ", "    ", "    ", style=RED), Direction.NEXT, BLACK
     )
     x, y = path.end
 
@@ -162,7 +163,7 @@ def test_a_flight_changes_from_the_leaving_character_to_the_arriving_one_halfway
 
 
 ARRIVED_FOR = timedelta(milliseconds=1700)
-"""How long a slide has been mounted when it's compared with its picture: partway through a title card's pulse."""
+"""How long a slide has been mounted when it's compared with its picture: partway through a title card's turn."""
 
 
 async def test_the_arriving_slide_draws_its_picture(host: Host) -> None:

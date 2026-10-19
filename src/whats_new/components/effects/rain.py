@@ -17,6 +17,7 @@ from counterweight.styles import CellStyle
 from counterweight.styles import Color
 from counterweight.styles.styles import UNSET
 from counterweight.styles.styles import AnyColor
+from counterweight.styles.styles import as_solid
 from counterweight.styles.styles import resolve_cell_style
 from counterweight.styles.styles import rgb_of
 
@@ -85,7 +86,7 @@ def drops(width: int, direction: Direction, chance: random.Random) -> tuple[Drop
 
 def foreground_of(glyph: StyledGrapheme) -> Color:
     """The color `glyph`'s character is drawn in, with anything unset or up to the terminal as a screenshot draws it."""
-    return rgb_of(resolve_cell_style(glyph.style).foreground, SCREENSHOT_FOREGROUND)
+    return rgb_of(as_solid(resolve_cell_style(glyph.style)).foreground, SCREENSHOT_FOREGROUND)
 
 
 def shade_of(nearness: float) -> Color:

@@ -7,7 +7,6 @@ starts the program, so a thumbnail or the export, which never press a key, never
 """
 
 import asyncio
-import math
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -26,8 +25,9 @@ from counterweight.events import InputEvent
 from counterweight.events import InputResponse
 from counterweight.events import KeyPressed
 from counterweight.events import Receiver
+from counterweight.gradients import ConicGradient
+from counterweight.gradients import conic_gradient
 from counterweight.hooks import ElementHandle
-from counterweight.hooks import use_clock
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_focus
 from counterweight.hooks import use_rects
@@ -35,13 +35,11 @@ from counterweight.hooks import use_state
 from counterweight.keys import Key
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
-from counterweight.styles import Style
 from counterweight.styles.utilities import *
 from counterweight.widgets import ScrollAreaStyles
 from counterweight.widgets import scroll_area
 
-from whats_new.components.animation import FRAME
-from whats_new.components.animation import IDLE
+from whats_new.components.animation import use_loop
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.runs import Run
@@ -52,12 +50,12 @@ from whats_new.slides import SlideProps
 RUN_TIMEOUT = timedelta(seconds=90)
 NUMBER_KEYS = tuple(str(n) for n in range(1, 10))
 
-PULSE = timedelta(milliseconds=1200)
-"""How long one breath of the box's border takes while a run is in progress."""
+ORBIT = timedelta(milliseconds=1500)
+"""How long the light on the box's border takes to go once around it while a run is in progress."""
 RESTING = Color.from_hex("#475569")
 """The box's border between runs: Tailwind's slate 600, as the other boxes on a slide."""
 LIT = Color.from_hex("#93c5fd")
-"""The border at the top of each breath while a run is in progress: Tailwind's blue 300."""
+"""The head of the light that goes around the border while a run is in progress: Tailwind's blue 300."""
 
 OUTPUT_STYLES = CommandOutputStyles(
     area=ScrollAreaStyles(
@@ -84,7 +82,7 @@ def run_pane(props: SlideProps) -> Div:
     The slide's runs, named in a line above one box: `1` runs the first in the box, `2` the next, and so on,
     replacing whatever the box showed, and the line marks which one it shows, with how it's going at its right end.
     Pressing a run's key again runs it again. Escape stops the run in progress.
-    While one is in progress, the box's border pulses, so a slow run doesn't look like a dead key.
+    While one is in progress, a light goes around the box's border, so a slow run doesn't look like a dead key.
     Up and Down scroll the output, so a long traceback can be read without reaching for the mouse.
     Every run executes a copy of `examples/` with the slide's edits written over it.
     Only a live slide's pane takes focus, which is how its keys reach it.
@@ -140,8 +138,7 @@ def run_pane(props: SlideProps) -> Div:
 
     latest = command.latest
     is_running = latest is not None and isinstance(latest.outcome, Starting | Running)
-    breath = use_clock(FRAME if is_running and props.is_live else IDLE).since_mount / PULSE
-    border = RESTING.blend(LIT, (1 - math.cos(2 * math.pi * breath)) / 2) if is_running else RESTING
+    phase = use_loop(ORBIT, is_running and props.is_live)
     return Div(
         # Across the slide, in a column that centers its other children.
         style=col | fill(1) | align_self_stretch,
@@ -170,7 +167,7 @@ def run_pane(props: SlideProps) -> Div:
                 stick_to_end=True,
                 style=fill(1),
                 styles=ScrollAreaStyles(
-                    box=OUTPUT_STYLES.area.box | Style(border_style=CellStyle(foreground=border)),
+                    box=OUTPUT_STYLES.area.box | (border_gradient(orbiting(phase)) if is_running else default),
                     focused_box=OUTPUT_STYLES.area.focused_box if not is_running else default,
                 ),
                 viewport=viewport,
@@ -179,6 +176,14 @@ def run_pane(props: SlideProps) -> Div:
             ),
         ),
     )
+
+
+def orbiting(phase: float) -> ConicGradient:
+    """
+    The border's colors `phase` of the way around while a run is in progress: a light going clockwise,
+    brightening from its tail to its head, then gone, and the resting color the rest of the way round.
+    """
+    return conic_gradient((RESTING, 0), (LIT, 0.25), (RESTING, 0.3), start=360 * phase)
 
 
 def run_name(index: int, run: Run, is_shown: bool) -> tuple[Chunk, ...]:

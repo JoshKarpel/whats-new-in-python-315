@@ -6,7 +6,9 @@ from counterweight.components import component
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
+from counterweight.gradients import linear_gradient
 from counterweight.styles import CellStyle
+from counterweight.styles import Color
 from counterweight.styles.utilities import *
 
 from whats_new.components.animation import use_loop
@@ -54,7 +56,9 @@ def section_title(props: SlideProps) -> Div:
 STREAK_WIDTH = 60
 STREAK_PERIOD = timedelta(seconds=2.5)
 TRAIL = "━━━━━━━━────────····"
-"""The trail behind the particle, brightest nearest it."""
+"""The trail behind the particle, thinning away from it."""
+EMBER = PYTHON_YELLOW.blend(Color.from_hex("#000000"), 0.85)
+"""The color the trail fades to at its end, from Python's yellow at the particle."""
 
 
 @component
@@ -67,18 +71,25 @@ def streak(is_live: bool) -> Text:
     # Past the right edge for the last third of each loop, so the streak comes round again after a pause.
     head = round(phase * STREAK_WIDTH * 1.5)
     cells = [" "] * STREAK_WIDTH
-    shades: list[CellStyle] = [CellStyle()] * STREAK_WIDTH
     for distance, mark in enumerate(TRAIL, 1):
         x = head - distance
         if 0 <= x < STREAK_WIDTH:
             cells[x] = mark
-            shades[x] = CellStyle(foreground=PYTHON_YELLOW, dim=distance > len(TRAIL) // 2)
-    if head < STREAK_WIDTH:
-        cells[head] = "●"
-        shades[head] = CellStyle(foreground=PYTHON_YELLOW, bold=True)
+    # The trail fades along the text's content box, which is the streak's whole width, from the particle back.
+    span = STREAK_WIDTH - 1
+    fade = linear_gradient((EMBER, (head - len(TRAIL)) / span), (PYTHON_YELLOW, (head - 1) / span), to="right")
+    behind = min(head, STREAK_WIDTH)
     return Text(
-        content=tuple(Chunk(content=cell, style=shade) for cell, shade in zip(cells, shades, strict=True)),
-        style=text_wrap_none | shrink(0),
+        content=(
+            Chunk(content="".join(cells[:behind])),
+            *(
+                (Chunk(content="●", style=CellStyle(foreground=PYTHON_YELLOW, bold=True)),)
+                if head < STREAK_WIDTH
+                else ()
+            ),
+            Chunk(content="".join(cells[behind + 1 :])),
+        ),
+        style=text_gradient(fade) | text_wrap_none | shrink(0),
     )
 
 

@@ -11,7 +11,7 @@ the whole time, so it takes the keys at once, and shows as itself when the canva
 The leaving picture is what the screen showed, from a `Screenshot`, so it's the slide as it was left, edits and run
 output included. The arriving picture is a headless render of the slide as it will be when the canvas goes, after
 the transition's length mounted beneath it: a slide always arrives at its first step and mounting it starts nothing,
-so all that moves meanwhile is what loops by itself, such as a title card's pulsing border.
+so all that moves meanwhile is what loops by itself, such as a title card's turning border.
 
 The grid's transitions (F7) are drawn the same way, between a slide and the grid: any `Effect`, or a `GridEffect`,
 which knows where each thumbnail is, so it can move the slide into its own.
@@ -35,10 +35,14 @@ from counterweight.elements import Rows
 from counterweight.elements import StyledGrapheme
 from counterweight.geometry import Position
 from counterweight.geometry import Region
+from counterweight.gradients import Gradient
 from counterweight.output import Frame
 from counterweight.paint import Cell
 from counterweight.paint import Paint
 from counterweight.styles import CellStyle
+from counterweight.styles.styles import UNSET
+from counterweight.styles.styles import AnyColor
+from counterweight.styles.styles import is_solid_color
 
 from whats_new.components.swipe import Direction
 
@@ -110,6 +114,16 @@ def glyph_of(cell: Cell) -> StyledGrapheme | None:
             link=style.link,
         ),
     )
+
+
+def solid(color: AnyColor | Gradient | UNSET) -> AnyColor | UNSET:
+    """
+    A color read back from one of a picture's cells, which is never a gradient: paint draws every cell in solid colors,
+    which `glyph_of` copies. Raises `TypeError` for a gradient, which only a picture built some other way could hold.
+    """
+    if color is UNSET or is_solid_color(color):
+        return color
+    raise TypeError(f"A picture's cells are drawn in solid colors, but one holds {color!r}")
 
 
 def picture_of(paint: Paint, region: Region) -> Grid:
@@ -188,7 +202,7 @@ async def photograph(slide: Component, width: int, height: int, after: timedelta
     """
     What `slide` draws `after` it mounts, rendered headless at `width` by `height`. In a task of its own,
     so the app it runs sets its context variables in a copy of the caller's context, rather than in the deck's.
-    On a frozen clock moved on by exactly `after`, so a title card's pulse is where `after` puts it rather than
+    On a frozen clock moved on by exactly `after`, so a title card's border is where `after` puts it rather than
     wherever the render's own few milliseconds took it, which would make the showcases record differently every time.
     """
     frames: list[Frame] = []

@@ -26,6 +26,7 @@ from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
+from whats_new.components.crossing import solid
 from whats_new.components.effects.characters import backgrounds
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.swipe import Direction
@@ -116,7 +117,7 @@ def cooled(glyph: StyledGrapheme, warmth: float) -> StyledGrapheme:
 
 def cooled_color(glyph: StyledGrapheme, warmth: float) -> AnyColor | UNSET:
     """`cooled`'s foreground: a blend where the color can be blended, and a switch at halfway where it can't."""
-    own = glyph.style.foreground
+    own = solid(glyph.style.foreground)
     if isinstance(own, Color):
         return own.blend(REACHABLE, warmth)
     return REACHABLE if warmth > 0.5 else own

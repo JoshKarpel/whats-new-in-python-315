@@ -32,11 +32,14 @@ from counterweight.hooks import use_state
 from counterweight.styles import CellStyle
 from counterweight.styles.utilities import *
 
+from whats_new.components.animation import use_loop
 from whats_new.components.animation import use_progress_since
 from whats_new.components.crossing import Tiles
 from whats_new.components.easing import ease_in_out
 from whats_new.components.look import PYTHON_YELLOW
+from whats_new.components.look import TURN_PERIOD
 from whats_new.components.look import dim
+from whats_new.components.look import turning_edge
 from whats_new.components.slide_body import slide_body
 from whats_new.components.swipe import SWIPE
 from whats_new.host import Host
@@ -183,15 +186,21 @@ def thumbnail(
     host: Host,
     code_theme: str,
 ) -> Div:
+    """
+    One slide's thumbnail, which jumps to it when clicked. The selected one's border turns as a title card's does,
+    counting from the thumbnail's mount, so a picture of the grid moved on by a transition's length draws it
+    where the live grid does when the transition ends.
+    """
     slide = slides[index]
     # Its own, never the live slide's: a thumbnail never takes focus, but a handle names one component at a time.
     thumbnail_focus, _ = use_state(FocusHandle)
+    border_phase = use_loop(TURN_PERIOD, is_playing=is_selected)
     return Div(
         style=col
         | border
         | border_lightrounded
         | overflow_hidden
-        | (border_color("amber", 300) if is_selected else border_color("slate", 600)),
+        | (border_gradient(turning_edge(border_phase)) if is_selected else border_color("slate", 600)),
         on_input=on_click(lambda: jump(index)),
         children=(
             Text(content=f"{index + 1} | {slide.title}", style=(text_color("amber", 300) if is_selected else dim)),

@@ -23,6 +23,7 @@ from whats_new.components.crossing import SPACE
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions
+from whats_new.components.crossing import solid
 from whats_new.components.effects.masks import Thresholds
 from whats_new.components.swipe import Direction
 
@@ -102,7 +103,7 @@ def ink_of(glyph: StyledGrapheme | None) -> AnyColor | UNSET:
     """The color a cell decays or rebuilds in: its character's own, or the dust color for an empty one."""
     if glyph is None or not glyph.grapheme.strip():
         return DUST_COLOR
-    return glyph.style.foreground
+    return solid(glyph.style.foreground)
 
 
 def stages(before: StyledGrapheme | None, after: StyledGrapheme | None) -> tuple[StyledGrapheme | None, ...]:

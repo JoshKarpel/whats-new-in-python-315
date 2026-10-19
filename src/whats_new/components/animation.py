@@ -9,7 +9,8 @@ Two kinds, which start differently:
 
 Neither runs off the live slide: a thumbnail shows an explanatory animation's last frame and a decorative one's
 first, and ticks no clock for either, since nine thumbnails animating at once would cost frame time for nothing.
-The one exception is a title card's pulsing border (see `title_card`), which pulses in the slide grid too.
+The exceptions are a title card's turning border (see `title_card`), which turns in the slide grid too,
+and the grid's selected thumbnail, whose border turns the same way (see `grid.thumbnail`).
 
 Every animation counts from its component's mount, never the app's start, so a headless render of a slide
 moved on by however long it has been mounted (see `crossing.photograph`) draws what the live slide does.

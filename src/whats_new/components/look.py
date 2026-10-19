@@ -1,6 +1,5 @@
 """The deck's palette and the small styled pieces every section uses: headings, bullets, title cards."""
 
-import math
 from datetime import timedelta
 
 from counterweight.components import Component
@@ -8,6 +7,10 @@ from counterweight.components import component
 from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
+from counterweight.gradients import ConicGradient
+from counterweight.gradients import LinearGradient
+from counterweight.gradients import conic_gradient
+from counterweight.gradients import linear_gradient
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
 from counterweight.styles import Style
@@ -41,42 +44,58 @@ heading_style = bold | Style(text_style=CellStyle(foreground=PYTHON_YELLOW))
 code_border = border | border_heavy | Style(border_style=CellStyle(foreground=PYTHON_BLUE))
 
 
+SHADOW = linear_gradient((gray_700, 0.5), (gray_400, 1), to="bottom right")
+"""
+The drop shadow's colors: strongest at its far corner, fading toward its two ends, where it meets the slide.
+Pointing to a corner puts the gradient's halfway line through the other two corners, which are the shadow's ends.
+"""
+
+
 def drop_shadow(*children: Text | Div) -> Div:
     """
     `children` in a light-shade shadow: an outer box bordered only right and bottom,
     contracted by a cell so the shadow starts one cell in from the top and left.
     """
     return Div(
-        style=border_right | border_bottom | border_lightshade | border_contract(1) | border_color("gray", 400),
+        style=border_right | border_bottom | border_lightshade | border_contract(1) | border_gradient(SHADOW),
         children=children,
     )
 
 
 CARD_EDGE = Color.from_hex("#cbd5e1")
-"""The title card's border at rest, Tailwind's slate 300, which its pulse passes through between colors."""
-PULSE_PERIOD = timedelta(seconds=6)
+"""Tailwind's slate 300, which the title card's border passes through between its blue and its yellow."""
+TURN_PERIOD = timedelta(seconds=6)
 """
-One round of the border's pulse: slate, to blue, to slate, to yellow, and back to slate.
-It divides the export's `SETTLE`, so every exported frame catches the pulse at rest.
+One turn of the title card's border.
+It divides the export's `SETTLE`, so every exported frame catches the border where it starts.
 """
 SHINE_PERIOD = timedelta(seconds=5)
 SHINE_SWEEP = 0.3
 """The part of each shine period the shine spends crossing the title; it rests for the rest."""
+SHINE_WIDTH = 3
+"""How many cells either side of the shine's center it lightens, fading out."""
 SHINE = Color.from_hex("#FFF6D5")
 
 
-def pulse(phase: float) -> Color:
+def turning_edge(phase: float) -> ConicGradient:
     """
-    The border's color `phase` of the way through its pulse: easing from slate out to Python's blue,
-    back through slate to its yellow, and back to slate, so phase 0 (a still frame) is the plain card.
+    The title card's border `phase` of the way through a turn: Python's blue and yellow on opposite sides,
+    through slate between them, turned clockwise from blue at the top and yellow at the bottom.
     """
-    swing = math.sin(2 * math.pi * phase)
-    return CARD_EDGE.blend(PYTHON_BLUE if swing > 0 else PYTHON_YELLOW, abs(swing))
+    return conic_gradient(PYTHON_BLUE, CARD_EDGE, PYTHON_YELLOW, CARD_EDGE, PYTHON_BLUE, start=360 * phase)
 
 
-def glow(distance: float, width: float) -> float:
-    """How lit a cell `distance` either side of a moving light is, fading to nothing at `width`."""
-    return max(0.0, 1 - abs(distance) / width)
+def light_across(length: int, center: float, width: float, base: Color, light: Color) -> LinearGradient:
+    """
+    `base`, lit up to `light` at `center` cells along a text `length` cells long, fading back to `base` `width` cells
+    either side, for a text style or chunk whose element's content box is the text, which the gradient maps over.
+    The light can be off either end, where the text is all `base`.
+    """
+    # A gradient spans the centers of its box's first and last cells, so a cell's position is its index over this.
+    span = max(length - 1, 1)
+    return linear_gradient(
+        (base, (center - width) / span), (light, center / span), (base, (center + width) / span), to="right"
+    )
 
 
 @component
@@ -84,30 +103,44 @@ def title_card(title: str, *subtitles: str, is_live: bool) -> Div:
     """
     A centered, heavily bordered card in a drop shadow, for section and talk titles, with a line per subtitle.
 
-    Its border pulses between Python's blue and yellow, through slate, wherever the card is drawn,
+    Its border turns, Python's blue and yellow chasing each other around it through slate, wherever the card is drawn,
     the slide grid's thumbnails included: there are few enough title cards in view at once that it's cheap.
-    Its pulse starts at rest when it mounts, so cards mounted at different times pulse out of step.
+    Its turn starts from the same place when it mounts, so cards mounted at different times turn out of step.
     While its slide is live, a shine also crosses the title every few seconds.
     """
-    border_phase = use_loop(PULSE_PERIOD, is_playing=True)
+    border_phase = use_loop(TURN_PERIOD, is_playing=True)
     shine_phase = use_loop(SHINE_PERIOD, is_live)
     # Off the title's left edge at the start of each period, so a still frame (phase 0) has no shine.
-    shine = -3 + shine_phase / SHINE_SWEEP * (len(title) + 6)
-    lines: tuple[Chunk, ...] = tuple(
-        Chunk(content=letter, style=CellStyle(bold=True, foreground=PYTHON_YELLOW.blend(SHINE, glow(index - shine, 3))))
-        for index, letter in enumerate(title)
-    )
-    for subtitle in subtitles:
-        lines = (*lines, Chunk.newline(), Chunk(content=subtitle, style=CellStyle(foreground=PYTHON_BLUE)))
+    shine = -SHINE_WIDTH + shine_phase / SHINE_SWEEP * (len(title) + 2 * SHINE_WIDTH)
+    # The title is a text of its own, so its content box is the title, which the shine maps over,
+    # rather than the widest of its subtitles.
     return drop_shadow(
-        Text(
-            content=lines,
-            style=border
+        Div(
+            style=col
+            | align_children_center
+            | border
             | border_heavy
-            | Style(border_style=CellStyle(foreground=pulse(border_phase)))
+            | border_gradient(turning_edge(border_phase))
             | pad_x(4)
-            | pad_y(1)
-            | text_justify_center,
+            | pad_y(1),
+            children=(
+                Text(
+                    content=title,
+                    style=bold | text_gradient(light_across(len(title), shine, SHINE_WIDTH, PYTHON_YELLOW, SHINE)),
+                ),
+                *(
+                    (
+                        Text(
+                            content="\n".join(subtitles),
+                            style=Style(text_style=CellStyle(foreground=PYTHON_BLUE))
+                            | text_justify_center
+                            | align_self_stretch,
+                        ),
+                    )
+                    if subtitles
+                    else ()
+                ),
+            ),
         )
     )
 
@@ -156,7 +189,7 @@ def link(url: str) -> Chunk:
 
 
 @component
-def made_with_claude(is_live: bool) -> Text:
+def made_with_claude(is_live: bool) -> Div:
     """
     The disclosure that this deck was built with help from Claude Code, under Claude's spark, in its orange.
     While its slide is live it animates as Claude Code's spinner does, the spark turning and a shimmer sweeping
@@ -168,19 +201,14 @@ def made_with_claude(is_live: bool) -> Text:
     spark = SPARK_CYCLE[(SPARK_CYCLE.index(CLAUDE_SPARK) + int(phase * turns)) % len(SPARK_CYCLE)]
     # From fully off the left edge to fully off the right, so a still frame (phase 0) has no shimmer.
     center = -SHIMMER_WIDTH + phase * (len(CREDIT) + 2 * SHIMMER_WIDTH)
-    return Text(
-        content=(
-            Chunk(content=f"{spark} ", style=CellStyle(foreground=CLAUDE_ORANGE, bold=True)),
-            *(
-                Chunk(
-                    content=letter,
-                    style=CellStyle(
-                        foreground=CLAUDE_ORANGE.blend(
-                            CLAUDE_SHIMMER, max(0.0, 1 - abs(index - center) / SHIMMER_WIDTH)
-                        )
-                    ),
-                )
-                for index, letter in enumerate(CREDIT)
+    # The words are a text of their own, so their content box is the words, which the shimmer maps over.
+    return Div(
+        style=row | shrink(0),
+        children=(
+            Text(content=f"{spark} ", style=bold | Style(text_style=CellStyle(foreground=CLAUDE_ORANGE))),
+            Text(
+                content=CREDIT,
+                style=text_gradient(light_across(len(CREDIT), center, SHIMMER_WIDTH, CLAUDE_ORANGE, CLAUDE_SHIMMER)),
             ),
         ),
     )
