@@ -11,11 +11,11 @@ so they don't all move as one, and eases in and out over its own flight.
 import random
 from dataclasses import dataclass
 
+from counterweight.animation import between
 from counterweight.elements import StyledGrapheme
 from counterweight.styles.styles import UNSET
 from counterweight.styles.styles import AnyColor
 
-from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions

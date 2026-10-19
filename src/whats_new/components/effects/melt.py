@@ -14,9 +14,9 @@ import random
 from dataclasses import dataclass
 from math import floor
 
+from counterweight.animation import between
 from counterweight.elements import StyledGrapheme
 
-from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions

@@ -5,6 +5,7 @@ first and its `tg.cancel()` stops the other two mid-flight; then the `async with
 
 from datetime import timedelta
 
+from counterweight.animation import between
 from counterweight.components import Component
 from counterweight.components import component
 from counterweight.elements import Chunk
@@ -12,8 +13,7 @@ from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.styles.utilities import default
 
-from whats_new.components.animation import between
-from whats_new.components.animation import use_progress
+from whats_new.components.animation import use_explanation
 from whats_new.diagrams.draw import CROSSED
 from whats_new.diagrams.draw import EDGE
 from whats_new.diagrams.draw import HIGHLIGHT
@@ -53,7 +53,7 @@ def ends_showing(step: int) -> str | None:
 
 @component
 def race(step: int, is_live: bool) -> Div:
-    progress = use_progress(RACE, is_live)
+    progress = use_explanation(RACE, is_live)
     seconds = between(progress, 0, RACING) * min(delay for _, delay, _ in MIRRORS)
     return tree(step, finished=seconds if progress < 1 else None, is_over=progress >= 1)
 

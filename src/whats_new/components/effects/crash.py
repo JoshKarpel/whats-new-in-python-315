@@ -13,11 +13,11 @@ The phases keep their own timing, since a crash isn't a movement to ease. The di
 import random
 from dataclasses import dataclass
 
+from counterweight.animation import between
 from counterweight.elements import StyledGrapheme
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
 
-from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions

@@ -12,6 +12,7 @@ import random
 from dataclasses import dataclass
 from functools import cache
 
+from counterweight.animation import between
 from counterweight.elements import StyledGrapheme
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
@@ -21,7 +22,6 @@ from counterweight.styles.styles import as_solid
 from counterweight.styles.styles import resolve_cell_style
 from counterweight.styles.styles import rgb_of
 
-from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import dimensions

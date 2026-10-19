@@ -12,7 +12,7 @@ from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.styles import CellStyle
 
-from whats_new.components.animation import use_progress
+from whats_new.components.animation import use_explanation
 from whats_new.diagrams.draw import CROSSED
 from whats_new.diagrams.draw import EDGE
 from whats_new.diagrams.draw import HIGHLIGHT
@@ -82,7 +82,7 @@ def ends_showing(step: int) -> str | None:
 
 @component
 def playing_timeline(is_live: bool) -> Div:
-    return timeline(round(use_progress(TIMELINE, is_live) * len(CALLS)))
+    return timeline(round(use_explanation(TIMELINE, is_live) * len(CALLS)))
 
 
 def timeline(reached: int) -> Div:

@@ -16,6 +16,7 @@ from dataclasses import replace
 import pytest
 from counterweight.app import app
 from counterweight.autopilot import AutopilotStep
+from counterweight.autopilot import showing
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.events import KeyPressed
@@ -32,7 +33,6 @@ from whats_new.tachyon import MODES
 from whats_new.tachyon import PROFILER_ENV
 from whats_new.tachyon import Mode
 from whats_new.tachyon import profiler_argv
-from whats_new.tours import showing
 
 
 @pytest.fixture

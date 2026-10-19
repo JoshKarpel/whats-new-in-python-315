@@ -13,7 +13,7 @@ from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.styles.utilities import *
 
-from whats_new.components.animation import use_progress
+from whats_new.components.animation import use_explanation
 from whats_new.diagrams.draw import CROSSED
 from whats_new.diagrams.draw import EDGE
 from whats_new.diagrams.draw import HIGHLIGHT
@@ -101,7 +101,7 @@ def fan_out(step: int, is_live: bool) -> Div:
 
 @component
 def playing_panel(index: int, is_live: bool) -> Div:
-    return panel(index, use_progress(PER_ITEM * ITEMS, is_live))
+    return panel(index, use_explanation(PER_ITEM * ITEMS, is_live))
 
 
 def panel(index: int, progress: float) -> Div:

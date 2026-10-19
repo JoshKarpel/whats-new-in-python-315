@@ -4,9 +4,9 @@ pulling the same band of the grid in behind it, alternate bands going opposite w
 thumbnail goes first, and the others follow outward from it. Each band moves whole, so it eases in and out.
 """
 
+from counterweight.animation import between
 from counterweight.elements import StyledGrapheme
 
-from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import Tiles

@@ -1,11 +1,12 @@
 """
-Animations, driven by the app's clock through `use_clock`, so the export's frozen clock holds them still
-and its `AdvanceClock` moves them on deterministically.
+Animations, driven by the app's clock through counterweight's `use_progress` and `use_loop`, so the export's frozen
+clock holds them still and its `AdvanceClock` moves them on deterministically.
 
 Two kinds, which start differently:
-- An explanatory animation plays once and holds its last frame. It starts when its component mounts, so a slide
-  starts one from a key by keying the component on the reveal step: Space remounts it, which plays it.
-- A decorative one loops for as long as its slide is the live one, from arrival.
+- An explanatory animation plays once and holds its last frame (`use_explanation`). It starts when its component
+  mounts, so a slide starts one from a key by keying the component on the reveal step: Space remounts it, which
+  plays it.
+- A decorative one loops for as long as its slide is the live one, from arrival: `use_loop` with `is_playing`.
 
 Neither runs off the live slide: a thumbnail shows an explanatory animation's last frame and a decorative one's
 first, and ticks no clock for either, since nine thumbnails animating at once would cost frame time for nothing.
@@ -16,80 +17,14 @@ Every animation counts from its component's mount, never the app's start, so a h
 moved on by however long it has been mounted (see `crossing.photograph`) draws what the live slide does.
 """
 
-from dataclasses import dataclass
 from datetime import timedelta
 
-from counterweight.hooks import Ref
-from counterweight.hooks import use_clock
-from counterweight.hooks import use_ref
-
-FRAME = timedelta(milliseconds=50)
-"""How often a playing animation draws: 20 frames a second, smooth enough for cells, and cheap on 2 vCPUs."""
-IDLE = timedelta(hours=1)
-"""The clock interval of an animation that isn't playing, which never comes due while a slide is up."""
+from counterweight.hooks import use_progress
 
 
-@dataclass(slots=True)
-class Played:
-    """Whether an animation has reached its end, which it remembers so it stops ticking the clock."""
-
-    is_done: bool = False
-
-
-def use_progress(duration: timedelta, is_playing: bool) -> float:
+def use_explanation(duration: timedelta, is_live: bool) -> float:
     """
-    How far through an animation `duration` long the calling component is: 0 when it mounts, rising to 1,
-    where it holds. Not playing, it's 1 at once.
+    How far through an explanatory animation `duration` long the calling component is: rising from 0 at mount to 1,
+    where it holds, on the live slide, and 1 at once anywhere else, as an animation with no duration is.
     """
-    played: Ref[Played] = use_ref(Played)
-    is_ticking = is_playing and not played.current.is_done
-    tick = use_clock(FRAME if is_ticking else IDLE)
-    if not is_playing:
-        return 1.0
-    progress = min(tick.since_mount / duration, 1.0)
-    if progress >= 1.0:
-        played.current.is_done = True
-    return progress
-
-
-@dataclass(slots=True)
-class Restarted:
-    """What `use_progress_since` last started from, when, and whether it has reached its end."""
-
-    since: object = None
-    started: timedelta = timedelta()
-    is_done: bool = True
-
-
-def use_progress_since(since: object, duration: timedelta) -> float:
-    """
-    `use_progress`, restarting whenever `since` is a different object (compared by identity), rather than at mount,
-    for an animation whose component stays mounted between plays. `None` doesn't play, and is 1 at once.
-    """
-    restarted: Ref[Restarted] = use_ref(Restarted)
-    is_new = since is not restarted.current.since
-    is_ticking = since is not None and (is_new or not restarted.current.is_done)
-    # A reading taken on an hour-long interval can be an hour old, but switching to frames makes one due
-    # (unless the last was in this same frame), so the render that starts the animation reads the clock afresh.
-    tick = use_clock(FRAME if is_ticking else IDLE)
-    if is_new:
-        restarted.current = Restarted(since=since, started=tick.since_start, is_done=since is None)
-    if since is None:
-        return 1.0
-    progress = min((tick.since_start - restarted.current.started) / duration, 1.0)
-    if progress >= 1.0:
-        restarted.current.is_done = True
-    return progress
-
-
-def use_loop(period: timedelta, is_playing: bool) -> float:
-    """Where in a loop `period` long the calling component is, from 0 up to (not including) 1; 0 while not playing."""
-    tick = use_clock(FRAME if is_playing else IDLE)
-    if not is_playing:
-        return 0.0
-    return (tick.since_mount % period) / period
-
-
-def between(progress: float, start: float, stop: float) -> float:
-    """How far `progress` is through the part of an animation from `start` to `stop`: 0 before it, 1 after it."""
-    return min(max((progress - start) / (stop - start), 0.0), 1.0)
+    return use_progress(duration if is_live else timedelta())

@@ -679,7 +679,6 @@ src/whats_new/
   deck.py            SLIDES = (*OPENING, *SMALL_THINGS, ..., *CLOSING)
   export.py          slides.html: a screenshot per reveal step
   recording.py       slides.cast: the deck presented by an autopilot
-  tours.py           autopilot steps for slides' tours: hold, type, wait for the screen
   sections/          one module per running-order section, each exporting a tuple of slides
   components/        title card, drop shadow, footer, slide grid, code_example, run_pane,
                      split layouts, bar chart
@@ -902,8 +901,9 @@ Diagrams are drawn by hand, as counterweight elements rather than text files.
 
 ### Animations
 
-They come in two kinds, which start differently. `components/animation.py` holds
-their hooks, `use_progress` and `use_loop`.
+They come in two kinds, which start differently. Both run on counterweight's
+animation hooks, `use_progress` and `use_loop`, and `components/animation.py`
+holds the deck's policy for them.
 
 Every animation runs on `use_clock`, ticking at 20 frames a second while it plays
 and not at all otherwise. Off the live slide (a thumbnail) nothing ticks: an

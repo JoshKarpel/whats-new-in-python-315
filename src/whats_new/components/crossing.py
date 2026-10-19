@@ -17,13 +17,11 @@ The grid's transitions (F7) are drawn the same way, between a slide and the grid
 which knows where each thumbnail is, so it can move the slide into its own.
 """
 
-from asyncio import create_task
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
-from functools import cache
 
 from counterweight.app import app
 from counterweight.clock import FrozenClock
@@ -33,13 +31,11 @@ from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.elements import Rows
 from counterweight.elements import StyledGrapheme
-from counterweight.geometry import Position
 from counterweight.geometry import Region
 from counterweight.gradients import Gradient
 from counterweight.output import Frame
-from counterweight.paint import Cell
 from counterweight.paint import Paint
-from counterweight.styles import CellStyle
+from counterweight.paint import styled_grapheme
 from counterweight.styles.styles import UNSET
 from counterweight.styles.styles import AnyColor
 from counterweight.styles.styles import is_solid_color
@@ -95,31 +91,10 @@ backwards, so its first frame is the slide's picture and its last the grid's, as
 SPACE = StyledGrapheme(grapheme=" ")
 
 
-@cache
-def glyph_of(cell: Cell) -> StyledGrapheme | None:
-    """`cell` as a canvas draws it: its grapheme with its style, or `None` for a continuation cell."""
-    if cell.is_continuation:
-        return None
-    style = cell.style
-    return StyledGrapheme(
-        grapheme=cell.grapheme,
-        style=CellStyle(
-            foreground=style.foreground,
-            background=style.background,
-            bold=style.bold,
-            dim=style.dim,
-            italic=style.italic,
-            underline=style.underline,
-            strikethrough=style.strikethrough,
-            link=style.link,
-        ),
-    )
-
-
 def solid(color: AnyColor | Gradient | UNSET) -> AnyColor | UNSET:
     """
     A color read back from one of a picture's cells, which is never a gradient: paint draws every cell in solid colors,
-    which `glyph_of` copies. Raises `TypeError` for a gradient, which only a picture built some other way could hold.
+    which `picture_of` copies. Raises `TypeError` for a gradient, which only a picture built some other way could hold.
     """
     if color is UNSET or is_solid_color(color):
         return color
@@ -129,11 +104,7 @@ def solid(color: AnyColor | Gradient | UNSET) -> AnyColor | UNSET:
 def picture_of(paint: Paint, region: Region) -> Grid:
     """The part of `paint` inside `region`. Any of it off the paint, as after the screen shrinks, is blank."""
     return tuple(
-        tuple(
-            SPACE if (cell := paint.get(Position(x, y))) is None else glyph_of(cell)
-            for x in range(region.left, region.right)
-        )
-        for y in range(region.top, region.bottom)
+        tuple(None if cell.is_continuation else styled_grapheme(cell) for cell in row) for row in paint.cells_in(region)
     )
 
 
@@ -200,20 +171,17 @@ class Drawing:
 
 async def photograph(slide: Component, width: int, height: int, after: timedelta) -> Grid:
     """
-    What `slide` draws `after` it mounts, rendered headless at `width` by `height`. In a task of its own,
-    so the app it runs sets its context variables in a copy of the caller's context, rather than in the deck's.
+    What `slide` draws `after` it mounts, rendered headless at `width` by `height`.
     On a frozen clock moved on by exactly `after`, so a title card's border is where `after` puts it rather than
     wherever the render's own few milliseconds took it, which would make the showcases record differently every time.
     """
     frames: list[Frame] = []
-    await create_task(
-        app(
-            slide,
-            headless=True,
-            dimensions=(width, height),
-            autopilot=(AdvanceClock(by=after), Screenshot(handler=frames.append), Quit()),
-            clock=PHOTOGRAPHED,
-        )
+    await app(
+        slide,
+        headless=True,
+        dimensions=(width, height),
+        autopilot=(AdvanceClock(by=after), Screenshot(handler=frames.append), Quit()),
+        clock=PHOTOGRAPHED,
     )
     (frame,) = frames
     return picture_of(frame.paint, frame.paint.bounds)

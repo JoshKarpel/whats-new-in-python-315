@@ -7,6 +7,7 @@ import re
 from datetime import timedelta
 
 import pytest
+from counterweight.animation import FRAME_INTERVAL
 from counterweight.app import app
 from counterweight.components import Component
 from counterweight.components import component
@@ -19,7 +20,6 @@ from counterweight.output import Frame
 from counterweight.styles import Color
 from counterweight.styles.utilities import *
 
-from whats_new.components.animation import FRAME
 from whats_new.components.grid import thumbnail
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
@@ -131,7 +131,7 @@ async def test_a_title_card_mounted_late_starts_its_turn_from_the_start() -> Non
 
     @component
     def late() -> Div:
-        tick = use_clock(FRAME)
+        tick = use_clock(FRAME_INTERVAL)
         return Div(style=row | full, children=(title_card("Typing", is_live=True),) if tick.since_start >= by else ())
 
     assert await card_colors(late(), by, BORDER) == await card_colors(

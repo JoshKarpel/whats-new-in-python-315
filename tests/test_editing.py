@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from counterweight.app import app
+from counterweight.autopilot import typed
 from counterweight.controls import AnyControl
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
@@ -104,9 +105,6 @@ async def test_a_run_executes_the_edited_example(host: Host) -> None:
 
     async def settle(frame: Frame) -> None:
         await asyncio.sleep(0.25)
-
-    def typed(text: str) -> tuple[KeyPressed, ...]:
-        return tuple(KeyPressed(key=Key.Enter if character == "\n" else character) for character in text)
 
     autopilot: tuple[AnyEvent | AnyControl, ...] = (
         KeyPressed(key=Key.Tab),

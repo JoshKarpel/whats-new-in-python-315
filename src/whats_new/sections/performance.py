@@ -7,11 +7,11 @@ from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.gradients import linear_gradient
+from counterweight.hooks import use_loop
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
 from counterweight.styles.utilities import *
 
-from whats_new.components.animation import use_loop
 from whats_new.components.code import code_example
 from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
@@ -67,7 +67,7 @@ def streak(is_live: bool) -> Text:
     A particle streaking across, ahead of its own trail, looping while the slide is up:
     the one decorative animation, so it starts on arrival rather than on a key.
     """
-    phase = use_loop(STREAK_PERIOD, is_live)
+    phase = use_loop(STREAK_PERIOD, is_playing=is_live)
     # Past the right edge for the last third of each loop, so the streak comes round again after a pause.
     head = round(phase * STREAK_WIDTH * 1.5)
     cells = [" "] * STREAK_WIDTH

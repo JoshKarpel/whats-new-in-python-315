@@ -21,6 +21,7 @@ from pathlib import Path
 
 from counterweight.autopilot import AutopilotStep
 from counterweight.autopilot import Wait
+from counterweight.autopilot import showing
 from counterweight.commands import Exited
 from counterweight.commands import command_output
 from counterweight.commands import use_command
@@ -58,7 +59,6 @@ from whats_new.components.run_pane import OUTPUT_STYLES
 from whats_new.host import FlamegraphSite
 from whats_new.runs import ROOT
 from whats_new.slides import SlideProps
-from whats_new.tours import showing
 from whats_new.workloads import WORKLOADS
 from whats_new.workloads import WORKLOADS_BY_NAME
 from whats_new.workloads import Workload

@@ -5,9 +5,9 @@ The line naming the section is dealt last. The slide eases in and out, as someth
 each dealt card is thrown, so it eases out.
 """
 
+from counterweight.animation import between
 from counterweight.geometry import Region
 
-from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import Tiles

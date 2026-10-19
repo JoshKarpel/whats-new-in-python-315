@@ -71,7 +71,8 @@ not from memory or its docs site.
   A transition drawn from pictures (`components/crossing.py`) also renders the arriving slide headless, in an app
   of its own, moved on by the transition's length, and ends on that picture, so the slide has to draw the same
   however it's mounted: anything that moves counts from its own mount, never the app's start.
-- Time comes only from counterweight's clock, through the hooks in `components/animation.py`.
+- Time comes only from counterweight's clock, through its `use_progress` and `use_loop`,
+  used as `components/animation.py` says.
   Tests and the export run on a frozen clock (`export.EXPORT_CLOCK`) moved by `AdvanceClock`,
   which is what keeps both deterministic.
 

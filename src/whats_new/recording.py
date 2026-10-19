@@ -20,6 +20,8 @@ from counterweight.asciicast import Recording
 from counterweight.asciicast import Theme
 from counterweight.autopilot import AutopilotStep
 from counterweight.autopilot import WaitFor
+from counterweight.autopilot import advance
+from counterweight.autopilot import showing
 from counterweight.controls import Marker
 from counterweight.controls import Quit
 from counterweight.events import KeyPressed
@@ -40,8 +42,6 @@ from whats_new.runs import Capability
 from whats_new.runs import Run
 from whats_new.size import PRESENTING
 from whats_new.slides import Slide
-from whats_new.tours import hold
-from whats_new.tours import showing
 
 REVEAL = timedelta(seconds=3)
 """How long the recording holds on each reveal step, to read it."""
@@ -91,7 +91,7 @@ def run_all(slide: Slide, capabilities: frozenset[Capability]) -> Iterator[Autop
         yield KeyPressed(key=key)
         yield outcome_shows(IN_PROGRESS, slide.runs[0])
         yield outcome_shows(FINISHED, slide.runs[0])
-        yield from hold(AFTER_RUN)
+        yield from advance(AFTER_RUN)
 
 
 def presented(slides: tuple[Slide, ...], capabilities: frozenset[Capability]) -> Iterator[AutopilotStep]:
@@ -105,7 +105,7 @@ def presented(slides: tuple[Slide, ...], capabilities: frozenset[Capability]) ->
                 yield KeyPressed(key=Key.Space)
             if (end := slide.ends_showing(step)) is not None:
                 yield showing(end)
-            yield from hold(REVEAL)
+            yield from advance(REVEAL)
             yield from slide.tour(step)
         yield from run_all(slide, capabilities)
         if index < len(slides) - 1:

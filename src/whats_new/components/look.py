@@ -11,11 +11,10 @@ from counterweight.gradients import ConicGradient
 from counterweight.gradients import LinearGradient
 from counterweight.gradients import conic_gradient
 from counterweight.gradients import linear_gradient
+from counterweight.hooks import use_loop
 from counterweight.styles import Color
 from counterweight.styles import Style
 from counterweight.styles.utilities import *
-
-from whats_new.components.animation import use_loop
 
 PYTHON_BLUE = Color.from_hex("#4B8BBE")
 PYTHON_YELLOW = Color.from_hex("#FFD43B")
@@ -116,8 +115,8 @@ def title_card(title: str, *subtitles: str, is_live: bool) -> Div:
     Its turn starts from the same place when it mounts, so cards mounted at different times turn out of step.
     While its slide is live, a shine also crosses the title every few seconds.
     """
-    border_phase = use_loop(TURN_PERIOD, is_playing=True)
-    shine_phase = use_loop(SHINE_PERIOD, is_live)
+    border_phase = use_loop(TURN_PERIOD)
+    shine_phase = use_loop(SHINE_PERIOD, is_playing=is_live)
     # Off the title's left edge at the start of each period, so a still frame (phase 0) has no shine.
     shine = -SHINE_WIDTH + shine_phase / SHINE_SWEEP * (len(title) + 2 * SHINE_WIDTH)
     # The title is a text of its own, so its content box is the title, which the shine maps over,
@@ -199,7 +198,7 @@ def made_with_claude(is_live: bool) -> Div:
     across the words: the title and closing slides stay up for minutes, so they're the ones with something moving.
     Still, it's the spark at full size and no shimmer.
     """
-    phase = use_loop(CREDIT_PERIOD, is_live)
+    phase = use_loop(CREDIT_PERIOD, is_playing=is_live)
     turns = len(SPARK_CYCLE) * 2
     spark = SPARK_CYCLE[(SPARK_CYCLE.index(CLAUDE_SPARK) + int(phase * turns)) % len(SPARK_CYCLE)]
     # From fully off the left edge to fully off the right, so a still frame (phase 0) has no shimmer.

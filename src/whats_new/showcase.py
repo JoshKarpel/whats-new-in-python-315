@@ -17,6 +17,7 @@ from typing import assert_never
 from counterweight.app import app
 from counterweight.asciicast import Recording
 from counterweight.autopilot import AutopilotStep
+from counterweight.autopilot import advance
 from counterweight.controls import Marker
 from counterweight.controls import Quit
 from counterweight.events import KeyPressed
@@ -41,7 +42,6 @@ from whats_new.recording import IDLE_LIMIT
 from whats_new.recording import THEME
 from whats_new.size import PRESENTING
 from whats_new.slides import Slide
-from whats_new.tours import hold
 
 PICKING = timedelta(seconds=0.6)
 """How long the picker shows before and after moving down to the next transition, long enough to read its name."""
@@ -99,7 +99,7 @@ def showcased(transitions: tuple[tuple[str, Transition], ...]) -> Iterator[Autop
         yield Marker(label=f"{number}. {name}")
         yield from picked(Key.F6)
         yield KeyPressed(key=Key.Right)
-        yield from hold(duration_of(transition) + SETTLED)
+        yield from advance(duration_of(transition) + SETTLED)
     yield Quit()
 
 
@@ -112,12 +112,12 @@ def grid_showcased(transitions: tuple[tuple[str, GridTransition], ...]) -> Itera
         yield Marker(label=f"{number}. {name}")
         yield from picked(Key.F7)
         yield KeyPressed(key="d")
-        yield from hold(grid_duration_of(transition) + SETTLED)
+        yield from advance(grid_duration_of(transition) + SETTLED)
         # Onto the next slide rather than back to this one, so each closing lands somewhere new.
         yield KeyPressed(key=Key.Right)
-        yield from hold(PICKING)
+        yield from advance(PICKING)
         yield KeyPressed(key=Key.Enter)
-        yield from hold(grid_duration_of(transition) + SETTLED)
+        yield from advance(grid_duration_of(transition) + SETTLED)
     yield Quit()
 
 
@@ -125,9 +125,9 @@ def picked(key: Key) -> list[AutopilotStep]:
     """The option after the one picked, picked from the picker `key` opens, slowly enough to read both."""
     return [
         KeyPressed(key=key),
-        *hold(PICKING),
+        *advance(PICKING),
         KeyPressed(key=Key.Down),
-        *hold(PICKING),
+        *advance(PICKING),
         KeyPressed(key=Key.Enter),
     ]
 

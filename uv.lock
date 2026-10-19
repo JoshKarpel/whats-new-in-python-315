@@ -223,7 +223,7 @@ wheels = [
 [[package]]
 name = "counterweight"
 version = "0.1.0"
-source = { git = "https://github.com/JoshKarpel/counterweight?branch=main#5ccdd39a03ec9e36f21a4ad335c2c63841664ea5" }
+source = { git = "https://github.com/JoshKarpel/counterweight?branch=main#f7eddedfc646a3fabc337d54bce731827f220962" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "mdit-py-plugins" },

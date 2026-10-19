@@ -30,6 +30,7 @@ from counterweight.gradients import conic_gradient
 from counterweight.hooks import ElementHandle
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_focus
+from counterweight.hooks import use_loop
 from counterweight.hooks import use_rects
 from counterweight.hooks import use_state
 from counterweight.keys import Key
@@ -38,7 +39,6 @@ from counterweight.styles.utilities import *
 from counterweight.widgets import ScrollAreaStyles
 from counterweight.widgets import scroll_area
 
-from whats_new.components.animation import use_loop
 from whats_new.components.look import text_python_blue
 from whats_new.components.look import text_python_yellow
 from whats_new.runs import Run
@@ -137,7 +137,7 @@ def run_pane(props: SlideProps) -> Div:
 
     latest = command.latest
     is_running = latest is not None and isinstance(latest.outcome, Starting | Running)
-    phase = use_loop(ORBIT, is_running and props.is_live)
+    phase = use_loop(ORBIT, is_playing=is_running and props.is_live)
     return Div(
         # Across the slide, in a column that centers its other children.
         style=col | fill(1) | align_self_stretch,

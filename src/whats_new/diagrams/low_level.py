@@ -15,7 +15,7 @@ from counterweight.elements import Text
 from counterweight.styles import CellStyle
 from counterweight.styles.utilities import default
 
-from whats_new.components.animation import use_progress
+from whats_new.components.animation import use_explanation
 from whats_new.diagrams.draw import CROSSED
 from whats_new.diagrams.draw import EDGE
 from whats_new.diagrams.draw import HIGHLIGHT
@@ -67,7 +67,7 @@ def frame_pointer_chain(step: int, is_live: bool) -> Div | Component:
 @component
 def walk(is_broken: bool, is_live: bool) -> Div:
     hops = EXTENSION + 1 if is_broken else len(STACK) - 1
-    progress = use_progress(HOP * hops, is_live)
+    progress = use_explanation(HOP * hops, is_live)
     return chain(is_broken=is_broken, reached=int(progress * hops))
 
 
@@ -164,7 +164,7 @@ def gc_timeline(step: int, is_live: bool) -> Component:
 
 @component
 def growing_timeline(step: int, is_live: bool) -> Div:
-    progress = use_progress(EXTEND, is_live)
+    progress = use_explanation(EXTEND, is_live)
     start = 0 if step == 0 else tick_x(step - 1)
     head = start + round((tick_x(step) - start) * progress)
     parts: list[Text | Div] = [ink("─" * head + "▶", 0, 1)]

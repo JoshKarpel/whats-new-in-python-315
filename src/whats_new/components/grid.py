@@ -28,11 +28,11 @@ from counterweight.events import InputResponse
 from counterweight.focus import FocusHandle
 from counterweight.geometry import Region
 from counterweight.handlers import on_click
+from counterweight.hooks import use_loop
+from counterweight.hooks import use_progress
 from counterweight.hooks import use_state
 from counterweight.styles.utilities import *
 
-from whats_new.components.animation import use_loop
-from whats_new.components.animation import use_progress_since
 from whats_new.components.crossing import Tiles
 from whats_new.components.easing import ease_in_out
 from whats_new.components.look import TURN_PERIOD
@@ -40,7 +40,6 @@ from whats_new.components.look import dim
 from whats_new.components.look import highlight
 from whats_new.components.look import turning_edge
 from whats_new.components.slide_body import slide_body
-from whats_new.components.swipe import SWIPE
 from whats_new.host import Host
 from whats_new.slides import Slide
 from whats_new.slides import sections
@@ -228,7 +227,7 @@ def grid(
     cell = cell_of(selected, deck_sections)
     section = deck_sections[cell.section]
     visible = visible_range(selected, section)
-    progress = use_progress_since(zoom, SWIPE if zoom is None else zoom.duration)
+    progress = use_progress(timedelta() if zoom is None else zoom.duration, deps=(zoom,))
     if zoom is not None and zoom.toward is Toward.SLIDE and progress >= 1.0:
         return Div(style=display_none)
     openness = 1.0 if zoom is None else zoom.openness(progress)

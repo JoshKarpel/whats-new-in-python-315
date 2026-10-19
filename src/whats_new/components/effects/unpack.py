@@ -5,9 +5,9 @@ The line naming the section is written out across the top as they go. The slide 
 moving whole does; the burst is thrown, so it eases out, and the writing goes at a steady pace.
 """
 
+from counterweight.animation import between
 from counterweight.geometry import Region
 
-from whats_new.components.animation import between
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
 from whats_new.components.crossing import Tiles

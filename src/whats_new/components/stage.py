@@ -4,6 +4,7 @@ across together, and a `Crossing` draws its frames over the live slide, which sh
 A `cover` draws the grid's crossings the same way, over the grid or the stage.
 """
 
+from datetime import timedelta
 from typing import assert_never
 
 import waxy
@@ -11,14 +12,13 @@ from counterweight.components import Component
 from counterweight.components import component
 from counterweight.elements import Canvas
 from counterweight.elements import Div
+from counterweight.hooks import use_progress
 from counterweight.hooks import use_rects
 from counterweight.styles import Style
 from counterweight.styles.utilities import *
 
-from whats_new.components.animation import use_progress_since
 from whats_new.components.crossing import Crossing
 from whats_new.components.crossing import Drawing
-from whats_new.components.swipe import SWIPE
 from whats_new.components.swipe import Swipe
 from whats_new.components.swipe import offsets
 
@@ -33,7 +33,7 @@ def stage(live: Component, playing: Playing | None) -> Div:
     the copy still leaving.
     """
     width = use_rects().content.width
-    progress = use_progress_since(playing, SWIPE if playing is None else playing.duration)
+    progress = use_progress(timedelta() if playing is None else playing.duration, deps=(playing,))
     if playing is None or progress >= 1.0:
         return Div(style=fill(1) | position_relative, children=(placed_at(0, live),))
     match playing:
@@ -62,7 +62,7 @@ def cover(crossing: Crossing) -> Div:
     `crossing` drawn over whatever is beneath it, as the grid's transitions drawn from pictures are drawn over
     the grid opening or the slide it closes to, both already live; once it ends, nothing.
     """
-    progress = use_progress_since(crossing, crossing.duration)
+    progress = use_progress(crossing.duration, deps=(crossing,))
     if progress >= 1.0:
         return Div(style=display_none)
     return Div(
