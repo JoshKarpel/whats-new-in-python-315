@@ -494,8 +494,11 @@ frame earns a slide or just a sentence.
   - Observed: 96.9% of stacks reach `_start` with frame pointers, and 4.7% without.
     The Python caller above the extension disappears entirely.
   - Show it as two flamegraphs or two `perf script` excerpts.
-  - Run it live. `perf` works on the presenting VM without sudo (user-space
-    sampling, `perf_event_paranoid` 2), and the probe above ran there.
+  - Run it live. `perf` works on the presenting VM without sudo, and the probe
+    above ran there. It needs `perf_event_paranoid` 1, set in
+    `/etc/sysctl.d/99-perf-event.conf`: at 2, the kernel refuses `--call-graph fp`
+    even for a user-space event, since the call chain would include the kernel's
+    frames.
 
 #### JIT (std)
 - What changed: a tracing frontend, register allocation, and more constant
@@ -643,25 +646,29 @@ Each item gets one runnable line where possible:
   which python-build-standalone publishes (`uv python list` offers it). rc2 has a
   Tachyon bug (gh-154335: pstats output ignores `NO_COLOR`) that rc3 fixes. Most
   observed results come from release candidates, so re-run the probes on final.
-- counterweight: a git source on `main` until the next release, then the release:
+- counterweight: a git source on `main` until `0.1.1` is on PyPI, then the
+  release. `0.1.1` is the first to export everything the deck uses.
 
   ```toml
+  dependencies = ["counterweight>=0.1.1"]
+
   [tool.uv.sources]
   counterweight = { git = "https://github.com/JoshKarpel/counterweight", branch = "main" }
   ```
 
-  - `uv.lock` pins the exact commit, and `uv lock --upgrade-package counterweight`
+  - `uv.lock` pins the exact commit or release, and `uv lock --upgrade-package counterweight`
     moves it forward. So a counterweight change reaches the deck only when we
     choose to take it.
+  - counterweight and waxy, its layout engine, are exempt from the 7-day
+    `exclude-newer` cooldown, since the deck tracks their releases closely.
   - The Tachyon stage needs
     [#423](https://github.com/JoshKarpel/counterweight/pull/423) (`Canvas`, the
-    phase 2 framework fixes, and `use_terminal`) to be on `main`. Everything else
-    works on today's `main`.
+    phase 2 framework fixes, and `use_terminal`).
   - #423 brings in `pyghostty`, which bundles a prebuilt, pre-1.0 `libghostty-vt`.
     That's a supply-chain cost the deck inherits, not one it chooses.
   - [#426](https://github.com/JoshKarpel/counterweight/pull/426) plans a diagram
-    engine. Nothing waits on it. If its graph container reaches `main` during the
-    build, rebuild the graph-shaped diagrams with it (see [Diagrams](#diagrams)).
+    engine. Nothing waits on it. If its graph container lands in a release during
+    the build, rebuild the graph-shaped diagrams with it (see [Diagrams](#diagrams)).
   - counterweight already requires 3.15, and imports and renders headless on rc2.
     Pygments 2.21 already lexes `lazy`, `sentinel` and `frozendict`.
 - Demo tools:
@@ -1043,7 +1050,7 @@ The reference talk did this with two pieces, and the deck keeps both:
 Differences from the reference talk:
 
 - Its `watch` recipe also watched `../counterweight/counterweight/`. Here
-  counterweight is a locked git source, so edits in a local checkout don't reach
+  counterweight is locked, so edits in a local checkout don't reach
   the deck. Co-developing counterweight needs a temporary local path source; work
   out the exact uv mechanism when it's first needed.
 - Its HTML export reset the index file to 0. Export here leaves the checkpoint
@@ -1451,7 +1458,7 @@ browser on my laptop showing zellij web.
 ### Running it yourself
 
 Anyone can run the deck from one line in the README, without trusting their
-machine to its dependency tree: counterweight from git, `pyghostty`'s prebuilt
+machine to its dependency tree: a pre-1.0 counterweight, `pyghostty`'s prebuilt
 pre-1.0 `libghostty-vt`, three type checkers and six interpreters.
 
 ```bash
@@ -1473,8 +1480,8 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
 - Not `uvx --from git+...`. `uv tool run` ignores the project's lockfile and
   resolves fresh, and has no `--locked` or `--frozen`. Observed on uv 0.13.0: a
   lock pinning `six==1.15.0` ran 1.15.0 under `uv run --frozen` and 1.17.0 under
-  `uvx --from`. Viewers would get whatever counterweight `main` and `pyghostty`
-  look like that day.
+  `uvx --from`. Viewers would get whatever counterweight and `pyghostty`
+  releases are newest that day.
 - Nothing downloads at launch, which `--network none` requires. The image bakes
   in everything the deck uses:
   - the six interpreters, from `uv python install`, so the startup interpreter

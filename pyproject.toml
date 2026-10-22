@@ -13,7 +13,7 @@ authors = [
 ]
 requires-python = ">=3.15"
 dependencies = [
-    "counterweight",
+    "counterweight>=0.1.1",
     "numpy>=2.4",
 ]
 
@@ -41,9 +41,10 @@ checkers = [
 default-groups = ["dev", "checkers"]
 exclude-newer = "7 days"
 # ty: the typing slides show this exact version's verdicts, observed while planning the talk.
-# waxy: counterweight's own layout engine, which counterweight main tracks closely.
-exclude-newer-package = { ty = false, waxy = false }
+# counterweight, and waxy, its layout engine: the deck tracks their releases closely.
+exclude-newer-package = { ty = false, counterweight = false, waxy = false }
 
+# counterweight 0.1.1 is on main but not yet on PyPI. Once it is, drop this to take the release.
 [tool.uv.sources]
 counterweight = { git = "https://github.com/JoshKarpel/counterweight", branch = "main" }
 

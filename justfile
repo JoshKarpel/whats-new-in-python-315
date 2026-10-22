@@ -78,7 +78,6 @@ pre-commit:
     git add --update
     uv run --frozen pre-commit
 
-# Moves counterweight to the tip of its main branch, along with everything else.
 [doc('Upgrade all dependencies, and the tools in mise.toml')]
 upgrade:
     uv lock --upgrade

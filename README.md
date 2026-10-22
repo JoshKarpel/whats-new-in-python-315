@@ -16,7 +16,7 @@ and [`grid-transitions.cast`](grid-transitions.cast) every way the slide grid ca
 docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:main
 ```
 
-The deck depends on counterweight from git, a prebuilt pre-1.0 `libghostty-vt`, three type checkers,
+The deck depends on a pre-1.0 counterweight, a prebuilt pre-1.0 `libghostty-vt`, three type checkers,
 and six Python interpreters, so it runs in a container rather than on your machine.
 The container is the safety boundary: with `--network none` and nothing mounted,
 a compromised dependency can't read your files or credentials, and can't send anything anywhere.

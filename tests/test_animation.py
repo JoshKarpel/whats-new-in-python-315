@@ -7,8 +7,8 @@ import re
 from datetime import timedelta
 
 import pytest
+from counterweight import app
 from counterweight.animation import FRAME_INTERVAL
-from counterweight.app import app
 from counterweight.components import Component
 from counterweight.components import component
 from counterweight.controls import AdvanceClock
@@ -16,7 +16,7 @@ from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.elements import Div
 from counterweight.hooks import use_clock
-from counterweight.output import Frame
+from counterweight.paint import Frame
 from counterweight.styles import Color
 from counterweight.styles.utilities import *
 

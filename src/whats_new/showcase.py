@@ -14,7 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import assert_never
 
-from counterweight.app import app
+from counterweight import app
 from counterweight.asciicast import Recording
 from counterweight.autopilot import AutopilotStep
 from counterweight.autopilot import advance

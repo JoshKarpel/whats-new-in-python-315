@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from counterweight.app import app
+from counterweight import app
 from counterweight.autopilot import WaitFor
 from counterweight.controls import AdvanceClock
 from counterweight.controls import Marker

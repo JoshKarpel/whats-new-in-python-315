@@ -6,13 +6,13 @@ revealing one ramp of colors in place, and slate past the fill.
 from datetime import UTC
 
 import pytest
-from counterweight.app import app
+from counterweight import app
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.geometry import Position
-from counterweight.output import Frame
+from counterweight.paint import Frame
+from counterweight.styles import AnyColor
 from counterweight.styles import Color
-from counterweight.styles.styles import AnyColor
 from counterweight.styles.utilities import slate_600
 
 from whats_new.components.frame import footer

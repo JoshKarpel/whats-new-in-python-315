@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from counterweight.app import app
+from counterweight import app
 from counterweight.autopilot import typed
 from counterweight.controls import AnyControl
 from counterweight.controls import Quit
@@ -13,7 +13,7 @@ from counterweight.elements import Chunk
 from counterweight.events import AnyEvent
 from counterweight.events import KeyPressed
 from counterweight.keys import Key
-from counterweight.output import Frame
+from counterweight.paint import Frame
 from counterweight.styles import CellStyle
 
 from whats_new.checkpoint import Checkpoint

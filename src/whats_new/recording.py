@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from datetime import timedelta
 from pathlib import Path
 
-from counterweight.app import app
+from counterweight import app
 from counterweight.asciicast import Recording
 from counterweight.asciicast import Theme
 from counterweight.autopilot import AutopilotStep
@@ -26,9 +26,9 @@ from counterweight.controls import Marker
 from counterweight.controls import Quit
 from counterweight.events import KeyPressed
 from counterweight.keys import Key
-from counterweight.output import Frame
-from counterweight.paint import SVG_BACKGROUND
-from counterweight.paint import SVG_FOREGROUND
+from counterweight.paint import SCREENSHOT_BACKGROUND
+from counterweight.paint import SCREENSHOT_FOREGROUND
+from counterweight.paint import Frame
 from counterweight.styles import DEFAULT_PALETTE
 
 from whats_new.checkpoint import Checkpoint
@@ -56,7 +56,7 @@ No shorter than the holds, which draw nothing on a slide with nothing animating.
 START = Checkpoint(slide=0, code_theme="dracula", transition="swipe", grid_transition="zoom")
 """Where the recording starts, and the code theme and slide transition it presents in."""
 
-THEME = Theme(foreground=SVG_FOREGROUND, background=SVG_BACKGROUND, palette=DEFAULT_PALETTE[:16])
+THEME = Theme(foreground=SCREENSHOT_FOREGROUND, background=SCREENSHOT_BACKGROUND, palette=DEFAULT_PALETTE[:16])
 """The colors the export's screenshots draw the terminal's own colors in, so the two look alike."""
 
 IN_PROGRESS = re.compile(r"(starting|running)$")

@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from datetime import timedelta
 
 import pytest
-from counterweight.app import app
+from counterweight import app
 from counterweight.components import Component
 from counterweight.controls import AdvanceClock
 from counterweight.controls import AnyControl
@@ -21,7 +21,7 @@ from counterweight.events import KeyPressed
 from counterweight.focus import FocusHandle
 from counterweight.geometry import Region
 from counterweight.keys import Key
-from counterweight.output import Frame
+from counterweight.paint import Frame
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
 

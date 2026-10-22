@@ -9,14 +9,14 @@ from functools import partial
 from itertools import pairwise
 
 import pytest
-from counterweight.app import app
+from counterweight import app
 from counterweight.components import Component
 from counterweight.components import component
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.elements import Div
 from counterweight.elements import Text
-from counterweight.output import Frame
+from counterweight.paint import Frame
 from counterweight.styles.utilities import *
 
 from whats_new.diagrams import fan_out

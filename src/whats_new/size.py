@@ -25,7 +25,7 @@ class Size:
 
     @property
     def dimensions(self) -> tuple[int, int]:
-        """`(columns, rows)`, as `counterweight.app.app` takes them."""
+        """`(columns, rows)`, as `counterweight.app` takes them."""
         return (self.columns, self.rows)
 
 

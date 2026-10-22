@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from counterweight.autopilot import AutopilotStep
 from counterweight.autopilot import Wait
+from counterweight.autopilot import paced
 from counterweight.autopilot import showing
 from counterweight.autopilot import typed
 from counterweight.components import component
@@ -27,7 +28,7 @@ from whats_new.slides import SlideProps
 
 TYPING = Wait(timedelta(milliseconds=90))
 """
-The pause after each key the tour types, about a fast typist's: real time, not the frozen clock's,
+The pause before each key the tour types, about a fast typist's: real time, not the frozen clock's,
 so the REPL on its pseudo-terminal echoes each key before the next one arrives.
 """
 LOOK = Wait(timedelta(seconds=2))
@@ -88,20 +89,20 @@ def repl_tour(step: int) -> list[AutopilotStep]:
     return [
         KeyPressed(key="s"),
         showing(">>> "),
-        *typed("from collections import ", TYPING),
+        *paced(typed("from collections import "), TYPING),
         KeyPressed(key=Key.Tab),
         KeyPressed(key=Key.Tab),
         LOOK,
-        *typed("Ord", TYPING),
+        *paced(typed("Ord"), TYPING),
         KeyPressed(key=Key.Tab),
-        *typed("\nOrderedDict.", TYPING),
+        *paced(typed("\nOrderedDict."), TYPING),
         KeyPressed(key=Key.Tab),
         KeyPressed(key=Key.Tab),
         LOOK,
-        *typed("fromk", TYPING),
+        *paced(typed("fromk"), TYPING),
         KeyPressed(key=Key.Tab),
         # Completing a method types its opening parenthesis.
-        *typed("'abc')\n", TYPING),
+        *paced(typed("'abc')\n"), TYPING),
         LOOK,
         KeyPressed(key=Key.ControlB),
     ]

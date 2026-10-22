@@ -15,7 +15,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from tempfile import gettempdir
 
-from counterweight.app import app
+from counterweight import app
 
 from whats_new import export
 from whats_new import recording

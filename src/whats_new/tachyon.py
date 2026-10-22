@@ -22,7 +22,6 @@ from pathlib import Path
 from counterweight.autopilot import AutopilotStep
 from counterweight.autopilot import Wait
 from counterweight.autopilot import showing
-from counterweight.commands import Exited
 from counterweight.commands import command_output
 from counterweight.commands import use_command
 from counterweight.components import Component
@@ -36,8 +35,8 @@ from counterweight.events import InputEvent
 from counterweight.events import InputResponse
 from counterweight.events import KeyPressed
 from counterweight.events import Receiver
+from counterweight.focus import ElementHandle
 from counterweight.focus import FocusHandle
-from counterweight.hooks import ElementHandle
 from counterweight.hooks import Ref
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_focus
@@ -45,6 +44,7 @@ from counterweight.hooks import use_rects
 from counterweight.hooks import use_ref
 from counterweight.hooks import use_state
 from counterweight.keys import Key
+from counterweight.programs import Exited
 from counterweight.styles.utilities import *
 from counterweight.widgets import terminal
 

@@ -5,7 +5,7 @@ and a light goes around its border while a run is in progress.
 
 import asyncio
 
-from counterweight.app import app
+from counterweight import app
 from counterweight.controls import AdvanceClock
 from counterweight.controls import AnyControl
 from counterweight.controls import Quit
@@ -14,8 +14,8 @@ from counterweight.events import AnyEvent
 from counterweight.events import KeyPressed
 from counterweight.geometry import Position
 from counterweight.keys import Key
-from counterweight.output import Frame
-from counterweight.styles.styles import AnyColor
+from counterweight.paint import Frame
+from counterweight.styles import AnyColor
 
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.run_pane import ORBIT

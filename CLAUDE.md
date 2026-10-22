@@ -30,7 +30,7 @@ Each module's docstring says what role it plays; read those before adding a file
   They wait for nothing real, so they come out the same every time, and pre-commit hooks regenerate them as the export's does.
 - `pre-commit-autofix` (or `just pre-commit`) runs ruff and the other hooks.
 
-counterweight comes from git `main`, pinned by `uv.lock`, and moves fast.
+counterweight is pinned by `uv.lock` (`pyproject.toml` says whether to a release or a commit on `main`), and moves fast.
 Read its API from the installed source under `.venv/lib/python3.15/site-packages/counterweight/`,
 not from memory or its docs site.
 

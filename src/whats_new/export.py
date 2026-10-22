@@ -15,7 +15,7 @@ from datetime import timedelta
 from html import escape
 from pathlib import Path
 
-from counterweight.app import app
+from counterweight import app
 from counterweight.clock import FrozenClock
 from counterweight.controls import AdvanceClock
 from counterweight.controls import AnyControl
@@ -24,7 +24,7 @@ from counterweight.controls import Screenshot
 from counterweight.events import AnyEvent
 from counterweight.events import KeyPressed
 from counterweight.keys import Key
-from counterweight.output import Frame
+from counterweight.paint import Frame
 
 from whats_new.checkpoint import Checkpoint
 from whats_new.host import Host

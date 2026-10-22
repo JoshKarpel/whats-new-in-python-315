@@ -23,7 +23,7 @@ from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
-from counterweight.app import app
+from counterweight import app
 from counterweight.clock import FrozenClock
 from counterweight.components import Component
 from counterweight.controls import AdvanceClock
@@ -33,12 +33,12 @@ from counterweight.elements import Rows
 from counterweight.elements import StyledGrapheme
 from counterweight.geometry import Region
 from counterweight.gradients import Gradient
-from counterweight.output import Frame
+from counterweight.paint import Frame
 from counterweight.paint import Paint
 from counterweight.paint import styled_grapheme
-from counterweight.styles.styles import UNSET
-from counterweight.styles.styles import AnyColor
-from counterweight.styles.styles import is_solid_color
+from counterweight.styles import UNSET
+from counterweight.styles import AnyColor
+from counterweight.styles import is_solid_color
 
 from whats_new.components.swipe import Direction
 

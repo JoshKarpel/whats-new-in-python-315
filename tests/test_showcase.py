@@ -14,14 +14,14 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from counterweight.app import app
+from counterweight import app
 from counterweight.autopilot import AutopilotStep
 from counterweight.controls import Marker
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.events import KeyPressed
 from counterweight.keys import Key
-from counterweight.output import Frame
+from counterweight.paint import Frame
 
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.transitions import GRID_OFFERED
@@ -112,7 +112,12 @@ async def test_each_transition_is_picked_in_turn(
         clock=EXPORT_CLOCK,
     )
 
-    picked = [checkpoint.transition if start is START else checkpoint.grid_transition for checkpoint in checkpoints]
+    # The effect that writes checkpoints runs on mount too, so the first can be the start itself, which picks nothing.
+    picked = [
+        checkpoint.transition if start is START else checkpoint.grid_transition
+        for checkpoint in checkpoints
+        if checkpoint != start
+    ]
     assert list(dict.fromkeys(picked)) == names
     assert checkpoints[-1].slide == len(names)
 

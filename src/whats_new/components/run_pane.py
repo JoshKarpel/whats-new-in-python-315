@@ -11,8 +11,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from counterweight.commands import CommandOutputStyles
-from counterweight.commands import Running
-from counterweight.commands import Starting
 from counterweight.commands import outcome_text
 from counterweight.commands import use_command
 from counterweight.components import component
@@ -25,15 +23,17 @@ from counterweight.events import InputEvent
 from counterweight.events import InputResponse
 from counterweight.events import KeyPressed
 from counterweight.events import Receiver
+from counterweight.focus import ElementHandle
 from counterweight.gradients import ConicGradient
 from counterweight.gradients import conic_gradient
-from counterweight.hooks import ElementHandle
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_focus
 from counterweight.hooks import use_loop
 from counterweight.hooks import use_rects
 from counterweight.hooks import use_state
 from counterweight.keys import Key
+from counterweight.pseudoterminal import Running
+from counterweight.pseudoterminal import Starting
 from counterweight.styles import Color
 from counterweight.styles.utilities import *
 from counterweight.widgets import ScrollAreaStyles

@@ -14,13 +14,14 @@ from functools import cache
 
 from counterweight.animation import between
 from counterweight.elements import StyledGrapheme
+from counterweight.paint import SCREENSHOT_FOREGROUND
+from counterweight.styles import UNSET
+from counterweight.styles import AnyColor
 from counterweight.styles import CellStyle
 from counterweight.styles import Color
-from counterweight.styles.styles import UNSET
-from counterweight.styles.styles import AnyColor
-from counterweight.styles.styles import as_solid
-from counterweight.styles.styles import resolve_cell_style
-from counterweight.styles.styles import rgb_of
+from counterweight.styles import as_solid
+from counterweight.styles import resolve_cell_style
+from counterweight.styles import rgb_of
 
 from whats_new.components.crossing import Frames
 from whats_new.components.crossing import Grid
@@ -29,8 +30,6 @@ from whats_new.components.swipe import Direction
 
 GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$+-*=<>:.!?#&|"
 """What the rain is made of: ASCII only, since anything wider or rarer isn't drawn reliably in every terminal."""
-SCREENSHOT_FOREGROUND = Color.from_name("white")
-"""The terminal's default text color, as a screenshot draws it."""
 HEAD = Color.from_hex("#e8ffe8")
 GREEN = Color.from_hex("#22ff55")
 DARK_GREEN = Color.from_hex("#0b3d14")
