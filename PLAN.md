@@ -646,17 +646,14 @@ Each item gets one runnable line where possible:
   which python-build-standalone publishes (`uv python list` offers it). rc2 has a
   Tachyon bug (gh-154335: pstats output ignores `NO_COLOR`) that rc3 fixes. Most
   observed results come from release candidates, so re-run the probes on final.
-- counterweight: a git source on `main` until `0.1.1` is on PyPI, then the
-  release. `0.1.1` is the first to export everything the deck uses.
+- counterweight: the PyPI release, from `0.1.1`, the first to export everything
+  the deck uses.
 
   ```toml
   dependencies = ["counterweight>=0.1.1"]
-
-  [tool.uv.sources]
-  counterweight = { git = "https://github.com/JoshKarpel/counterweight", branch = "main" }
   ```
 
-  - `uv.lock` pins the exact commit or release, and `uv lock --upgrade-package counterweight`
+  - `uv.lock` pins the exact release, and `uv lock --upgrade-package counterweight`
     moves it forward. So a counterweight change reaches the deck only when we
     choose to take it.
   - counterweight and waxy, its layout engine, are exempt from the 7-day
@@ -1607,7 +1604,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
 
 ## Build order
 
-1. Scaffold: pyproject with counterweight as a git source on `main`, `mise.toml`,
+1. Scaffold: pyproject with counterweight, `mise.toml`,
    `.python-version`, `justfile` (`present`, `watch`, `check-examples`,
    `rehearse`, `export`), and `.pre-commit-config.yaml` with the base and ruff
    hooks.
