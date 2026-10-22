@@ -44,10 +44,6 @@ exclude-newer = "7 days"
 # counterweight, and waxy, its layout engine: the deck tracks their releases closely.
 exclude-newer-package = { ty = false, counterweight = false, waxy = false }
 
-# counterweight 0.1.1 is on main but not yet on PyPI. Once it is, drop this to take the release.
-[tool.uv.sources]
-counterweight = { git = "https://github.com/JoshKarpel/counterweight", branch = "main" }
-
 [tool.pytest.ini_options]
 addopts = ["--strict-markers"]
 testpaths = ["tests"]

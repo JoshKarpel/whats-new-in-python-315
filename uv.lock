@@ -224,7 +224,7 @@ wheels = [
 [[package]]
 name = "counterweight"
 version = "0.1.1"
-source = { git = "https://github.com/JoshKarpel/counterweight?branch=main#58a4719bb8db5d3927d2d38493f69be14f0a8e66" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "mdit-py-plugins" },
@@ -237,6 +237,10 @@ dependencies = [
     { name = "without-cli" },
     { name = "without-logging" },
     { name = "without-streams" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/2f/7ef133d449245660913d5d1047606d59b02ecf4ea654d66ed99655bcca2c/counterweight-0.1.1.tar.gz", hash = "sha256:97522df99dedfe4682498f1261ad7c8510b359b445ed4a861172bbc43ad0a566", size = 346485, upload-time = "2026-10-22T04:30:32.299Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b1/6b/1c9d60be9211188638fd9f3791f7d465aaa029ecb9f0d20a4b59f0588e3d/counterweight-0.1.1-py3-none-any.whl", hash = "sha256:6a785a3882342008293b0cb644f877fdcb0d98c6108474729d8a98cba401c5ac", size = 423481, upload-time = "2026-10-22T04:30:30.573Z" },
 ]
 
 [[package]]
@@ -942,7 +946,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "counterweight", git = "https://github.com/JoshKarpel/counterweight?branch=main" },
+    { name = "counterweight", specifier = ">=0.1.1" },
     { name = "numpy", specifier = ">=2.4" },
 ]
 
