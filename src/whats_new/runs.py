@@ -1,5 +1,5 @@
 """
-What a slide runs when a number key is pressed, as values, and the interpreters those runs name.
+What a slide runs when a number key is pressed or a run's name is clicked, as values, and the interpreters those runs name.
 
 A slide declares its runs; `run_pane` runs them and the example check runs every one and asserts its outcome,
 so what's on screen and what's tested are the same declaration.

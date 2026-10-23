@@ -1,14 +1,15 @@
 """
 The run pane: one box at the slide's full width, showing whichever of the slide's runs was started last,
-each started by its number key, with its output in color.
+each started by its number key or a click on its name, with its output in color.
 
-Mounting starts nothing. A key press records a new request in state, and an effect keyed on the request
-starts the program, so a thumbnail or the export, which never press a key, never spawn anything.
+Mounting starts nothing. A key press or a click records a new request in state, and an effect keyed on the request
+starts the program, so a thumbnail or the export, which never press a key or click, never spawn anything.
 """
 
 import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
+from functools import partial
 
 from counterweight.commands import CommandOutputStyles
 from counterweight.commands import outcome_text
@@ -20,12 +21,14 @@ from counterweight.elements import Chunk
 from counterweight.elements import Div
 from counterweight.elements import Text
 from counterweight.events import InputEvent
+from counterweight.events import InputHandler
 from counterweight.events import InputResponse
 from counterweight.events import KeyPressed
 from counterweight.events import Receiver
 from counterweight.focus import ElementHandle
 from counterweight.gradients import ConicGradient
 from counterweight.gradients import conic_gradient
+from counterweight.handlers import on_click
 from counterweight.hooks import use_effect
 from counterweight.hooks import use_focus
 from counterweight.hooks import use_loop
@@ -80,7 +83,8 @@ def run_pane(props: SlideProps) -> Div:
     """
     The slide's runs, named in a line above one box: `1` runs the first in the box, `2` the next, and so on,
     replacing whatever the box showed, and the line marks which one it shows, with how it's going at its right end.
-    Pressing a run's key again runs it again. Escape stops the run in progress.
+    Clicking a run's name runs it as its key does.
+    Pressing a run's key again, or clicking its name again, runs it again. Escape stops the run in progress.
     While one is in progress, a light goes around the box's border, so a slow run doesn't look like a dead key.
     Up and Down scroll the output, so a long traceback can be read without reaching for the mouse.
     Every run executes a copy of `examples/` with the slide's edits written over it.
@@ -119,11 +123,13 @@ def run_pane(props: SlideProps) -> Div:
 
     use_effect(stop, deps=(cancels,))
 
+    def request_run(index: int) -> None:
+        set_request(lambda current: Request(index=index, press=1 if current is None else current.press + 1))
+
     def on_input(event: InputEvent, receiver: Receiver) -> InputResponse:
         match event:
             case KeyPressed(key=key) if key in NUMBER_KEYS[: len(runs)]:
-                index = NUMBER_KEYS.index(key)
-                set_request(lambda current: Request(index=index, press=1 if current is None else current.press + 1))
+                request_run(NUMBER_KEYS.index(key))
                 return ()
             case KeyPressed(key=Key.Escape):
                 set_cancels(lambda n: n + 1)
@@ -148,11 +154,18 @@ def run_pane(props: SlideProps) -> Div:
             Div(
                 style=row | justify_children_space_between | shrink(0),
                 children=(
-                    Text(
-                        content=tuple(
-                            chunk
+                    Div(
+                        style=row | gap(2),
+                        children=tuple(
+                            run_name(
+                                index,
+                                run,
+                                is_shown=request is not None and request.index == index,
+                                # Only a live slide's names take a click, so a click on a thumbnail in the slide grid
+                                # reaches the grid, which jumps to the slide.
+                                on_input=on_click(partial(request_run, index)) if props.is_live else None,
+                            )
                             for index, run in enumerate(runs)
-                            for chunk in run_name(index, run, is_shown=request is not None and request.index == index)
                         ),
                     ),
                     Text(
@@ -185,11 +198,13 @@ def orbiting(phase: float) -> ConicGradient:
     return conic_gradient((RESTING, 0), (LIT, 0.25), (RESTING, 0.3), start=360 * phase)
 
 
-def run_name(index: int, run: Run, is_shown: bool) -> tuple[Chunk, ...]:
+def run_name(index: int, run: Run, is_shown: bool, on_input: InputHandler | None) -> Text:
     """A run's key and label in the line above the box, bright for the run the box shows and dim for the rest."""
     intensity = text_bold | (text_not_dim if is_shown else text_dim)
-    return (
-        Chunk(content=f" {index + 1} ", style=intensity | text_python_yellow),
-        Chunk(content=run.label, style=intensity | text_python_blue),
-        Chunk(content="  "),
+    return Text(
+        content=(
+            Chunk(content=f" {index + 1} ", style=intensity | text_python_yellow),
+            Chunk(content=run.label, style=intensity | text_python_blue),
+        ),
+        on_input=on_input,
     )

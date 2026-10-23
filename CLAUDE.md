@@ -44,7 +44,7 @@ not from memory or its docs site.
 - A slide's code comes from `examples/` through `components/code.py`,
   and its `runs` are `Run` values (`runs.py`, built with helpers like `python` and `on_both`)
   carrying an `Expect`.
-  `run_pane` executes them on the number keys, and `test_examples.py` executes every one and asserts its `Expect`,
+  `run_pane` executes them on the number keys or a click on a run's name, and `test_examples.py` executes every one and asserts its `Expect`,
   so what's shown, what runs, and what's tested are one declaration.
   Changing an example's output means changing its `Expect` in the section module.
 - On stage an example is editable. A run executes a temporary copy of `examples/` with the slide's edits

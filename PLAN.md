@@ -758,6 +758,9 @@ Dockerfile           the image others run the deck from
     doesn't look like a dead key.
   - Up and Down scroll the box's output a line at a time, since the run pane is
     the slide's focus stop anyway, so a long traceback reads without the touchpad.
+  - Clicking a run's name in the line above the box runs it as its key does.
+    Only a live slide's names take the click, so a click on a thumbnail in the
+    slide grid still reaches the grid and jumps to the slide.
 - Resolve interpreters once, at startup. Resolve each interpreter path
   (`uv python find 3.14`, etc.) into a typed `Interpreters` value and fail loudly if
   one is missing. That turns a missing interpreter into a startup error, not a dead

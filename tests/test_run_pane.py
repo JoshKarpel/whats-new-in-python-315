@@ -1,5 +1,5 @@
 """
-The run pane's keys beyond running: Up and Down scroll its output,
+The run pane beyond its number keys: a click on a run's name runs it, Up and Down scroll its output,
 and a light goes around its border while a run is in progress.
 """
 
@@ -12,6 +12,8 @@ from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.events import AnyEvent
 from counterweight.events import KeyPressed
+from counterweight.events import MouseDown
+from counterweight.events import MouseUp
 from counterweight.geometry import Position
 from counterweight.keys import Key
 from counterweight.paint import Frame
@@ -51,6 +53,44 @@ def box_lines(frame: Frame) -> list[str]:
     top = max(index for index, line in enumerate(lines) if "╭" in line)
     bottom = max(index for index, line in enumerate(lines) if "╰" in line)
     return lines[top + 1 : bottom]
+
+
+def name_position(frame: Frame, name: str) -> Position:
+    """Where `name` starts in the line of run names, which is the line above the run box."""
+    lines = frame.text(ansi=False).split("\n")
+    top = max(index for index, line in enumerate(lines) if "╭" in line)
+    return Position(lines[top - 1].index(name), top - 1)
+
+
+async def test_clicking_a_runs_name_runs_it_as_its_key_does(host: Host) -> None:
+    title = "Unpacking in comprehensions"
+    before: list[Frame] = []
+    clicked: list[Frame] = []
+    pressed: list[Frame] = []
+    await drive(host, title, (Screenshot(handler=before.append),))
+    click = name_position(before[0], " 2 3.15")
+    await drive(
+        host,
+        title,
+        (
+            MouseDown(absolute=click, button=1),
+            MouseUp(absolute=click, button=1),
+            *(Screenshot(handler=settle) for _ in range(8)),
+            Screenshot(handler=clicked.append),
+        ),
+    )
+    await drive(
+        host,
+        title,
+        (
+            KeyPressed(key="2"),
+            *(Screenshot(handler=settle) for _ in range(8)),
+            Screenshot(handler=pressed.append),
+        ),
+    )
+
+    assert box_lines(clicked[0]) != box_lines(before[0])
+    assert box_lines(clicked[0]) == box_lines(pressed[0])
 
 
 async def test_up_scrolls_the_output_back_a_line(host: Host) -> None:
