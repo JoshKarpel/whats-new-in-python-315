@@ -109,7 +109,10 @@ def tachyon_name(props: SlideProps) -> Div:
 def why_sampling(props: SlideProps) -> Div:
     return stack(
         profilers.tracing_vs_sampling(props.step, props.is_live),
-        bullets("production performance problems show up in situ: measure before optimizing"),
+        bullets(
+            "tracing is planned ahead: start the program under it, and it slows the whole run",
+            "sampling is ad hoc: attach to the process already running, in place, once it's slow",
+        ),
     )
 
 

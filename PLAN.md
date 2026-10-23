@@ -376,8 +376,12 @@ frame earns a slide or just a sentence.
 1. Why the name? Physicist digression: a tachyon is a hypothetical
    faster-than-light particle ("tachy" is Greek for swift). The PEP calls it an
    internal codename and gives no reason.
-2. Why sampling? Production performance problems show up in situ and can't be
-   deduced ahead of time, so measure before optimizing.
+2. Why sampling? Because it's ad hoc, in place, and post facto:
+   attach to the process already running, where the problem is,
+   after the problem shows up.
+   Tracing is the opposite on all three: decided ahead of time,
+   run by starting the program under it,
+   and too slow to leave on in case a problem appears.
    - Overhead demo, on its own slide with the program shown: `fib(32)`, timing itself,
      run plain, under `profiling.tracing` (cProfile's new home), and under
      `profiling.sampling run`, best of three each. The program reports its own time,
