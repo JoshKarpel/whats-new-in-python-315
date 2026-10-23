@@ -538,24 +538,93 @@ frame earns a slide or just a sentence.
 #### The GC story (std)
 - It opens with its own title card, "The garbage collector saga": a story inside
   the performance section.
+- What the story says went wrong comes only from core developers' public comments
+  (the revert thread, gh-142516 and GH-142001), quoted and attributed, not from
+  reading `gc.c` ourselves. The live demo shows the effect; it doesn't explain it.
+- What the cycle collector is for, before any history: reference counting frees an
+  object the moment its count reaches 0, which is how most objects go, but it never
+  frees a cycle. The collector
+  finds cycles by subtracting the references that come from inside the heap: what's
+  still above 0 is held from outside, along with everything it reaches, and the
+  rest is garbage. It runs every 2,000 new container objects, so it paces itself by
+  object count, not bytes: as Tim Peters put it on the revert thread, "our gc
+  doesn't know the size of objects".
+- Generations: every new object starts in the youngest generation. A collection
+  frees the garbage there and moves the survivors up a generation, which is
+  collected less often, so garbage that dies after moving up waits for its
+  generation's turn.
+- Two schedules:
+  - generational (3.13, 3.14.5 on, 3.15): generation 0 on every collection,
+    generation 1 every tenth, and now and then the whole heap, a pause that grows
+    with the heap.
+  - incremental (3.14.0 to 3.14.4): two generations; each collection scans the
+    young generation and the next slice of the old, so pauses stay short and even.
+    The catch is that garbage in the old generation waits for its slice to come
+    round.
+  - Neil Schemenauer's synthetic benchmark on the revert thread: 26 ms max pause
+    generational, 1.3 ms incremental, and up to 5x the memory.
 - Incremental GC:
   - landed for 3.13 and was rolled back before 3.13.0
   - shipped in 3.14.0
+  - 3.14.1 backported a fix for a GC slowdown
+    ([gh-139951](https://github.com/python/cpython/issues/139951), GH-140262).
+    Sergey Miryanov, on the revert thread: "The incremental GC has early return
+    since 3.14.1. Even if threshold0 reached, it can exit early and skip all
+    processing."
+
   - production memory-growth reports followed
+    ([gh-142516](https://github.com/python/cpython/issues/142516): httpx, where a
+    response ⇄ stream cycle held an 800 kB `SSLContext`)
   - the SC-backed revert came in 3.14.5 _and_ 3.15 (announced 2026-04-16)
 - 3.15 ships the generational GC. Reintroducing incremental GC now needs a PEP.
+- What went wrong, in core developers' words:
+  - Neil Schemenauer (GH-142001, 2025-11-27): reverting the `work_to_do` changes in
+    GH-140262 "causes cyclic garbage to be collected more quickly". His test's most
+    outstanding garbage objects: under 100 on 3.13, about 2,000 on 3.14.0, and
+    10,000 on the 3.14 branch after GH-140262.
+  - Sergey Miryanov (revert thread): the early return since 3.14.1, quoted above;
+    and dead cycles "do get reclaimed, but it can take a long time since it's
+    controlled by the work_to_do logic and the size of the old generation".
+  - Tim Peters (revert thread), with a toy program on 3.14.4: "90 to 100
+    unreclaimed cycles for each still reachable", and "trash cycles pile up waiting
+    for the incremental collector to get to them".
+  - Mark Shannon (revert thread): "too many garbage cycles span multiple young
+    collections"; his plan for a future collector puts the middle generation back.
+  - Neil, on gh-142516: one default `SSLContext` is about 800 kB, so "relatively few
+    objects involved in a reference cycle" can keep a lot of memory alive.
 - Live demo, with the workload on screen: the same cycle-churn script (pairs of
   objects in a reference cycle, churned beside a long-lived heap) across 3.13,
-  3.14.4, 3.14.7 and 3.15.
-  Observed peak RSS was 65 / 233 / 65 / 66 MiB.
+  3.14.0, 3.14.4, 3.14.7 and 3.15.
+  Observed peak RSS was 64 / 66 / 228 / 65 / 65 MiB. 3.14.0 staying low matches
+  Neil's measurements and Sergey's dating of the early return to 3.14.1.
   - `gc.get_threshold()` (`(2000, 10, 0)` on the incremental builds) is a one-line
     test for which collector a 3.14.x has.
   - Caveat to say aloud: this workload reproduces the memory complaint but not the
     incremental GC's pause benefit, so it isn't a general verdict.
 - Diagrams:
-  - a timeline: the 3.13 rollback, 3.14.0 shipping it, 3.14.4, the 3.14.5 revert,
-    and 3.15. Mark which collector each release has. It's its own slide, one
-    release per Space, the axis drawing itself out to each.
+  - what the collector is for: an object `e` held by `z`, and two cycles, each held
+    by a name, every object labeled with its reference count. `del z` plays: the
+    arrow goes, `e`'s count drops to 0, and reference counting frees it on the
+    spot. `del x` leaves `a` and `b` holding only each other. A played collection
+    then subtracts the inside references, keeps `c` (held by `y`) and `d` (reached
+    from `c`), and frees `a` and `b`.
+  - generations: three boxes, gen 0 to gen 2, each labeled with how often it's
+    collected. Two dozen objects play from a pure model, sped up (4 allocations
+    stand for 2,000, and every third collection stands for every tenth): each lands
+    in gen 0 as `●`, turns `○` when it dies, and a collection marks its garbage
+    `✗`, frees it, and moves the survivors down a box. It ends with dead `○`s
+    waiting in gen 2. A line notes 3.14.0 to 3.14.4 had just young and old.
+  - two schedules: each collector's heap as a strip of generations, with a pause
+    sparkline. Twenty collections play: generational lights generation 0 each time,
+    generation 1 on the tenth and everything on the twentieth (`▁`, `▃`, `█`);
+    incremental lights the young generation and the next of ten old slices each
+    time, every pause the same `▂`.
+  - a timeline: the 3.13 rollback, 3.14.0 shipping it, 3.14.1's speed fix, the
+    3.14.5 revert, and 3.15. Mark which collector each release has. It's its own
+    slide, one release per Space, the axis drawing itself out to each.
+  - what went wrong: the early return from `Python/gc.c` verbatim, under Sergey's
+    two quotes, above a bar chart of Neil's three measurements (under 100, about
+    2,000, 10,000), which grows on Space and ends on Tim's 90-to-100 ratio.
   - a bar chart of peak RSS per interpreter, laid out to match the timeline.
 
 ### 6. Before you upgrade (std)
@@ -677,8 +746,8 @@ Each item gets one runnable line where possible:
   - The deliberately old mypy 2.3.1, run via `uvx --from mypy==2.3.1`, since it
     exists only to show the before state.
   - hyperfine via `mise.toml`.
-- Interpreters needed: 3.15, 3.14 (current), 3.14.4 (incremental-GC era),
-  3.13, 3.14t and 3.15t.
+- Interpreters needed: 3.15, 3.14 (current), 3.14.0 and 3.14.4 (the incremental
+  GC before and after 3.14.1's pacing change), 3.13, 3.14t and 3.15t.
 
 ### Layout
 ```text
@@ -963,6 +1032,14 @@ it.
    overhead difference reads as how busy each row is.
 5. The GC saga's timeline, one release per Space, the axis drawing itself out to
    each before its labels appear.
+6. The cycle collector: `del z` plays, `e`'s count dropping to 0 and the object
+   freed; on the last Space, a collection plays, subtracting the inside references,
+   keeping what's held from outside and freeing the rest.
+7. Generations: objects are allocated and collected a moment at a time, garbage
+   freed and survivors moving up a generation.
+8. The two schedules: twenty collections play on each collector at once, the
+   scanned part of each heap lit up and each pause added to its sparkline.
+9. What went wrong: Neil Schemenauer's three measurements grow as bars.
 
 #### Decorative: free to start on arrival
 
@@ -1463,7 +1540,7 @@ browser on my laptop showing zellij web.
 
 Anyone can run the deck from one line in the README, without trusting their
 machine to its dependency tree: a pre-1.0 counterweight, `pyghostty`'s prebuilt
-pre-1.0 `libghostty-vt`, three type checkers and six interpreters.
+pre-1.0 `libghostty-vt`, three type checkers and every interpreter the runs need.
 
 ```bash
 docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:main
@@ -1488,7 +1565,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   releases are newest that day.
 - Nothing downloads at launch, which `--network none` requires. The image bakes
   in everything the deck uses:
-  - the six interpreters, from `uv python install`, so the startup interpreter
+  - the interpreters, from `uv python install`, so the startup interpreter
     check passes in the image too
   - the dev group's type checkers, and Node for pyright
   - mypy 2.3.1, by running its `uvx --from mypy==2.3.1` once at build time and
@@ -1587,7 +1664,8 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   2-vCPU VM. Use hyperfine with warmup, and phrase results as "on this VM, right now".
 - Free-threaded builds are needed for the duplicate-items demo. Pin
   3.14t and 3.15t.
-- 3.14.4 specifically is needed for the GC demo, since later 3.14 patches have the revert.
+- 3.14.0 and 3.14.4 specifically are needed for the GC demo: 3.14.1 added the
+  stall, and later 3.14 patches have the revert.
 
 ## Decisions
 
@@ -1661,7 +1739,11 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
 - GC:
   [the 3.13 rollback](https://discuss.python.org/t/incremental-gc-and-pushing-back-the-3-13-0-release/65285),
   [the 3.14/3.15 revert](https://discuss.python.org/t/reverting-the-incremental-gc-in-python-3-14-and-3-15/107014),
-  [3.14.5 release](https://discuss.python.org/t/python-3-14-5-is-here-with-a-new-old-garbage-collector/107304)
+  [3.14.5 release](https://discuss.python.org/t/python-3-14-5-is-here-with-a-new-old-garbage-collector/107304),
+  [3.14 whatsnew](https://docs.python.org/3/whatsnew/3.14.html#garbage-collection),
+  [the memory growth issue](https://github.com/python/cpython/issues/142516),
+  [GH-142001](https://github.com/python/cpython/pull/142001),
+  [Improving incremental gc](https://discuss.python.org/t/improving-incremental-gc/107067)
 - [Python Free-Threading Guide](https://py-free-threading.github.io/)
 - [PEP 829 discussion](https://discuss.python.org/t/pep-829-structured-startup-configuration-files/106789)
 - [litellm `.pth` compromise](https://futuresearch.ai/blog/litellm-pypi-supply-chain-attack/)

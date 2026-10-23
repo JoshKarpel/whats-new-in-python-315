@@ -1,8 +1,8 @@
 """
 Diagrams for the performance section below Python: the frame pointer chain (and what one extension built
-without it does to it), the JIT's pipeline, and the garbage collector's timeline across releases.
+without it does to it) and the JIT's pipeline.
 
-The chain and the timeline animate: a reveal step remounts the animated part, which plays it once.
+The chain animates: a reveal step remounts the animated part, which plays it once.
 """
 
 from datetime import timedelta
@@ -136,51 +136,3 @@ def jit_pipeline() -> Div:
         ink("and it tells GDB and backtrace() how to unwind through JIT frames", 0, 7, NOTE),
     ]
     return area(x, 8, *parts)
-
-
-RELEASES = (
-    ("3.13", "rolled back", "generational"),
-    ("3.14.0", "ships it", "incremental"),
-    ("3.14.4", "growth reports", "incremental"),
-    ("3.14.5", "reverted", "generational"),
-    ("3.15", "a PEP to return", "generational"),
-)
-GC_STEPS = len(RELEASES)
-"""One release per step, the timeline drawing itself on to it."""
-RELEASE_WIDTH = 17
-TIMELINE_WIDTH = RELEASE_WIDTH * (len(RELEASES) - 1) + len("a PEP to return")
-EXTEND = timedelta(milliseconds=500)
-
-
-def gc_timeline_ends_showing(step: int) -> str | None:
-    """What happened in the release at `step`, which appears once the axis reaches it."""
-    return RELEASES[step][1]
-
-
-def gc_timeline(step: int, is_live: bool) -> Component:
-    """The releases up to the one at `step`, the axis growing out to the newest, which appears when it arrives."""
-    return growing_timeline(step, is_live).with_key(f"release-{step}")
-
-
-@component
-def growing_timeline(step: int, is_live: bool) -> Div:
-    progress = use_explanation(EXTEND, is_live)
-    start = 0 if step == 0 else tick_x(step - 1)
-    head = start + round((tick_x(step) - start) * progress)
-    parts: list[Text | Div] = [ink("─" * head + "▶", 0, 1)]
-    for index, (release, event, collector) in enumerate(RELEASES[: step + 1]):
-        if index == step and progress < 1:
-            continue
-        x = index * RELEASE_WIDTH
-        parts += [
-            ink("┬", tick_x(index), 1),
-            ink(release, x, 0, HIGHLIGHT),
-            ink(event, x, 2, EDGE),
-            ink(collector, x, 3, CROSSED if collector == "incremental" else NOTE),
-        ]
-    return area(TIMELINE_WIDTH, 4, *parts)
-
-
-def tick_x(index: int) -> int:
-    """The column of the release at `index`'s tick on the axis."""
-    return index * RELEASE_WIDTH + 2

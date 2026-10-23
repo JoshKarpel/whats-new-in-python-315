@@ -12,7 +12,7 @@ Each module's docstring says what role it plays; read those before adding a file
 
 `just --list` shows every recipe. The ones you'll reach for:
 
-- `just setup` installs the six interpreters the runs need, the environment, and the git hook.
+- `just setup` installs the interpreters the runs need, the environment, and the git hook.
   Most tests need it first.
 - `just test` runs mypy, then pytest. Arguments go to pytest, so
   `just test tests/test_animation.py -k shine` runs a single test.

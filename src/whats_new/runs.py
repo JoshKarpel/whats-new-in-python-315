@@ -31,6 +31,8 @@ class Interpreter(Enum):
     PY315T = "3.15+freethreaded"
     PY314 = "3.14+gil"
     PY314T = "3.14+freethreaded"
+    PY3140 = "3.14.0+gil"
+    """The incremental garbage collector before 3.14.1, which added the early return Sergey Miryanov describes."""
     PY3144 = "3.14.4+gil"
     """The last 3.14 with the incremental garbage collector, which 3.14.5 reverted."""
     PY313 = "3.13+gil"

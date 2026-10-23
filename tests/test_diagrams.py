@@ -19,6 +19,7 @@ from counterweight.elements import Text
 from counterweight.paint import Frame
 from counterweight.styles.utilities import *
 
+from whats_new.diagrams import collector
 from whats_new.diagrams import fan_out
 from whats_new.diagrams import frozendict_hierarchy
 from whats_new.diagrams import low_level
@@ -50,7 +51,11 @@ DRAWINGS: dict[str, Callable[[], Component | Text | Div]] = {
         for s in range(low_level.FRAME_POINTER_STEPS)
     },
     "jit pipeline": low_level.jit_pipeline,
-    **{f"gc timeline {s}": partial(low_level.gc_timeline, s, False) for s in range(low_level.GC_STEPS)},
+    **{f"gc cycles {s}": partial(collector.cycle_collection, s, False) for s in range(collector.CYCLE_STEPS)},
+    **{f"gc generations {s}": partial(collector.generations, s, False) for s in range(collector.GENERATION_STEPS)},
+    **{f"gc schedules {s}": partial(collector.schedules, s, False) for s in range(collector.SCHEDULE_STEPS)},
+    **{f"gc timeline {s}": partial(collector.timeline, s, False) for s in range(collector.TIMELINE_STEPS)},
+    **{f"gc waiting {s}": partial(collector.waiting, s, False) for s in range(collector.WAITING_STEPS)},
     **{
         f"tracing vs sampling {s}": partial(profilers.tracing_vs_sampling, s, False)
         for s in range(profilers.SAMPLING_STEPS)
@@ -116,3 +121,19 @@ def test_fan_out_items_move_one_cell_at_a_time(thread: int) -> None:
 
     assert all(abs(x - nx) + abs(y - ny) == 1 for (x, y), (nx, ny) in pairwise(route))
     assert route[-1] == (fan_out.DROPS[thread], fan_out.LABELS - 1)
+
+
+def test_a_collection_moves_only_survivors_up() -> None:
+    """Right after a collection frees its garbage, the next generation gains exactly the live objects it scanned."""
+    snapshots = collector.SNAPSHOTS
+    moves = [index for index, snapshot in enumerate(snapshots) if "move up" in snapshot.status]
+
+    assert moves
+    for index in moves:
+        freeing, moved = snapshots[index - 1], snapshots[index]
+        assert moved.collecting is not None
+        target = moved.collecting + 1
+        survivors = tuple(
+            cell for cells in freeing.generations[:target] for cell in cells if cell is collector.Cell.LIVE
+        )
+        assert moved.generations[target] == freeing.generations[target] + survivors
