@@ -206,8 +206,8 @@ class Picking:
 def picker(
     choice: Choice,
     current: str | None,
-    choose: Callable[[str], None],
-    close: Callable[[], None],
+    choose: Callable[[str], object],
+    close: Callable[[], object],
     leave: AnyControl,
     handles: PickerHandles,
 ) -> Div:
@@ -224,8 +224,8 @@ def picker(
     )
     highlighted_match = handles.highlighted
 
-    def edit(edit_text: Callable[[str], str]) -> None:
-        set_completion(lambda c: c.edited(edit_text(c.text)))
+    def edit(edit_text: Callable[[str], str]) -> str:
+        return set_completion(lambda c: c.edited(edit_text(c.text))).text
 
     field = use_text_input(completion.text, edit, handle=handles.focus)
     bars = choice.bars

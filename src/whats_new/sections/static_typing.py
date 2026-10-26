@@ -21,7 +21,6 @@ from whats_new.runs import example
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
-from whats_new.slides import TitleCard
 
 OLD_MYPY = Run(
     label="mypy 2.3.1",
@@ -156,7 +155,7 @@ def disjoint(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Typing", content=section_title, title_card=TitleCard.SECTION),
+    Slide(title="Typing", content=section_title, is_title_card=True),
     Slide(
         title="Sentinels",
         content=sentinel_runtime,

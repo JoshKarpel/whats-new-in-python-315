@@ -23,7 +23,6 @@ from whats_new.runs import Interpreter
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
-from whats_new.slides import TitleCard
 
 PY315 = Interpreter.PY315
 PY314 = Interpreter.PY314
@@ -125,7 +124,7 @@ def free_threading(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Concurrency", content=section_title, title_card=TitleCard.SECTION),
+    Slide(title="Concurrency", content=section_title, is_title_card=True),
     Slide(
         title="TaskGroup.cancel()",
         content=first_wins,

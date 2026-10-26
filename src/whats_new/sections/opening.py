@@ -15,7 +15,6 @@ from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
-from whats_new.slides import TitleCard
 
 
 @component
@@ -36,7 +35,9 @@ def agenda(props: SlideProps) -> Div:
             "startup and imports",
             "concurrency",
             "typing",
-            "performance, and Tachyon",
+            "performance",
+            "Tachyon",
+            "the garbage collector saga",
             "before you upgrade",
             "a lightning round",
         ),
@@ -51,6 +52,6 @@ def agenda(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="What's New in Python 3.15", content=title, title_card=TitleCard.SECTION),
+    Slide(title="What's New in Python 3.15", content=title, is_title_card=True),
     Slide(title="A whirlwind tour", content=agenda),
 )

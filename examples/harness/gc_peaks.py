@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-EXAMPLE = Path(__file__).resolve().parents[1] / "performance" / "gc_churn.py"
+EXAMPLE = Path(__file__).resolve().parents[1] / "gc" / "gc_churn.py"
 INCREMENTAL, GENERATIONAL = "\x1b[38;2;248;113;113m", "\x1b[38;2;75;139;190m"
 RESET = "\x1b[0m"
 

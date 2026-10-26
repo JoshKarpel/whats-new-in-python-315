@@ -18,6 +18,7 @@ MANUAL = (
     "Tab and Shift+Tab reach the deck: they move between a slide's code and its runs, "
     "and Tab takes the keyboard back from Tachyon's pane (f)",
     "clicking a thumbnail in the slide grid (d) reaches the deck",
+    "Ctrl+D opens the sections list, not the browser's bookmark dialog",
     "the flamegraph URL on the Tachyon slide opens from a click",
     "PEP links open from a click",
     "the Unicode slides draw cleanly: they avoid combining marks, which zellij drops (zellij-org/zellij#5500)",

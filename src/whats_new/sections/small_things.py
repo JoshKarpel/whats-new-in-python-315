@@ -25,7 +25,6 @@ from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
-from whats_new.slides import TitleCard
 
 PY315 = Interpreter.PY315
 
@@ -190,7 +189,7 @@ def grapheme_picture(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Small things you'll use tomorrow", content=section_title, title_card=TitleCard.SECTION),
+    Slide(title="Small things you'll use tomorrow", content=section_title, is_title_card=True),
     Slide(
         title="frozendict",
         content=frozendict_basics,

@@ -2,12 +2,14 @@
 
 from whats_new.sections import closing
 from whats_new.sections import concurrency
+from whats_new.sections import garbage_collector
 from whats_new.sections import lightning
 from whats_new.sections import opening
 from whats_new.sections import performance
 from whats_new.sections import small_things
 from whats_new.sections import startup
 from whats_new.sections import static_typing
+from whats_new.sections import tachyon
 from whats_new.sections import upgrade
 from whats_new.slides import Slide
 
@@ -18,6 +20,8 @@ SLIDES: tuple[Slide, ...] = (
     *concurrency.SLIDES,
     *static_typing.SLIDES,
     *performance.SLIDES,
+    *tachyon.SLIDES,
+    *garbage_collector.SLIDES,
     *upgrade.SLIDES,
     *lightning.SLIDES,
     *closing.SLIDES,

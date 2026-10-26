@@ -1,4 +1,4 @@
-"""8. Closing: the features are unusually thorough, and where to read more."""
+"""10. Closing: the features are unusually thorough, and where to read more."""
 
 from counterweight.components import component
 from counterweight.elements import Div
@@ -16,7 +16,6 @@ from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
-from whats_new.slides import TitleCard
 
 TOOLKITS = (
     (code("threading"), plain(": serialize_iterator, synchronized_iterator, concurrent_tee")),
@@ -55,5 +54,5 @@ def thanks(props: SlideProps) -> Div:
 
 SLIDES = (
     Slide(title="Unusually thorough", content=thoroughness),
-    Slide(title="Thanks", content=thanks, title_card=TitleCard.SECTION),
+    Slide(title="Thanks", content=thanks, is_title_card=True),
 )

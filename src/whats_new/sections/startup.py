@@ -26,7 +26,6 @@ from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
-from whats_new.slides import TitleCard
 
 PY315 = Interpreter.PY315
 PY314 = Interpreter.PY314
@@ -138,7 +137,7 @@ def start_flow(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Startup and imports", content=section_title, title_card=TitleCard.SECTION),
+    Slide(title="Startup and imports", content=section_title, is_title_card=True),
     Slide(
         title="Lazy imports",
         content=lazy_basics,

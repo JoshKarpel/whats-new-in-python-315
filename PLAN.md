@@ -62,10 +62,12 @@ run long) or **cut-first** (the first to go, or folded into the lightning round)
 | 2. Startup and imports | 7 |
 | 3. Concurrency | 9 |
 | 4. Typing | 8 |
-| 5. Performance (Tachyon about 15 of it) | 23 |
-| 6. Before you upgrade | 3 |
-| 7. Lightning round | 6 |
-| 8. Closing | 2 |
+| 5. Performance | 3 |
+| 6. Tachyon | 15 |
+| 7. The garbage collector saga | 5 |
+| 8. Before you upgrade | 3 |
+| 9. Lightning round | 6 |
+| 10. Closing | 2 |
 | Material | 73 |
 
 Every item gets built, cut-first ones included, and the cutting happens while
@@ -363,7 +365,7 @@ Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
 
 ### 5. Performance
 
-A possible frame for the section: 3.15 is an observability release. Tachyon
+A possible frame for this section and the next: 3.15 is an observability release. Tachyon
 watches a running process, frame pointers let `perf` and eBPF walk native
 stacks, the JIT publishes unwind information so GDB and `backtrace()` see
 through JIT frames, `gc.get_stats()` reports `candidates` and `duration`, and
@@ -371,111 +373,7 @@ through JIT frames, `gc.get_stats()` reports `candidates` and `duration`, and
 what Python is doing?" from a different side. Decide in rehearsal whether the
 frame earns a slide or just a sentence.
 
-#### Tachyon, PEP 799 (core, the centerpiece, about a third of the talk)
-
-1. Why the name? Physicist digression: a tachyon is a hypothetical
-   faster-than-light particle ("tachy" is Greek for swift). The PEP calls it an
-   internal codename and gives no reason.
-2. Why sampling? Because it's ad hoc, in place, and post facto:
-   attach to the process already running, where the problem is,
-   after the problem shows up.
-   Tracing is the opposite on all three: decided ahead of time,
-   run by starting the program under it,
-   and too slow to leave on in case a problem appears.
-   - Overhead demo, on its own slide with the program shown: `fib(32)`, timing itself,
-     run plain, under `profiling.tracing` (cProfile's new home), and under
-     `profiling.sampling run`, best of three each. The program reports its own time,
-     because timing the whole command charges the sampler's start-up and report to
-     it, and on a short program that made sampling look slower than tracing.
-     Observed: 0.19 s plain, 1.33 s tracing, 0.20 s sampling.
-   - Diagram: one timeline of a program's calls, drawn twice. Tracing puts a hook on
-     every call and return. Sampling takes a stack snapshot at fixed intervals.
-     A playhead runs along the calls on Space, and each row fires as it passes.
-     Then a bar chart of the three overhead timings.
-3. Why in CPython? py-spy and austin read interpreter memory from outside, so each
-   new CPython release needs them to catch up.
-   - Tachyon uses CPython's own `_remote_debugging` (the PEP 768 machinery from 3.14),
-     so it supports each release on day one.
-   - The flip side is a strict coupling: profiler and target must be the same minor
-     version. Show the error message from attaching 3.15 to a 3.14 process.
-   - Check py-spy/austin's 3.15 support status close to the talk date and state it
-     accurately.
-   - Diagram: the two architectures side by side. py-spy and austin read the
-     target's memory from outside with struct layouts specific to each version.
-     Tachyon reads it through `_remote_debugging`, which ships with the interpreter.
-     The coupling becomes visible: the reader has to match the target's version.
-4. Profile the running talk. The headline demo, built on counterweight's embedded
-   terminals ([#423](https://github.com/JoshKarpel/counterweight/pull/423)).
-   See [The Tachyon stage](#the-tachyon-stage) below for how it's built.
-   - Diagram, shown before the live demo: the loop. The deck, labeled with its real
-     PID, spawns the profiler as a child; the profiler's box holds the exact command
-     the stage runs, built by the same function; the profiler attaches back to its
-     parent, its screen comes back through the PTY, and the deck draws it in its own
-     pane. The ptrace permissions (Yama) stay off the slide.
-   - The deck runs Tachyon's live TUI _inside itself_, attached to its own PID.
-   - Workloads make the deck do expensive things, and the profiler shows each one
-     as it happens. One workload runs at a time, until another is chosen.
-     `w` opens a picker of them, each with a line on what to point at, and `none`;
-     `c` clears the one running, as `none` does, leaving the deck alone under the
-     profiler. Workloads have no keys of their own: only the picker starts one.
-
-     | Workload | What to point at |
-     |---|---|
-     | pure-Python CPU (nbody) in a worker thread | the hot function and per-line attribution |
-     | the same on the event loop, pausing every 5 s | the deck freezes; the profile explains it after |
-     | numpy matmul (`lazy import numpy`) | compiled code appears as `<native>` frames |
-     | blocking file/sleep I/O in a thread | wall vs cpu mode: idle time vanishes in cpu mode |
-     | a fan of asyncio tasks | `--async-aware` reconstructs task trees |
-     | garbage-cycle churn | `<GC>` frames, which links to the GC story below |
-     | a raise-and-catch loop in a worker thread | exception mode shows only it |
-
-   - `m` opens a picker of the profiler's modes (wall, cpu, gil, exception,
-     async-aware), each with a line on what it samples, and choosing one
-     restarts the profiler with new flags. Exception mode samples only threads with an
-     active exception (observed in `--help`: `--mode {wall,cpu,gil,exception}`). gil mode pairs with pure-Python CPU in a thread: the worker thread holds the GIL while
-     the render loop waits for it, which is also why the deck stutters.
-   - The mirror moment: drawing the profiler's screen is itself work the deck
-     does (the #423 plan measures 3 to 10 ms per emulator snapshot of a busy colored
-     screen), and it shows up in the profile it's drawing. Observed on the real
-     deck: counterweight's `layout.place` and `Emulator.convert_row` were the top
-     two functions in Tachyon's live view.
-   - The presenter can hand the keyboard to the pane with Tab and use Tachyon's
-     own keys (`s` sort, `t` mode, `x` trends, arrows for threads, `h` help),
-     then take it back with Tab.
-5. Tachyon's own flamegraph (cut-first). A key runs
-   `attach -d 10 --flamegraph -o out/deck-flamegraph.html` against the deck in a
-   second embedded pane while a workload runs. The output is a self-contained HTML
-   file (observed: about 630 KB, with no external scripts).
-   - The deck serves `out/` with
-     `python -m http.server --bind 127.0.0.1 8315 --directory out` and prints
-     `https://<vm>.exe.xyz:8315/deck-flamegraph.html`. zellij web's browser client
-     bundles xterm.js's link addon, so clicking the URL opens it in a new tab.
-   - `<vm>` comes from exe.dev's
-     [reflection integration](https://exe.dev/docs/integrations-reflection.md):
-     `https://reflection.int.exe.xyz/` returns the VM's own name at the top level
-     (observed: `"name": "cumulus"`). The deck resolves it once at startup,
-     alongside the interpreters, so a missing integration fails at launch rather
-     than on the flamegraph key. The image sets the base URL and bind address
-     instead; see [Running it yourself](#running-it-yourself).
-   - It stays private: exe.dev proxies ports 3000 to 9999 behind the same exe.dev
-     login as zellij web. Opening the page is an ordinary top-level navigation, so
-     no CORS or public port is involved.
-   - Other formats get one line each: `--gecko` for profiler.firefox.com, `--heatmap`,
-     and `--collapsed` for any flamegraph tool.
-6. Also: `profiling.sampling dump <pid>` prints a one-shot stack, which is how you'd
-   ask a hung production process what it's doing. Run it against the deck in a pane
-   while a threaded workload is busy. Not during pure-Python CPU on the event loop: a frozen deck can't draw the answer.
-   - `--diff-flamegraph` compares a baseline with the current run.
-   - `heatmap` is another output format.
-   - `--opcodes` records which bytecode instructions are executing, including the
-     adaptive interpreter's specializations. Profile the nbody workload with it and
-     point at the specialized float instructions: that's the hand-off to the JIT
-     section, which builds on specialization. Check whether the live TUI shows
-     opcodes or only the file outputs before choosing how to show it.
-   - Sampling-rate claims depend on hardware: the VM topped out near 120k samples/s,
-     not the documented 1 MHz, so don't quote 1 MHz on stage.
-
-#### Frame pointers, PEP 831 (std, right after Tachyon)
+#### Frame pointers, PEP 831 (std)
 - Plain explanation: with frame pointers, every C function saves its caller's frame
   address in a register (`rbp`), forming a linked list on the stack. `perf`, eBPF
   and debuggers walk that list cheaply.
@@ -532,12 +430,114 @@ frame earns a slide or just a sentence.
 - One run puts 3.14 and 3.15 side by side: a harness runs the script on each and
   draws a pair of bars per timing, with how much faster 3.15 is. Observed 3.1x
   encode, 3.0x decode and 55x for b85.
-- The padding change lives in [Before you upgrade](#6-before-you-upgrade-std), so
+- The padding change lives in [Before you upgrade](#8-before-you-upgrade-std), so
   it stays in the talk if this item is cut.
 
-#### The GC story (std)
-- It opens with its own title card, "The garbage collector saga": a story inside
-  the performance section.
+### 6. Tachyon, PEP 799 (core, the centerpiece, about a third of the talk)
+
+1. Why the name? Physicist digression: a tachyon is a hypothetical
+   faster-than-light particle ("tachy" is Greek for swift). The PEP calls it an
+   internal codename and gives no reason.
+2. Why sampling? Because it's ad hoc, in place, and post facto:
+   attach to the process already running, where the problem is,
+   after the problem shows up.
+   Tracing is the opposite on all three: decided ahead of time,
+   run by starting the program under it,
+   and too slow to leave on in case a problem appears.
+   - Overhead demo, on its own slide with the program shown: `fib(32)`, timing itself,
+     run plain, under `profiling.tracing` (cProfile's new home), and under
+     `profiling.sampling run`, best of three each. The program reports its own time,
+     because timing the whole command charges the sampler's start-up and report to
+     it, and on a short program that made sampling look slower than tracing.
+     Observed: 0.19 s plain, 1.33 s tracing, 0.20 s sampling.
+   - Diagram: one timeline of a program's calls, drawn twice. Tracing puts a hook on
+     every call and return. Sampling takes a stack snapshot at fixed intervals.
+     A playhead runs along the calls on Space, and each row fires as it passes.
+     Then a bar chart of the three overhead timings.
+3. Why in CPython? py-spy and austin read interpreter memory from outside, so each
+   new CPython release needs them to catch up.
+   - Tachyon uses CPython's own `_remote_debugging` (the PEP 768 machinery from 3.14),
+     so it supports each release on day one.
+   - The flip side is a strict coupling: profiler and target must be the same minor
+     version. Show the error message from attaching 3.15 to a 3.14 process.
+   - Check py-spy/austin's 3.15 support status close to the talk date and state it
+     accurately.
+   - Diagram: the two architectures side by side. py-spy and austin read the
+     target's memory from outside with struct layouts specific to each version.
+     Tachyon reads it through `_remote_debugging`, which ships with the interpreter.
+     The coupling becomes visible: the reader has to match the target's version.
+4. Profile the running talk. The headline demo, built on counterweight's embedded
+   terminals ([#423](https://github.com/JoshKarpel/counterweight/pull/423)).
+   See [The Tachyon stage](#the-tachyon-stage) below for how it's built.
+   - Diagram, shown before the live demo: the loop. The deck, labeled with its real
+     PID, spawns the profiler as a child; the profiler's box holds the exact command
+     the stage runs, built by the same function; the profiler attaches back to its
+     parent, its screen comes back through the PTY, and the deck draws it in its own
+     pane. The ptrace permissions (Yama) stay off the slide.
+   - The deck runs Tachyon's live TUI _inside itself_, attached to its own PID.
+   - Workloads make the deck do expensive things, and the profiler shows each one
+     as it happens. One workload runs at a time, until another is chosen.
+     `w` opens a picker of them, each with a line on what to point at, and `none`;
+     `c` clears the one running, as `none` does, leaving the deck alone under the
+     profiler. Workloads have no keys of their own: only the picker starts one.
+
+     | Workload | What to point at |
+     |---|---|
+     | pure-Python CPU (nbody) in a worker thread | the hot function and per-line attribution |
+     | the same on the event loop, pausing every 5 s | the deck freezes; the profile explains it after |
+     | numpy matmul (`lazy import numpy`) | compiled code appears as `<native>` frames |
+     | blocking file/sleep I/O in a thread | wall vs cpu mode: idle time vanishes in cpu mode |
+     | a fan of asyncio tasks | `--async-aware` reconstructs task trees |
+     | garbage-cycle churn | `<GC>` frames, which leads into the GC saga next |
+     | a raise-and-catch loop in a worker thread | exception mode shows only it |
+
+   - `m` opens a picker of the profiler's modes (wall, cpu, gil, exception,
+     async-aware), each with a line on what it samples, and choosing one
+     restarts the profiler with new flags. Exception mode samples only threads with an
+     active exception (observed in `--help`: `--mode {wall,cpu,gil,exception}`). gil mode pairs with pure-Python CPU in a thread: the worker thread holds the GIL while
+     the render loop waits for it, which is also why the deck stutters.
+   - The mirror moment: drawing the profiler's screen is itself work the deck
+     does (the #423 plan measures 3 to 10 ms per emulator snapshot of a busy colored
+     screen), and it shows up in the profile it's drawing. Observed on the real
+     deck: counterweight's `layout.place` and `Emulator.convert_row` were the top
+     two functions in Tachyon's live view.
+   - The presenter can hand the keyboard to the pane with Tab and use Tachyon's
+     own keys (`s` sort, `t` mode, `x` trends, arrows for threads, `h` help),
+     then take it back with Tab.
+5. Tachyon's own flamegraph (cut-first). A key runs
+   `attach -d 10 --flamegraph -o out/deck-flamegraph.html` against the deck in a
+   second embedded pane while a workload runs. The output is a self-contained HTML
+   file (observed: about 630 KB, with no external scripts).
+   - The deck serves `out/` with
+     `python -m http.server --bind 127.0.0.1 8315 --directory out` and prints
+     `https://<vm>.exe.xyz:8315/deck-flamegraph.html`. zellij web's browser client
+     bundles xterm.js's link addon, so clicking the URL opens it in a new tab.
+   - `<vm>` comes from exe.dev's
+     [reflection integration](https://exe.dev/docs/integrations-reflection.md):
+     `https://reflection.int.exe.xyz/` returns the VM's own name at the top level
+     (observed: `"name": "cumulus"`). The deck resolves it once at startup,
+     alongside the interpreters, so a missing integration fails at launch rather
+     than on the flamegraph key. The image sets the base URL and bind address
+     instead; see [Running it yourself](#running-it-yourself).
+   - It stays private: exe.dev proxies ports 3000 to 9999 behind the same exe.dev
+     login as zellij web. Opening the page is an ordinary top-level navigation, so
+     no CORS or public port is involved.
+   - Other formats get one line each: `--gecko` for profiler.firefox.com, `--heatmap`,
+     and `--collapsed` for any flamegraph tool.
+6. Also: `profiling.sampling dump <pid>` prints a one-shot stack, which is how you'd
+   ask a hung production process what it's doing. Run it against the deck in a pane
+   while a threaded workload is busy. Not during pure-Python CPU on the event loop: a frozen deck can't draw the answer.
+   - `--diff-flamegraph` compares a baseline with the current run.
+   - `heatmap` is another output format.
+   - `--opcodes` records which bytecode instructions are executing, including the
+     adaptive interpreter's specializations. Profile the nbody workload with it and
+     point at the specialized float instructions: that's the hand-off to the JIT
+     section, which builds on specialization. Check whether the live TUI shows
+     opcodes or only the file outputs before choosing how to show it.
+   - Sampling-rate claims depend on hardware: the VM topped out near 120k samples/s,
+     not the documented 1 MHz, so don't quote 1 MHz on stage.
+
+### 7. The garbage collector saga (std)
 - What the story says went wrong comes only from core developers' public comments
   (the revert thread, gh-142516 and GH-142001), quoted and attributed, not from
   reading `gc.c` ourselves. The live demo shows the effect; it doesn't explain it.
@@ -627,7 +627,7 @@ frame earns a slide or just a sentence.
     2,000, 10,000), which grows on Space and ends on Tim's 90-to-100 ratio.
   - a bar chart of peak RSS per interpreter, laid out to match the timeline.
 
-### 6. Before you upgrade (std)
+### 8. Before you upgrade (std)
 
 What will bite on upgrade, from the whatsnew's
 [Porting](https://docs.python.org/3.15/whatsnew/3.15.html#porting-to-python-3-15)
@@ -667,7 +667,7 @@ section and its removals. One script runs on 3.14 and on 3.15. Observed:
   in 3.20 (observed: `argparse.__version__` warns).
 - No diagram. The runs on each version carry it.
 
-### 7. Lightning round (core, one slide or a rapid sequence)
+### 9. Lightning round (core, one slide or a rapid sequence)
 
 Each item gets one runnable line where possible:
 
@@ -705,7 +705,7 @@ Each item gets one runnable line where possible:
   `TypeError: nonempty __slots__ not supported for subtype of 'P'`, and 3.15
   accepts it.
 
-### 8. Closing (core)
+### 10. Closing (core)
 
 - The thoroughness observation, with the examples collected along the way.
 - Links, each labeled and a clickable OSC 8 hyperlink: the whatsnew, this talk's
@@ -719,18 +719,7 @@ Each item gets one runnable line where possible:
   which python-build-standalone publishes (`uv python list` offers it). rc2 has a
   Tachyon bug (gh-154335: pstats output ignores `NO_COLOR`) that rc3 fixes. Most
   observed results come from release candidates, so re-run the probes on final.
-- counterweight: the PyPI release, from `0.1.1`, the first to export everything
-  the deck uses.
-
-  ```toml
-  dependencies = ["counterweight>=0.1.1"]
-  ```
-
-  - `uv.lock` pins the exact release, and `uv lock --upgrade-package counterweight`
-    moves it forward. So a counterweight change reaches the deck only when we
-    choose to take it.
-  - counterweight and waxy, its layout engine, are exempt from the 7-day
-    `exclude-newer` cooldown, since the deck tracks their releases closely.
+- counterweight:
   - The Tachyon stage needs
     [#423](https://github.com/JoshKarpel/counterweight/pull/423) (`Canvas`, the
     phase 2 framework fixes, and `use_terminal`).
@@ -757,7 +746,7 @@ src/whats_new/
   export.py          slides.html: a screenshot per reveal step
   recording.py       slides.cast: the deck presented by an autopilot
   sections/          one module per running-order section, each exporting a tuple of slides
-  components/        title card, drop shadow, footer, slide grid, code_example, run_pane,
+  components/        title card, drop shadow, footer, slide grid, sections list, code_example, run_pane,
                      split layouts, bar chart
   diagrams/          one module per diagram, built from counterweight elements
   size.py            the presenting size, in cells
@@ -864,6 +853,11 @@ Dockerfile           the image others run the deck from
   - `r`: reset the current slide, by remounting via `.with_key`.
   - `d`: open the slide grid, as spiel's deck view does. See
     [The slide grid](#the-slide-grid).
+  - Ctrl+D: open the sections list, from a slide or the grid: one row per
+    section, named by its title card, with its slide count. Up/Down move,
+    and Enter or a click opens the grid on that section's title card.
+    Escape or Ctrl+D again goes back to the slide. The list crosses the deck;
+    the grid picks a slide within a section.
   - F1: toggle the clock, as in the reference talk. F1 opens help in some
     browsers, but not in the laptop's.
   - F2: the size check. See [Presenting resolution](#presenting-resolution).
@@ -919,8 +913,7 @@ Dockerfile           the image others run the deck from
   longer exist. #426 shows the other shade kinds (`▒`, `▓`, and a half-block
   shadow from `border_thick`) if light shade turns out too faint on the laptop.
 
-  Every section opens with a title card, and so do Tachyon and the GC saga
-  inside Performance: subsection cards, which don't start a section of their own.
+  Every section opens with a title card, and every title card opens a section.
 - The footer's top rule is a progress bar through the deck: filled from the left
   as far across as the slide is through the deck, slate past that. The fill
   reveals one fixed ramp, Python's blue through teal and green to its yellow
@@ -1363,9 +1356,8 @@ Design:
   clears it.
 - Slides become `Slide(title, content, peps)` values, since the thumbnail needs a
   title. The footer can use the same title, and `peps` prefixes the heading with PEP links.
-- Sections divide at title cards: `Slide.title_card` marks one, and each
-  `TitleCard.SECTION` starts a section that runs to the next (a
-  `TitleCard.SUBSECTION`, such as Tachyon's, doesn't). The grid shows only the selected slide's
+- Sections divide at title cards: `Slide.is_title_card` marks one, and each
+  starts a section that runs to the next. The grid shows only the selected slide's
   section, under a line naming it ("Concurrency  section 4 of 11"), with each
   section's slides starting a fresh grid rather than continuing the last one's
   row. Left and Right step through the deck in order, across sections; Up and
@@ -1686,37 +1678,6 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   Tachyon's own HTML flamegraph.
 - Others run the deck from a CI-built image, built from `uv.lock` and run with
   `--network none`. Not `uvx --from git+...`, which ignores the lockfile.
-
-## Build order
-
-1. Scaffold: pyproject with counterweight, `mise.toml`,
-   `.python-version`, `justfile` (`present`, `watch`, `check-examples`,
-   `rehearse`, `export`), and `.pre-commit-config.yaml` with the base and ruff
-   hooks.
-2. Deck skeleton: navigation, footer, title cards with drop shadows, live reload,
-   and the HTML export with its pre-commit hook. Until step 4 confirms the size,
-   the export renders at the starting 90x30.
-3. The image: the `Dockerfile`, the CI workflow that tests it and pushes it, and
-   the README command. See [Running it yourself](#running-it-yourself). Building
-   it this early means each later step adds its interpreters and tools to the
-   `Dockerfile` as they arrive, and CI catches the ones that don't.
-4. [Presenting resolution](#presenting-resolution): confirm 100x30 on the laptop
-   and record the size in `size.py`. The grid, diagrams and Tachyon stage
-   depend on it.
-5. The slide grid, the size check, and the bar-chart component.
-6. `code_example` + `Run` + `run_pane`, built and proven on the frozendict and json
-   slides, plus `check-examples`.
-7. Sections 1–4 in order, diagrams included: mostly content once step 6 exists.
-8. Tachyon, in two halves:
-   - Now: `workloads.py` and the flamegraph link. Run the profiler from a plain
-     zellij pane against the deck while building these.
-   - Once #423 is on `main`: the Tachyon stage, then swap `run_pane` to embedded
-     terminals. Budget the most time here.
-9. Frame pointers, JIT, GC and base64 demos, with their diagrams. Test `perf` and
-   the ptrace attach in the image, and list what fails in the README.
-10. Before you upgrade, the lightning round, closing, and the thoroughness slide.
-11. `rehearse` over zellij web from the laptop, then a pass with the laptop mirrored
-    to an external display at the presenting size.
 
 ## References
 

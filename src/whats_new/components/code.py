@@ -146,7 +146,7 @@ def code_example(
 def code_editor(
     excerpt: Excerpt,
     source: str,
-    edit: Callable[[str, Callable[[str], str]], None],
+    edit: Callable[[str, Callable[[str], str]], str],
     leave: AnyControl,
     is_editable: bool,
     theme: str,
@@ -160,8 +160,8 @@ def code_editor(
     """
     shown = excerpt.shown(source)
 
-    def set_shown(change: Callable[[str], str]) -> None:
-        edit(excerpt.name, lambda latest: excerpt.replaced(latest, change(excerpt.shown(latest))))
+    def set_shown(change: Callable[[str], str]) -> str:
+        return excerpt.shown(edit(excerpt.name, lambda latest: excerpt.replaced(latest, change(excerpt.shown(latest)))))
 
     field = use_text_area(shown, set_shown, width=UNWRAPPED, enter_inserts_newline=True, is_focusable=is_editable)
 

@@ -1,4 +1,4 @@
-"""7. Lightning round: one runnable line each, where there is one."""
+"""9. Lightning round: one runnable line each, where there is one."""
 
 from counterweight.components import component
 from counterweight.elements import Div
@@ -22,7 +22,6 @@ from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
-from whats_new.slides import TitleCard
 
 
 @component
@@ -96,7 +95,7 @@ def quickfire(props: SlideProps) -> Div:
 
 
 SLIDES = (
-    Slide(title="Lightning round", content=section_title, title_card=TitleCard.SECTION),
+    Slide(title="Lightning round", content=section_title, is_title_card=True),
     Slide(
         title="Lightning: did you mean?",
         content=did_you_mean,

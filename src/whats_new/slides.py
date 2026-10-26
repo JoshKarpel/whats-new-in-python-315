@@ -8,7 +8,6 @@ Sections build tuples of these; the deck concatenates them, and the presenter, t
 from collections.abc import Callable
 from collections.abc import Iterable
 from dataclasses import dataclass
-from enum import Enum
 
 from counterweight.autopilot import AutopilotStep
 from counterweight.components import Component
@@ -47,8 +46,11 @@ class SlideProps:
     which the slide's code shows and its runs execute in place of the file.
     """
 
-    edit: Callable[[str, Callable[[str], str]], None]
-    """Edits the example `name`, with a function from its latest text, edited or not, to its new text."""
+    edit: Callable[[str, Callable[[str], str]], str]
+    """
+    Edits the example `name`, with a function from its latest text, edited or not, to its new text,
+    and returns that text as it settled.
+    """
 
     slide_focus: FocusHandle
     """
@@ -60,15 +62,6 @@ class SlideProps:
     def leave_editor(self) -> AnyControl:
         """What leaving an editor does: focus the run pane, so the number keys run again (only a slide with runs edits)."""
         return FocusOn(self.slide_focus)
-
-
-class TitleCard(Enum):
-    """A slide that carries its own title, so the frame draws no heading over it, and what it opens."""
-
-    SECTION = "section"
-    """Opens a section of the deck, which the slide grid shows as a grid of its own."""
-    SUBSECTION = "subsection"
-    """Opens a topic within the section it's in, such as Tachyon within Performance."""
 
 
 def no_tour(step: int) -> Iterable[AutopilotStep]:
@@ -94,8 +87,11 @@ class Slide:
     What the slide runs, bound to `1` through `9` in order.
     Declared on the slide rather than inside its content, so the example check can find and run every one.
     """
-    title_card: TitleCard | None = None
-    """What kind of title card the slide is, or `None` for a slide the frame draws a heading over."""
+    is_title_card: bool = False
+    """
+    Whether the slide is a title card: one that carries its own title, so the frame draws no heading over it,
+    and opens a section of the deck, which the slide grid shows as a grid of its own.
+    """
     tour: Callable[[int], Iterable[AutopilotStep]] = no_tour
     """
     What the recording does on each reveal step, by the step, beyond showing it and running the slide's runs:
@@ -118,8 +114,13 @@ def sections(slides: tuple[Slide, ...]) -> tuple[range, ...]:
     The indexes of each section of `slides`: a run of slides starting at each section's title card
     (or the first slide).
     """
-    starts = [index for index, slide in enumerate(slides) if index == 0 or slide.title_card is TitleCard.SECTION]
+    starts = [index for index, slide in enumerate(slides) if index == 0 or slide.is_title_card]
     return tuple(range(start, stop) for start, stop in zip(starts, (*starts[1:], len(slides)), strict=True))
+
+
+def section_of(index: int, slides: tuple[Slide, ...]) -> int:
+    """The number of the section of `slides` the slide at `index` is in, counting from 0."""
+    return next(number for number, section in enumerate(sections(slides)) if index in section)
 
 
 def next_section(index: int, slides: tuple[Slide, ...]) -> int:

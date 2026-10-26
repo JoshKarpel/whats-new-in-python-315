@@ -33,6 +33,8 @@ from whats_new.components.transitions import grid_transition_for
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
+from whats_new.presenter import InGrid
+from whats_new.presenter import InSectionList
 from whats_new.presenter import Position
 from whats_new.presenter import root
 from whats_new.presenter import swipe_direction
@@ -80,10 +82,22 @@ LAST = len(SLIDES) - 1
         (Position(index=3), Position(index=8), Direction.NEXT),
         (Position(index=3, step=0), Position(index=3, step=1), None),
         (Position(index=3), Position(index=3, generation=1), None),
-        (Position(index=3), Position(index=3, selected=3), None),
-        (Position(index=3, selected=7), Position(index=7), None),
+        (Position(index=3), Position(index=3, browsing=InGrid(3)), None),
+        (Position(index=3, browsing=InGrid(7)), Position(index=7), None),
+        (Position(index=3), Position(index=3, browsing=InSectionList(1)), None),
+        (Position(index=3, browsing=InSectionList(1)), Position(index=3), None),
     ],
-    ids=["next", "previous", "a section on", "a reveal step", "r", "opening the grid", "jumping from the grid"],
+    ids=[
+        "next",
+        "previous",
+        "a section on",
+        "a reveal step",
+        "r",
+        "opening the grid",
+        "jumping from the grid",
+        "opening the sections list",
+        "closing the sections list",
+    ],
 )
 def test_swipe_direction(before: Position, after: Position, expected: Direction | None) -> None:
     assert swipe_direction(before, after) is expected
@@ -225,13 +239,27 @@ def test_zooming_in_runs_the_opening_backwards(toward: Toward, expected: float) 
 @pytest.mark.parametrize(
     ("before", "after", "expected"),
     [
-        (Position(index=3), Position(index=3, selected=3), Toward.GRID),
-        (Position(index=3, selected=7), Position(index=7), Toward.SLIDE),
-        (Position(index=3, selected=7), Position(index=3), Toward.SLIDE),
-        (Position(index=3, selected=3), Position(index=3, selected=4), None),
+        (Position(index=3), Position(index=3, browsing=InGrid(3)), Toward.GRID),
+        (Position(index=3, browsing=InGrid(7)), Position(index=7), Toward.SLIDE),
+        (Position(index=3, browsing=InGrid(7)), Position(index=3), Toward.SLIDE),
+        (Position(index=3, browsing=InGrid(3)), Position(index=3, browsing=InGrid(4)), None),
         (Position(index=3), Position(index=4), None),
+        (Position(index=3, browsing=InSectionList(2)), Position(index=3, browsing=InGrid(7)), Toward.GRID),
+        (Position(index=3, browsing=InGrid(7)), Position(index=3, browsing=InSectionList(2)), None),
+        (Position(index=3), Position(index=3, browsing=InSectionList(1)), None),
+        (Position(index=3, browsing=InSectionList(1)), Position(index=3), None),
     ],
-    ids=["opening the grid", "jumping from the grid", "Escape", "moving the selection", "moving on a slide"],
+    ids=[
+        "opening the grid",
+        "jumping from the grid",
+        "Escape",
+        "moving the selection",
+        "moving on a slide",
+        "opening the grid from the sections list",
+        "opening the sections list from the grid",
+        "opening the sections list",
+        "closing the sections list",
+    ],
 )
 def test_zoom_toward(before: Position, after: Position, expected: Toward | None) -> None:
     assert zoom_toward(before, after) is expected

@@ -1,8 +1,9 @@
 """
-The root component: which slide is showing, its reveal step, the grid, and the keys that move between them.
+The root component: which slide is showing, its reveal step, the grid and the sections list, and the keys that move
+between them.
 
-The deck's state is the current index, the step, and `selected`, which is `None` while a slide shows,
-so "the grid is open" and "what it has selected" can't disagree.
+The deck's state is the current index, the step, and `browsing`, which is `None` while a slide shows,
+so "the grid is open" and "what it has selected" can't disagree, and neither can the grid and the list both be open.
 """
 
 import random
@@ -54,6 +55,7 @@ from whats_new.components.picker import Option
 from whats_new.components.picker import Picking
 from whats_new.components.picker import Section
 from whats_new.components.picker import picker
+from whats_new.components.section_list import section_list
 from whats_new.components.slide_body import slide_body
 from whats_new.components.stage import Playing
 from whats_new.components.stage import cover
@@ -78,6 +80,22 @@ from whats_new.host import Host
 from whats_new.slides import Slide
 from whats_new.slides import next_section
 from whats_new.slides import previous_section
+from whats_new.slides import section_of
+from whats_new.slides import sections
+
+
+@dataclass(frozen=True, slots=True)
+class InGrid:
+    """The slide grid is open, with the slide at `selected` selected."""
+
+    selected: int
+
+
+@dataclass(frozen=True, slots=True)
+class InSectionList:
+    """The sections list is open, with the section numbered `highlighted` (counting from 0) highlighted."""
+
+    highlighted: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,8 +106,8 @@ class Position:
     step: int = 0
     generation: int = 0
     """Bumped by `r`, which remounts the slide, so its runs and reveals start fresh."""
-    selected: int | None = None
-    """The grid's selection, or `None` while the slide shows."""
+    browsing: InGrid | InSectionList | None = None
+    """What shows in the slide's place, or `None` while the slide shows."""
 
 
 def clamp(value: int, low: int, high: int) -> int:
@@ -102,7 +120,7 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
     This is the whole of the deck's navigation, as a pure function of the position and the key.
     """
     last = len(slides) - 1
-    match position.selected, key:
+    match position.browsing, key:
         case None, Key.Right:
             return Position(index=min(position.index + 1, last))
         case None, Key.Left:
@@ -116,23 +134,35 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
         case None, "r":
             return replace(position, step=0, generation=position.generation + 1)
         case None, "d":
-            return replace(position, selected=position.index)
-        case int(selected), Key.Right:
-            return replace(position, selected=clamp(selected + 1, 0, last))
-        case int(selected), Key.Left:
-            return replace(position, selected=clamp(selected - 1, 0, last))
-        case int(selected), Key.Down:
-            return replace(position, selected=below(selected, slides))
-        case int(selected), Key.Up:
-            return replace(position, selected=above(selected, slides))
-        case int(selected), Key.PageDown:
-            return replace(position, selected=next_section(selected, slides))
-        case int(selected), Key.PageUp:
-            return replace(position, selected=previous_section(selected, slides))
-        case int(selected), Key.Enter | "d":
+            return replace(position, browsing=InGrid(position.index))
+        case None, Key.ControlD:
+            return replace(position, browsing=InSectionList(section_of(position.index, slides)))
+        case InGrid(selected), Key.Right:
+            return replace(position, browsing=InGrid(clamp(selected + 1, 0, last)))
+        case InGrid(selected), Key.Left:
+            return replace(position, browsing=InGrid(clamp(selected - 1, 0, last)))
+        case InGrid(selected), Key.Down:
+            return replace(position, browsing=InGrid(below(selected, slides)))
+        case InGrid(selected), Key.Up:
+            return replace(position, browsing=InGrid(above(selected, slides)))
+        case InGrid(selected), Key.PageDown:
+            return replace(position, browsing=InGrid(next_section(selected, slides)))
+        case InGrid(selected), Key.PageUp:
+            return replace(position, browsing=InGrid(previous_section(selected, slides)))
+        case InGrid(selected), Key.Enter | "d":
             return Position(index=selected)
-        case int(), Key.Escape:
-            return replace(position, selected=None)
+        case InGrid(selected), Key.ControlD:
+            return replace(position, browsing=InSectionList(section_of(selected, slides)))
+        case InGrid(), Key.Escape:
+            return replace(position, browsing=None)
+        case InSectionList(highlighted), Key.Down:
+            return replace(position, browsing=InSectionList(min(highlighted + 1, len(sections(slides)) - 1)))
+        case InSectionList(highlighted), Key.Up:
+            return replace(position, browsing=InSectionList(max(highlighted - 1, 0)))
+        case InSectionList(highlighted), Key.Enter:
+            return replace(position, browsing=InGrid(sections(slides)[highlighted].start))
+        case InSectionList(), Key.Escape | Key.ControlD:
+            return replace(position, browsing=None)
         case _:
             return None
 
@@ -140,22 +170,25 @@ def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Positio
 def swipe_direction(before: Position, after: Position) -> Direction | None:
     """
     Which way a move from `before` to `after` swipes, or `None` if it doesn't: only moving from one slide
-    straight to another swipes, as in spiel, not opening, leaving or jumping from the grid, or `r`.
+    straight to another swipes, as in spiel, not opening, leaving or jumping from the grid or the sections list, or `r`.
     """
-    if before.selected is not None or after.selected is not None or after.index == before.index:
+    if before.browsing is not None or after.browsing is not None or after.index == before.index:
         return None
     return Direction.NEXT if after.index > before.index else Direction.PREVIOUS
 
 
 def zoom_toward(before: Position, after: Position) -> Toward | None:
     """
-    Which way a move from `before` to `after` zooms the grid, or `None` if it doesn't: opening the grid zooms out
-    to it, and leaving it, by a jump or Escape, zooms in to the slide it leaves for.
+    Which way a move from `before` to `after` zooms the grid, or `None` if it doesn't: opening the grid, from the slide
+    or the sections list, zooms out to it, and leaving it for the slide, by a jump or Escape, zooms in to the slide.
+    Opening or leaving the sections list otherwise cuts straight to it.
     """
-    match before.selected, after.selected:
-        case None, int():
+    match before.browsing, after.browsing:
+        case InGrid(), InGrid():
+            return None
+        case _, InGrid():
             return Toward.GRID
-        case int(), None:
+        case InGrid(), None:
             return Toward.SLIDE
         case _:
             return None
@@ -229,7 +262,7 @@ def slide_view(slide: Slide, step: int, is_live: bool, host: Host, code_theme: s
     return Div(
         style=col | fill(1),
         children=(
-            *((heading(slide.title, slide.peps),) if slide.title_card is None else ()),
+            *((heading(slide.title, slide.peps),) if not slide.is_title_card else ()),
             Div(
                 style=col | fill(1) | pad_x(1),
                 children=(slide_body(slide, step, is_live, host, code_theme, focus),),
@@ -309,7 +342,7 @@ def root(
             case Tiled(duration=duration) | Crossed(duration=duration):
                 area = stage_area
                 # The grid as it opens, or as it would be closing to the slide, the same grid the zoom draws.
-                selected = moved.index if moved.selected is None else moved.selected
+                selected = moved.browsing.selected if isinstance(moved.browsing, InGrid) else moved.index
                 opened = grid(slides, selected, jump, host, code_theme, None)
                 arriving = slide_view(slides[moved.index], moved.step, True, host, code_theme, FocusHandle())
                 where = tiles(area.width, area.height, selected, slides)
@@ -340,8 +373,8 @@ def root(
         """
         set_position(moved)
         pace = SPEEDS[speed]
-        if moved.selected is not None:
-            # The grid replaces the stage, which would replay a transition left here when it came back.
+        if moved.browsing is not None:
+            # The grid or the list replaces the stage, which would replay a transition left here when it came back.
             set_playing(None)
         if (moved.index, moved.generation) != (position.index, position.generation):
             set_mounting(Mounting(serial=mounting.serial + 1))
@@ -380,6 +413,9 @@ def root(
     def jump(index: int) -> InputResponse:
         return go(Position(index=index))
 
+    def open_section(number: int) -> InputResponse:
+        return go(replace(position, browsing=InGrid(sections(slides)[number].start)))
+
     def toggle(choice: Choice) -> InputResponse:
         if picking is not None and picking.choice is choice:
             set_picking(None)
@@ -388,7 +424,7 @@ def root(
         set_picking(opening)
         return opening.opened()
 
-    def chosen(choice: Choice) -> tuple[str, Callable[[str], None]]:
+    def chosen(choice: Choice) -> tuple[str, Callable[[str], object]]:
         """What `choice`'s picker shows as chosen, and what choosing another calls."""
         if choice is TRANSITION:
             return transition, set_transition
@@ -424,13 +460,19 @@ def root(
         return go(moved)
 
     layers: list[Component] = []
-    if position.selected is None:
-        layers.append(stage(view(position, mounting, is_live=True), playing).with_key("stage"))
     zoom = motion if isinstance(motion, Zoom) else None
-    # The grid stays over the stage while it zooms in to the slide it left for, already mounted beneath it.
-    if position.selected is not None or zoom is not None:
-        selected = position.index if position.selected is None else position.selected
-        layers.append(grid(slides, selected, jump, host, code_theme, zoom).with_key("grid"))
+    match position.browsing:
+        case None:
+            layers.append(stage(view(position, mounting, is_live=True), playing).with_key("stage"))
+            # The grid stays over the stage while it zooms in to the slide it left for, already mounted beneath it.
+            if zoom is not None:
+                layers.append(grid(slides, position.index, jump, host, code_theme, zoom).with_key("grid"))
+        case InGrid(selected):
+            layers.append(grid(slides, selected, jump, host, code_theme, zoom).with_key("grid"))
+        case InSectionList(highlighted):
+            layers.append(section_list(slides, highlighted, open_section).with_key("sections"))
+        case _ as unreachable:
+            assert_never(unreachable)
     if isinstance(motion, Crossing):
         layers.append(cover(motion).with_key("cover"))
 

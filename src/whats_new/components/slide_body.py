@@ -30,8 +30,8 @@ def slide_body(slide: Slide, step: int, is_live: bool, host: Host, code_theme: s
     """
     edits, set_edits = use_state(NO_EDITS)
 
-    def edit(name: str, change: Callable[[str], str]) -> None:
-        set_edits(lambda current: current | {name: change(current.get(name, read_example(name)))})
+    def edit(name: str, change: Callable[[str], str]) -> str:
+        return set_edits(lambda current: current | {name: change(current.get(name, read_example(name)))})[name]
 
     props = SlideProps(
         step=step,

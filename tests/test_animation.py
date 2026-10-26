@@ -33,8 +33,8 @@ from whats_new.deck import SLIDES
 from whats_new.diagrams import task_group
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
-from whats_new.sections.performance import STREAK_PERIOD
-from whats_new.sections.performance import streak
+from whats_new.sections.tachyon import STREAK_PERIOD
+from whats_new.sections.tachyon import streak
 from whats_new.size import PRESENTING
 
 FINISHED = "✗ cancelled"

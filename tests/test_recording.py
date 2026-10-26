@@ -29,12 +29,11 @@ from whats_new.runs import Expect
 from whats_new.runs import Run
 from whats_new.size import PRESENTING
 from whats_new.slides import Slide
-from whats_new.slides import TitleCard
 
 
 async def test_the_recording_marks_a_chapter_per_slide_in_order(host: Host, tmp_path: Path) -> None:
     # Title cards, which run nothing, so this records in the time it takes to render.
-    slides = tuple(slide for slide in SLIDES if slide.title_card is TitleCard.SECTION)[:3]
+    slides = tuple(slide for slide in SLIDES if slide.is_title_card)[:3]
     path = tmp_path / "deck.cast"
 
     await record(slides, host, frozenset(), path)
