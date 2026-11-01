@@ -30,9 +30,12 @@ present:
 alias p := present
 
 # The deck checkpoints its slide and code theme to a temp file, so each restart lands where it left off.
+# Runs from .venv rather than under `uv run`, which holds the uv cache lock for as long as it lives and
+# so blocks every `uv cache prune` for the whole editing session.
 [doc('Present the deck, restarting it whenever a source or example file changes')]
 watch:
-    exec uv run --frozen watchfiles --verbosity warning 'python -m whats_new' src/ examples/
+    uv sync --frozen
+    exec .venv/bin/watchfiles --verbosity warning '.venv/bin/python -m whats_new' src/ examples/
 
 alias w := watch
 

@@ -723,7 +723,7 @@ Each item gets one runnable line where possible:
   - The Tachyon stage needs
     [#423](https://github.com/JoshKarpel/counterweight/pull/423) (`Canvas`, the
     phase 2 framework fixes, and `use_terminal`).
-  - #423 brings in `pyghostty`, which bundles a prebuilt, pre-1.0 `libghostty-vt`.
+  - counterweight's terminal emulator, `evp`, bundles a prebuilt, pre-1.0 `libghostty-vt`.
     That's a supply-chain cost the deck inherits, not one it chooses.
   - [#426](https://github.com/JoshKarpel/counterweight/pull/426) plans a diagram
     engine. Nothing waits on it. If its graph container lands in a release during
@@ -1531,7 +1531,7 @@ browser on my laptop showing zellij web.
 ### Running it yourself
 
 Anyone can run the deck from one line in the README, without trusting their
-machine to its dependency tree: a pre-1.0 counterweight, `pyghostty`'s prebuilt
+machine to its dependency tree: a pre-1.0 counterweight, `evp`'s prebuilt
 pre-1.0 `libghostty-vt`, three type checkers and every interpreter the runs need.
 
 ```bash
@@ -1553,7 +1553,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
 - Not `uvx --from git+...`. `uv tool run` ignores the project's lockfile and
   resolves fresh, and has no `--locked` or `--frozen`. Observed on uv 0.13.0: a
   lock pinning `six==1.15.0` ran 1.15.0 under `uv run --frozen` and 1.17.0 under
-  `uvx --from`. Viewers would get whatever counterweight and `pyghostty`
+  `uvx --from`. Viewers would get whatever counterweight and `evp`
   releases are newest that day.
 - Nothing downloads at launch, which `--network none` requires. The image bakes
   in everything the deck uses:
