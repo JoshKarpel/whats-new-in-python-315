@@ -1,4 +1,4 @@
-"""10. Closing: the features are unusually thorough, and where to read more."""
+"""11. Closing: the features are unusually thorough, and where to read more."""
 
 from counterweight.components import component
 from counterweight.elements import Div

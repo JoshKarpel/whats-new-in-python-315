@@ -1,4 +1,4 @@
-"""9. Lightning round: one runnable line each, where there is one."""
+"""10. Lightning round: one runnable line each, where there is one."""
 
 from counterweight.components import component
 from counterweight.elements import Div

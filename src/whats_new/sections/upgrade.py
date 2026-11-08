@@ -1,4 +1,4 @@
-"""8. Before you upgrade: what bites, run on 3.14 and on 3.15."""
+"""9. Before you upgrade: what bites, run on 3.14 and on 3.15."""
 
 from counterweight.components import component
 from counterweight.elements import Div

@@ -190,6 +190,11 @@ def link(url: str) -> Chunk:
     return Chunk(content=url.removeprefix("https://"), style=linked(url))
 
 
+def attributed(speaker: str, url: str) -> Chunk:
+    """Who said a quote, emphasized as `em` draws it, underlined and linked to where they said it."""
+    return Chunk(content=speaker, style=highlight | text_underline | text_link(url))
+
+
 @component
 def made_with_claude(is_live: bool) -> Div:
     """

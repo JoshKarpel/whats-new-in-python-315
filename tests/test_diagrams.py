@@ -22,6 +22,7 @@ from counterweight.styles.utilities import *
 from whats_new.diagrams import collector
 from whats_new.diagrams import fan_out
 from whats_new.diagrams import frozendict_hierarchy
+from whats_new.diagrams import jit
 from whats_new.diagrams import low_level
 from whats_new.diagrams import profilers
 from whats_new.diagrams import task_group
@@ -56,6 +57,9 @@ DRAWINGS: dict[str, Callable[[], Component | Text | Div]] = {
     **{f"gc schedules {s}": partial(collector.schedules, s, False) for s in range(collector.SCHEDULE_STEPS)},
     **{f"gc timeline {s}": partial(collector.timeline, s, False) for s in range(collector.TIMELINE_STEPS)},
     **{f"gc waiting {s}": partial(collector.waiting, s, False) for s in range(collector.WAITING_STEPS)},
+    **{f"jit designs {s}": partial(jit.designs, s, False) for s in range(jit.DESIGN_STEPS)},
+    **{f"jit request {s}": partial(jit.request, s, False) for s in range(jit.REQUEST_STEPS)},
+    "three experiments": jit.experiments,
     **{
         f"tracing vs sampling {s}": partial(profilers.tracing_vs_sampling, s, False)
         for s in range(profilers.SAMPLING_STEPS)

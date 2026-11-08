@@ -30,6 +30,8 @@ from whats_new.diagrams.draw import area
 from whats_new.diagrams.draw import ink
 from whats_new.diagrams.draw import middle
 from whats_new.diagrams.draw import node
+from whats_new.diagrams.timeline import Milestone
+from whats_new.diagrams.timeline import timeline_through
 
 GONE = CellStyle(foreground=EDGE.foreground, dim=True)
 FREED_NODE = Style(text_style=CROSSED) | border_color("red", 400)
@@ -447,51 +449,26 @@ def incremental_heap(tick: int) -> tuple[Chunk, ...]:
 
 
 RELEASES = (
-    ("3.13", "rolled back", "generational"),
-    ("3.14.0", "ships it", "incremental"),
-    ("3.14.1", "a speed fix", "incremental"),
-    ("3.14.5", "reverted", "generational"),
-    ("3.15", "a PEP to return", "generational"),
+    Milestone("3.13", "rolled back", "generational", NOTE),
+    Milestone("3.14.0", "ships it", "incremental", CROSSED),
+    Milestone("3.14.1", "a speed fix", "incremental", CROSSED),
+    Milestone("3.14.5", "reverted", "generational", NOTE),
+    Milestone("3.15", "a PEP to return", "generational", NOTE),
 )
+"""Each release, what happened in it, and the collector it runs."""
 TIMELINE_STEPS = len(RELEASES)
 """One release per step, the timeline drawing itself on to it."""
-RELEASE_WIDTH = 17
-TIMELINE_WIDTH = RELEASE_WIDTH * (len(RELEASES) - 1) + len("a PEP to return")
-EXTEND = timedelta(milliseconds=500)
+RELEASE_SPACING = 17
 
 
 def timeline_ends_showing(step: int) -> str | None:
     """What happened in the release at `step`, which appears once the axis reaches it."""
-    return RELEASES[step][1]
+    return RELEASES[step].event
 
 
 def timeline(step: int, is_live: bool) -> Component:
     """The releases up to the one at `step`, the axis growing out to the newest, which appears when it arrives."""
-    return growing_timeline(step, is_live).with_key(f"release-{step}")
-
-
-@component
-def growing_timeline(step: int, is_live: bool) -> Div:
-    progress = use_explanation(EXTEND, is_live)
-    start = 0 if step == 0 else tick_x(step - 1)
-    head = start + round((tick_x(step) - start) * progress)
-    parts: list[Text | Div] = [ink("─" * head + "▶", 0, 1)]
-    for index, (release, event, collector) in enumerate(RELEASES[: step + 1]):
-        if index == step and progress < 1:
-            continue
-        x = index * RELEASE_WIDTH
-        parts += [
-            ink("┬", tick_x(index), 1),
-            ink(release, x, 0, HIGHLIGHT),
-            ink(event, x, 2, EDGE),
-            ink(collector, x, 3, CROSSED if collector == "incremental" else NOTE),
-        ]
-    return area(TIMELINE_WIDTH, 4, *parts)
-
-
-def tick_x(index: int) -> int:
-    """The column of the release at `index`'s tick on the axis."""
-    return index * RELEASE_WIDTH + 2
+    return timeline_through(RELEASES, RELEASE_SPACING, step, is_live)
 
 
 WAITING_STEPS = 2

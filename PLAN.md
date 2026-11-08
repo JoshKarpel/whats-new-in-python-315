@@ -65,10 +65,11 @@ run long) or **cut-first** (the first to go, or folded into the lightning round)
 | 5. Performance | 3 |
 | 6. Tachyon | 15 |
 | 7. The garbage collector saga | 5 |
-| 8. Before you upgrade | 3 |
-| 9. Lightning round | 6 |
-| 10. Closing | 2 |
-| Material | 73 |
+| 8. The JIT saga | 5 |
+| 9. Before you upgrade | 3 |
+| 10. Lightning round | 6 |
+| 11. Closing | 2 |
+| Material | 78 |
 
 Every item gets built, cut-first ones included, and the cutting happens while
 practicing the talk. So the tags and minutes are first guesses, to be revised
@@ -417,6 +418,7 @@ frame earns a slide or just a sentence.
   the loop's hot part on screen.
   Observed about 1.5x for 3.15+JIT, while the 3.14 JIT was flat or slower. The VM
   is noisy, so use hyperfine's warmup and runs rather than one shot.
+- How it got here, and why it's leaving `main`, is the [JIT saga](#8-the-jit-saga-std).
 - Diagrams:
   - the pipeline: bytecode, specialized bytecode, a trace, optimized micro-ops,
     machine code. Mark the stages that changed in 3.15.
@@ -430,7 +432,7 @@ frame earns a slide or just a sentence.
 - One run puts 3.14 and 3.15 side by side: a harness runs the script on each and
   draws a pair of bars per timing, with how much faster 3.15 is. Observed 3.1x
   encode, 3.0x decode and 55x for b85.
-- The padding change lives in [Before you upgrade](#8-before-you-upgrade-std), so
+- The padding change lives in [Before you upgrade](#9-before-you-upgrade-std), so
   it stays in the talk if this item is cut.
 
 ### 6. Tachyon, PEP 799 (core, the centerpiece, about a third of the talk)
@@ -627,7 +629,212 @@ frame earns a slide or just a sentence.
     2,000, 10,000), which grows on Space and ends on Tim's 90-to-100 ratio.
   - a bar chart of peak RSS per interpreter, laid out to match the timeline.
 
-### 8. Before you upgrade (std)
+### 8. The JIT saga (std)
+
+The second big experiment on `main` without a Standards Track PEP, told beside the
+garbage collector's, and ending on free-threading, which went PEP first. Section 5 shows what the JIT does in 3.15; this tells how it
+got there and why it's leaving `main`. As with the GC saga, what went wrong comes
+only from what core developers and the Steering Council (SC) said in public,
+quoted and attributed.
+
+Status is as of 2026-11-08. The SC's six months run out in early December, so
+recheck the PEP 836 thread before presenting and update the last milestone
+("Dec 2026", "out of main?") to whatever happened.
+
+#### The premise, checked
+
+The starting understanding was: like the GC, the JIT was a big experimental change
+on `main` without a PEP; unlike the GC it sat behind a feature flag, and the flag
+wasn't enough protection because the work was disrupting development. Mostly
+right, with two refinements.
+
+- Right: the JIT has lived on `main` since
+  [GH-113465](https://github.com/python/cpython/commit/f6d9e5926b6138994eaa60d1c36462e36105733d)
+  (2024-01-29, for 3.13), and its only PEP,
+  [PEP 744](https://peps.python.org/pep-0744/), is Informational and was written
+  after the merge.
+  [The SC's request](https://discuss.python.org/t/an-announcement-from-the-steering-council-regarding-the-jit-project/107638) says so, and adds that this breaks
+  "our previous long-standing view that experiments should not be done on the main
+  branch of CPython without a backing PEP."
+- Right: it's behind a flag. It's a build option (`--enable-experimental-jit`), and
+  [PEP 836](https://github.com/python/peps/blob/efec2601611c2fa53b1b1791b09b0368840c038c/peps/pep-0836.rst?plain=1#L166-L170)
+  says the official Windows and macOS binaries "ship with the JIT built but
+  disabled by default", enabled with `PYTHON_JIT=1`.
+  Observed: uv's 3.14.7 and 3.15 builds are configured
+  `--enable-experimental-jit=yes-off`, the same arrangement.
+- Right, and it's the sharpest point: the flag gated who _runs_ the JIT, not who
+  _maintains around_ it. Pablo Galindo Salgado
+  ([post 75](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/75)):
+  "uops and the bytecode DSL in 3.12, trace projection and copy-and-patch in 3.13,
+  more interpreter refactoring in 3.14, a rewrite to trace recording in 3.15, and
+  now a proposed move to a method frontend. Every one of those reached into the
+  interpreter that every core developer, tool author and distributor depends on,
+  none of it went through a PEP". The SC's June request asks the PEP to say "how it
+  will impact maintainers and contributors that don't directly contribute to the JIT."
+  [PEP 836's](https://github.com/python/peps/blob/efec2601611c2fa53b1b1791b09b0368840c038c/peps/pep-0836.rst?plain=1#L802-L805) view is the opposite: core developers working on
+  the interpreter "do not need to care that a JIT exists, apart from the
+  occasional CI breakage." That's the disagreement in one line: the authors
+  measured the cost as CI noise, the SC as an interpreter that kept changing.
+- Refinement: dev-process cost was one concern of several, not _the_ reason.
+  Thomas Wouters
+  ([post 4](https://discuss.python.org/t/an-announcement-from-the-steering-council-regarding-the-jit-project/107638/4)):
+  "There hasn't been a single triggering event". The request's list is
+  maintenance, compatibility with tooling ("free-threading, profilers, and
+  debuggers"), measurable goals, the relationship to other JITs (CinderX, Numba,
+  PyTorch), and architectural stability.
+  [The September feedback](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/53) adds design
+  cohesion ("design decisions being made among a small group of developers, without
+  critical review by the larger group"), memory, security, and platform parity.
+  So the "beyond the flag" harm reaches tool authors, package maintainers and
+  redistributors, not only core developers.
+- Refinement: the outcome isn't an SC rejection, and isn't a revert in a release.
+  The SC paused new JIT work on `main` and set a deadline; the authors withdrew
+  PEP 836 for lack of bandwidth before submitting it; removal follows from there.
+  3.15 ships the JIT unchanged
+  ([Thomas Wouters](https://discuss.python.org/t/an-announcement-from-the-steering-council-regarding-the-jit-project/107638/4): "we're okay with the status quo for 3.15").
+  [The SC](https://discuss.python.org/t/an-announcement-from-the-steering-council-regarding-the-jit-project/107638) also took a share of the blame: "collectively we (the Steering Council)
+  have not been as strict about following the process as a change of this
+  complexity and reach deserves."
+
+#### Timeline
+
+- 2024-01-29: the copy-and-patch JIT lands on `main` for 3.13
+  ([GH-113465](https://github.com/python/cpython/commit/f6d9e5926b6138994eaa60d1c36462e36105733d)).
+- 2024-04-11: [PEP 744](https://peps.python.org/pep-0744/), Informational, still
+  Draft.
+- 3.12 to 3.15: the design changes PEP 836
+  [lists](https://github.com/python/peps/blob/efec2601611c2fa53b1b1791b09b0368840c038c/peps/pep-0836.rst?plain=1#L150-L164):
+  bytecode DSL and uops (3.12), trace projector, optimizer and copy-and-patch
+  backend (3.13), more refactoring (3.14), tracer rewritten to recording (3.15).
+  Its own account of speed: tracing "yielded no speedups initially in 3.13 and 3.14"
+  ([L266-L268](https://github.com/python/peps/blob/efec2601611c2fa53b1b1791b09b0368840c038c/peps/pep-0836.rst?plain=1#L266-L268)),
+  and 3.15 is "roughly 4-12% faster geometric mean on the pyperformance benchmark
+  suite".
+- 2026-06-05, after the 3.15 beta cutoff:
+  [the SC's announcement](https://discuss.python.org/t/an-announcement-from-the-steering-council-regarding-the-jit-project/107638),
+  posted by Pablo Galindo Salgado. A Standards Track PEP is required; "Until such a
+  PEP is accepted, we ask that no new development on the JIT land on main" (bug and
+  security fixes continue); six months, or "the JIT code must be removed from the
+  main branch".
+- 2026-07-03: [PEP 836](https://peps.python.org/pep-0836/), "JIT Go Brrr", by
+  Savannah Ostrowski, Ken Jin and Brandt Bucher, posted
+  ([thread](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010)).
+  A two-and-a-half-year plan: a method frontend, free-threading support, then
+  compatibility review.
+- 2026-09-21: [the SC's feedback](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/53),
+  posted by Thomas Wouters (Savannah recused, being both an author and on the SC).
+  "the PEP mostly answers the questions we asked", with ten points to discuss;
+  on scheduling compatibility review in the last half year, "We think that's way,
+  way too late".
+- 2026-10-19: [PEP 836 withdrawn](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/57):
+  "we don't feel we have the personal bandwidth to carry the current version
+  forward." Brett Cannon
+  ([post 61](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/61),
+  [post 63](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/63)):
+  work stops in CPython's repo, and an alternative PEP is unlikely "as all the
+  people actively driving the JIT were either authors on that PEP or contributors
+  to it". [LWN](https://lwn.net/Articles/1102102/) expects removal early in the 3.16
+  cycle ([PEP 826](https://peps.python.org/pep-0826/)).
+- 2026-10-29: the drama. A post repeats a "murmur on the web that the SC killed the
+  JIT by abusing the bureaucratic PEP process"
+  ([post 68](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/68)).
+  Pablo answers
+  ([post 75](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/75)):
+  "The SC has not killed the JIT. The SC has not rejected PEP 836." and "Holding
+  that bar it's literally the damn job." [sic]. He compares PEP 703
+  (free-threading), held to the same bar. Savannah, as an individual
+  ([post 76](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/76)):
+  "Our bandwidths changed. It didn't feel reasonable to put up a PEP that we
+  couldn't commit to." Alyssa Coghlan
+  ([post 79](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/79)):
+  "it feels like a funding decision reaching its natural consequence", since the
+  work started with "multiple folks with full-time roles specifically focused on
+  CPython performance improvements" and that funding was withdrawn.
+  Thomas Wouters on when a PEP is needed
+  ([post 83](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/83)):
+  "it's pretty hard to read that and not come to the conclusion that obviously a
+  PEP is required for the JIT, and probably more than one."
+- December 2026: the six months run out.
+
+#### Beside the GC saga and free-threading
+
+Three big changes to the interpreter, three routes.
+
+- The incremental GC is now taking the route the JIT didn't finish: Mark Shannon's
+  [PEP 848](https://peps.python.org/pep-0848/), "Generational Incremental Garbage
+  Collection", a Standards Track draft for 3.16 created 2026-09-16
+  ([discussion](https://discuss.python.org/t/109214)).
+- Free-threading went PEP first. It began as Sam Gross's `nogil` fork
+  ([nogil-3.12](https://github.com/colesbury/nogil-3.12) is PEP 703's reference
+  implementation), and the SC accepted
+  [PEP 703](https://peps.python.org/pep-0703/) on 2023-10-24
+  ([acceptance](https://discuss.python.org/t/pep-703-making-the-global-interpreter-lock-optional-in-cpython-acceptance/37075)) before it landed for 3.13.
+  It's behind flags as the JIT is: `--disable-gil` at build time, and on a
+  free-threaded build `PYTHON_GIL=1` turns the GIL back on (observed on 3.15t).
+  [PEP 779](https://peps.python.org/pep-0779/) (accepted 2025-06-16) made it
+  supported in 3.14.
+- Free-threading cost other core developers too, and the acceptance said so up
+  front: "it's neither fair nor particularly forward-thinking to expect the
+  free-threaded maintainers to do all the work", and the SC kept the right to roll
+  back "all of PEP 703 entirely if necessary". It also says the work couldn't stay
+  in a fork: it "require[s] so much coordination with other CPython development
+  happening at the same time, that we can't reasonably do these experiments in a
+  fork of CPython." So the difference from the JIT isn't the flags, or that the
+  work landed on `main`, or even its cost to others: the cost was agreed in a PEP
+  first, with phases (experimental, supported, default) decided by the SC.
+- [Pablo's post 75](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/75)
+  makes the same comparison: "Free-threading answered them. PEP 703 took five
+  months of SC deliberation, was accepted with explicit conditions including the
+  right to roll all of it back, and then needed a second PEP with a further list of
+  Phase II requirements before the experimental label came off."
+
+| | incremental GC | the JIT | free-threading |
+|---|---|---|---|
+| started | on `main` | on `main` | a fork: `nogil` |
+| its PEP | none | 744, Informational | 703, accepted first |
+| its flags | none: on in 3.14.0 | build, and `PYTHON_JIT` | build, and `PYTHON_GIL` |
+| cost to others | memory, in production | the design kept changing | agreed in the PEP |
+| so far | reverted in 3.14.5 | paused, PEP 836 withdrawn | supported since 3.14 |
+| next | PEP 848, a draft | a PEP: none since 836 | phase III: the default |
+
+The closing lines are the speaker's, not a source's: all three reached into the
+interpreter everyone works on, and only free-threading agreed what that would cost
+everyone else first, in a PEP.
+
+#### Slides
+
+1. Title card.
+2. On `main`: a timeline, 3.12 to "3.16?", one release per Space, each with PEP
+   836's change and its speedup (none, none, 4-12%, proposed). Under it: built in
+   and off, `PYTHON_JIT=1` to opt in; and Pablo's "Every one of those reached
+   into the interpreter...".
+3. A PEP, or out: a 2026 timeline, Jun 5 to Dec 2026, one event per Space,
+   under the SC's "without a backing PEP" and Wouters' "status quo for 3.15".
+4. What the SC asked: four quotes (the pause, Pablo's five questions, the
+   impact on non-JIT maintainers, the SC's own share of the blame).
+5. The thread: four quotes, one per Space, in posting order: the rumor, Pablo,
+   Savannah, Alyssa. The rumor's poster isn't named on the slide: the point is the
+   rumor, not who repeated it.
+6. Three experiments: the table above, and the closing lines.
+
+Every quote's attribution on the slides is underlined and linked to the post it
+quotes (`look.attributed`), as the closing slide's URLs are.
+
+No live run: the performance section already runs the JIT, and nothing about the
+process is executable. Both timelines share `diagrams/timeline.py` with the GC
+saga's.
+
+#### To say aloud, not on a slide
+
+- None of this is a verdict on the JIT's technical direction.
+  [The SC said in June](https://discuss.python.org/t/an-announcement-from-the-steering-council-regarding-the-jit-project/107638)
+  "the recent performance improvements are real and encouraging", and
+  [the authors](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/57) "continue to believe in the technical direction".
+- The funding point is [Alyssa's](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/79) reading as an observer, not a stated cause;
+  the authors gave bandwidth as the reason and
+  [asked people not to read between the lines](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010/76).
+
+### 9. Before you upgrade (std)
 
 What will bite on upgrade, from the whatsnew's
 [Porting](https://docs.python.org/3.15/whatsnew/3.15.html#porting-to-python-3-15)
@@ -667,7 +874,7 @@ section and its removals. One script runs on 3.14 and on 3.15. Observed:
   in 3.20 (observed: `argparse.__version__` warns).
 - No diagram. The runs on each version carry it.
 
-### 9. Lightning round (core, one slide or a rapid sequence)
+### 10. Lightning round (core, one slide or a rapid sequence)
 
 Each item gets one runnable line where possible:
 
@@ -705,7 +912,7 @@ Each item gets one runnable line where possible:
   `TypeError: nonempty __slots__ not supported for subtype of 'P'`, and 3.15
   accepts it.
 
-### 10. Closing (core)
+### 11. Closing (core)
 
 - The thoroughness observation, with the examples collected along the way.
 - Links, each labeled and a clickable OSC 8 hyperlink: the whatsnew, this talk's
@@ -1024,7 +1231,7 @@ it.
    sampling row only at its fixed ticks (`●`), which never land on a helper, so the
    overhead difference reads as how busy each row is.
 5. The GC saga's timeline, one release per Space, the axis drawing itself out to
-   each before its labels appear.
+   each before its labels appear. The JIT saga's two timelines draw the same way.
 6. The cycle collector: `del z` plays, `e`'s count dropping to 0 and the object
    freed; on the last Space, a collection plays, subtracting the inside references,
    keeping what's held from outside and freeing the rest.
@@ -1705,6 +1912,18 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   [the memory growth issue](https://github.com/python/cpython/issues/142516),
   [GH-142001](https://github.com/python/cpython/pull/142001),
   [Improving incremental gc](https://discuss.python.org/t/improving-incremental-gc/107067)
+  [PEP 848](https://peps.python.org/pep-0848/), the incremental collector's way back
+- JIT: [PEP 744](https://peps.python.org/pep-0744/),
+  [PEP 836](https://peps.python.org/pep-0836/),
+  [the SC's request](https://discuss.python.org/t/an-announcement-from-the-steering-council-regarding-the-jit-project/107638),
+  [the PEP 836 thread](https://discuss.python.org/t/pep-836-jit-go-brrr-the-path-to-a-supported-jit-compiler-for-cpython/108010),
+  [LWN's account](https://lwn.net/Articles/1102102/),
+  [GH-113465](https://github.com/python/cpython/commit/f6d9e5926b6138994eaa60d1c36462e36105733d),
+  the merge; the [JIT saga](#8-the-jit-saga-std) links each post it quotes
+- Free-threading: [PEP 703](https://peps.python.org/pep-0703/),
+  [its acceptance](https://discuss.python.org/t/pep-703-making-the-global-interpreter-lock-optional-in-cpython-acceptance/37075),
+  [PEP 779](https://peps.python.org/pep-0779/),
+  [nogil-3.12](https://github.com/colesbury/nogil-3.12)
 - [Python Free-Threading Guide](https://py-free-threading.github.io/)
 - [PEP 829 discussion](https://discuss.python.org/t/pep-829-structured-startup-configuration-files/106789)
 - [litellm `.pth` compromise](https://futuresearch.ai/blog/litellm-pypi-supply-chain-attack/)

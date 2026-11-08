@@ -3,6 +3,7 @@
 from whats_new.sections import closing
 from whats_new.sections import concurrency
 from whats_new.sections import garbage_collector
+from whats_new.sections import jit
 from whats_new.sections import lightning
 from whats_new.sections import opening
 from whats_new.sections import performance
@@ -22,6 +23,7 @@ SLIDES: tuple[Slide, ...] = (
     *performance.SLIDES,
     *tachyon.SLIDES,
     *garbage_collector.SLIDES,
+    *jit.SLIDES,
     *upgrade.SLIDES,
     *lightning.SLIDES,
     *closing.SLIDES,
