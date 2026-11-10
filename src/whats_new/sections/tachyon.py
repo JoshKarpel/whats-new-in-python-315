@@ -13,7 +13,10 @@ from counterweight.styles import Color
 from counterweight.styles.utilities import *
 
 from whats_new.components.code import code_example
+from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
+from whats_new.components.layouts import notes_beside_code_above_runs
+from whats_new.components.layouts import side_by_side
 from whats_new.components.layouts import stack
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import bullets
@@ -27,6 +30,7 @@ from whats_new.diagrams import profilers
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
 from whats_new.runs import harness
+from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
 from whats_new.tachyon import tachyon_stage
@@ -114,6 +118,44 @@ def why_in_cpython(props: SlideProps) -> Div:
 
 
 @component
+def finding_the_slow_line(props: SlideProps) -> Div:
+    return notes_beside_code_above_runs(
+        props,
+        labeled(
+            "report.py: 99,000 log lines, 3,000 users",
+            code_example(props, "tachyon/report.py", start="def parse", stop="lines ="),
+        ),
+        bullets(
+            "the obvious suspect: parsing all those timestamps",
+            (
+                plain("Tachyon names the line, not just the function: "),
+                code("report.py:11"),
+                plain(" is the "),
+                code("if"),
+            ),
+        ),
+    )
+
+
+@component
+def the_fix(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        side_by_side(
+            labeled("report.py", code_example(props, "tachyon/report.py", start="def unique_users", stop="lines =")),
+            labeled(
+                "report_fixed.py",
+                code_example(props, "tachyon/report_fixed.py", start="def unique_users", stop="lines ="),
+            ),
+        ),
+        bullets(
+            (code("not in"), plain(" a list compares against every user so far; a set hashes once")),
+            (plain("profile it again: what's left is "), code("parse"), plain(", a row for each of its lines")),
+        ),
+    )
+
+
+@component
 def the_loop(props: SlideProps) -> Div:
     return stack(profilers.the_loop(props.host.pid))
 
@@ -168,6 +210,41 @@ SLIDES = (
                 PY314,
                 label="3.15's Tachyon, 3.14's process",
                 expect=Expect(status=0, output="Can't attach from a Python 3.15 process to a Python 3.14 process"),
+            ),
+        ),
+    ),
+    Slide(
+        title="Finding the slow line",
+        content=finding_the_slow_line,
+        peps=(799,),
+        runs=(
+            python(
+                PY315, "tachyon/report.py", label="python report.py", expect=Expect(status=0, output="3,000 users in")
+            ),
+            harness(
+                "profile.py",
+                "tachyon/report.py",
+                label="profiling.sampling run",
+                expect=Expect(status=0, output="report.py:11(unique_users)"),
+            ),
+        ),
+    ),
+    Slide(
+        title="Finding the slow line: the fix",
+        content=the_fix,
+        peps=(799,),
+        runs=(
+            python(
+                PY315,
+                "tachyon/report_fixed.py",
+                label="python report_fixed.py",
+                expect=Expect(status=0, output="3,000 users in"),
+            ),
+            harness(
+                "profile.py",
+                "tachyon/report_fixed.py",
+                label="profiling.sampling run",
+                expect=Expect(status=0, output="report_fixed.py:6(parse)"),
             ),
         ),
     ),

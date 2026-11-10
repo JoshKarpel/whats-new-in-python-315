@@ -468,7 +468,29 @@ frame earns a slide or just a sentence.
      target's memory from outside with struct layouts specific to each version.
      Tachyon reads it through `_remote_debugging`, which ships with the interpreter.
      The coupling becomes visible: the reader has to match the target's version.
-4. Profile the running talk. The headline demo, built on counterweight's embedded
+4. Finding a slow line, on two slides: the everyday workflow on a small program,
+   before the spectacle of the deck profiling itself.
+   - The program counts the unique users in 99,000 log lines, parsing each line's
+     timestamp first. The obvious suspect is the parsing; the culprit is
+     `if user not in seen` on a list, which compares against every user so far.
+   - The first slide runs it (observed: about 1.9 s), then runs it under
+     `python -m profiling.sampling run -l 3 --no-summary`. The table names the line,
+     not just the function: `report.py:11(unique_users)`, the `if`, with 97% of samples.
+   - The second slide shows the function before and after (`[]` to `set()`, `append`
+     to `add`), runs the fix (observed: about 0.04 s), and profiles it again: what's
+     left is `parse`, a row for each of its two lines.
+   - The table goes through a harness that prints Tachyon's output up to its legend.
+     Tachyon always prints the legend after the table (`--no-summary` drops only the
+     summary below it), and the run box sticks to the end of its output, so the
+     legend would scroll the table out of the box.
+   - Tachyon doesn't fit its table to the terminal: a row is about 64 columns before
+     the function's name, so a name over about 30 characters wraps in the run box.
+     That's why the parse is `datetime.fromisoformat`, which is in C and charges its
+     time to `parse`'s own line. `strptime` was the more famous suspect, but its
+     frames (`_strptime.py:844(_strptime_datetime_datetime)`) wrap, and which of
+     them tops the table varies from run to run. JSON parsing had the same problem
+     with `decoder.py:374(JSONDecoder.raw_decode)`.
+5. Profile the running talk. The headline demo, built on counterweight's embedded
    terminals ([#423](https://github.com/JoshKarpel/counterweight/pull/423)).
    See [The Tachyon stage](#the-tachyon-stage) below for how it's built.
    - Diagram, shown before the live demo: the loop. The deck, labeled with its real
@@ -506,7 +528,7 @@ frame earns a slide or just a sentence.
    - The presenter can hand the keyboard to the pane with Tab and use Tachyon's
      own keys (`s` sort, `t` mode, `x` trends, arrows for threads, `h` help),
      then take it back with Tab.
-5. Tachyon's own flamegraph (cut-first). A key runs
+6. Tachyon's own flamegraph (cut-first). A key runs
    `attach -d 10 --flamegraph -o out/deck-flamegraph.html` against the deck in a
    second embedded pane while a workload runs. The output is a self-contained HTML
    file (observed: about 630 KB, with no external scripts).
@@ -526,7 +548,7 @@ frame earns a slide or just a sentence.
      no CORS or public port is involved.
    - Other formats get one line each: `--gecko` for profiler.firefox.com, `--heatmap`,
      and `--collapsed` for any flamegraph tool.
-6. Also: `profiling.sampling dump <pid>` prints a one-shot stack, which is how you'd
+7. Also: `profiling.sampling dump <pid>` prints a one-shot stack, which is how you'd
    ask a hung production process what it's doing. Run it against the deck in a pane
    while a threaded workload is busy. Not during pure-Python CPU on the event loop: a frozen deck can't draw the answer.
    - `--diff-flamegraph` compares a baseline with the current run.
