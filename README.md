@@ -43,7 +43,8 @@ What doesn't work in a default container:
 
 | Key | Does |
 |---|---|
-| Left / Right | previous / next slide |
+| Left / Right | previous / next slide, skipping ghosts unless on one |
+| Shift+Left / Shift+Right | previous / next slide, ghost or not |
 | Page Up / Page Down | the start of this section (or the previous one, from its start) / the next section |
 | Space | reveal the next step |
 | `1`–`9` | run the slide's programs, with any edits to its code |
@@ -51,13 +52,17 @@ What doesn't work in a default container:
 | Up / Down | scroll the run's output |
 | Tab / Shift+Tab | move between the slide's code and its runs: in the code, every key types until Tab |
 | `r` | reset the slide, undoing its edits |
-| `d` | the slide grid, one section at a time: arrows move, Enter or `d` jumps, Escape goes back |
+| `d` | the slide grid, one section at a time: arrows move, Enter or `d` jumps, Escape goes back, `g` makes the selected slide a ghost 👻 or not |
 | F1 / F2 | the clock / the size check |
 | F4 | pick the code theme: type to narrow the list, Up and Down move, Enter chooses, F4 closes |
 | F6 | pick the slide transition: off, random for a different one each move, swipe, or one of the effects (type to narrow the list); as F4's picker, F6 closes |
 | F7 | pick the grid's transition as it opens and closes: off, random, one of the grid's own effects or the slide effects, or a section's bar for a different one of that section each time; F7 closes |
 | F8 | pick the transition speed, from a quarter to twice as fast; F8 closes |
 | Ctrl+C | quit |
+
+A ghost is a slide trimmed from the talk but kept in the deck:
+presenting skips it and the slide count leaves it out, but the grid and Shift+Left and Shift+Right still reach it.
+`Slide.is_ghost` sets one in the deck; `g` overrides that for practice, and the overrides survive a restart.
 
 ## Developing
 

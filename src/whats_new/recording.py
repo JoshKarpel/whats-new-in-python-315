@@ -1,6 +1,7 @@
 """
-The recording: the whole deck presented by an autopilot at the presenting size, as an asciicast
-that asciinema-player plays back, with a chapter per slide.
+The recording: the talk presented by an autopilot at the presenting size, as an asciicast
+that asciinema-player plays back, with a chapter per slide. It presents the talk as given, so it leaves out
+the ghosts the deck declares (`Slide.is_ghost`).
 
 Unlike the export, it runs things: each slide's tour, and then its runs, after its last reveal step.
 Those take real time, which the autopilot waits out by watching the screen, so the recording comes out a little
@@ -114,11 +115,13 @@ def presented(slides: tuple[Slide, ...], capabilities: frozenset[Capability]) ->
 
 
 async def record(slides: tuple[Slide, ...], host: Host, capabilities: frozenset[Capability], path: Path) -> None:
+    """Records the talk `slides` give, without their ghosts, to `path`."""
+    talk = tuple(slide for slide in slides if not slide.is_ghost)
     await app(
-        root(slides, host, START, lambda checkpoint: None),
+        root(talk, host, START, lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
-        autopilot=presented(slides, capabilities),
+        autopilot=presented(talk, capabilities),
         clock=EXPORT_CLOCK,
         recording=Recording(path, title=TALK_TITLE, idle_time_limit=IDLE_LIMIT, theme=THEME, input=True),
     )

@@ -1,4 +1,5 @@
-"""Builds a throwaway venv with a .pth that runs code at startup, then adds a matching .start."""
+"""Builds a throwaway venv with a .pth that runs code at startup, then adds a matching .start,
+starting `python -c pass` in it after each, and printing each command it starts."""
 
 import subprocess
 import sys
@@ -20,14 +21,15 @@ with tempfile.TemporaryDirectory() as directory:
     (site_packages / "greet" / "__init__.py").write_text(PACKAGE)
 
     (site_packages / "greet.pth").write_text(PTH)
-    print("with greet.pth:", flush=True)
+    print("$ python -c pass            # site-packages has greet.pth", flush=True)
     subprocess.run([interpreter, "-c", "pass"])
 
     (site_packages / "greet.start").write_text(START)
-    print("with greet.pth and greet.start:", flush=True)
+    print("$ python -c pass            # ...and greet.start", flush=True)
     subprocess.run([interpreter, "-c", "pass"])
 
+    print("$ python -v -c pass | grep suppressed", flush=True)
     verbose = subprocess.run([interpreter, "-v", "-c", "pass"], capture_output=True, text=True).stderr
     for line in verbose.splitlines():
         if "suppressed" in line:
-            print("-v:", line.replace(f"{site_packages}/", ""))
+            print(" ", line.replace(f"{site_packages}/", ""))

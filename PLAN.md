@@ -239,6 +239,13 @@ also means trimming some of the std items.
   - a `.pth` alone runs its code
   - adding a `.start` makes the `.pth` import line go silent; `-v` explains why
   - 3.14 ignores `.start`
+  - the output prints each command the driver starts (`$ python -c pass`), since the
+    driver itself isn't on the slide
+- A bug fix comes bundled: 3.14 runs each `.pth` in a venv twice per start, since
+  `site.py` processes the venv's site-packages once for the venv and again as a global
+  one ([gh-75723](https://github.com/python/cpython/issues/75723), open since 2017).
+  The PEP 829 rewrite of `site.py` remembers which directories it has read. The 3.14
+  run shows the doubled line, and a bullet names it.
 - Diagram: `site.py`'s startup flow. A `.pth` import line goes to `exec()`; a
   `.start` with a matching basename suppresses it and calls a named entry point.
 - Timeline: import lines still run through 3.17 (warning only under `-v`), are
@@ -1075,6 +1082,8 @@ Dockerfile           the image others run the deck from
   Worth one aside on stage.
 - Keys, carried over from the reference talk where possible:
   - Left/Right: navigate.
+  - Shift+Left/Shift+Right: navigate, onto ghosts too. See
+    [The slide grid](#the-slide-grid).
   - Space: reveal.
   - `1`–`9`: run.
   - Up/Down: scroll the run box's output.
@@ -1345,8 +1354,8 @@ The reference talk did this with two pieces, and the deck keeps both:
 - The deck writes a checkpoint to a file in the temp directory whenever the slide
   or a setting changes, and reads it at startup: the slide's index, clamped to the
   deck's length, the theme F4 picked, the transition F6 picked, the grid's
-  transition F7 picked, and the speed F8 picked. A restart lands on the same
-  slide, looking the same. Reveal steps and run output start fresh. A checkpoint
+  transition F7 picked, the speed F8 picked, and the ghosts `g` toggled. A
+  restart lands on the same slide, looking the same. Reveal steps and run output start fresh. A checkpoint
   that doesn't parse starts over from the first slide, since a deck relaunched on
   stage mustn't refuse to start.
 
@@ -1606,6 +1615,22 @@ Design:
   mounted underneath, including a live Tachyon pane still costing frame time.
 - The Tachyon stage leaves the grid while its pane has focus: there, `d` goes to
   the profiler. Take focus back with Tab first.
+- `g` in the grid makes the selected slide a **ghost**, or makes a ghost a slide
+  again: a way to trim the talk while practicing without deleting anything.
+  Left and Right from a slide that isn't a ghost skip ghosts, as do Page Up and
+  Page Down, so presenting never lands on one. From a ghost they step to the slides
+  beside it, ghosts or not, so a run of ghosts reached from the grid plays through
+  in order. Shift+Left and Shift+Right step to the slides beside any slide, ghosts
+  or not, to dip into the ghosts after a slide without opening the grid. The footer counts only slides that aren't ghosts, and on a ghost shows
+  👻 in place of the number, with the progress rule as at the slide before it.
+  The grid numbers thumbnails the same way, and labels a ghost's `~~`, not 👻,
+  for the reason below.
+- `Slide.is_ghost` is the committed trim; `g` overrides it, by slide title so an
+  override stays on its slide as slides come and go, and the checkpoint keeps the
+  overrides across restarts. Toggling back to a slide's own `is_ghost` drops its
+  override. The export still shows every slide, a ghost's caption marked 👻,
+  walking the deck with Shift+Right since Right would skip ghosts; the recording
+  presents the talk as given, without ghosts.
 - With F7's `zoom` picked, the grid zooms. Opening, the selected thumbnail
   starts filling the grid and shrinks into its place while the others grow in
   around it. Leaving, by a jump or Escape, it runs backwards: the selected
@@ -1675,6 +1700,10 @@ profiler.
     the same two cells, so the command the stage runs stays plain Tachyon. A test
     draws the row, so a Tachyon that draws its medals differently fails it rather
     than bringing them back on stage. Drop it once zellij measures them.
+  - The same bug draws the 👻 that marks a ghost one cell wide. The footer keeps it,
+    since it ends the footer's line and the shift only takes the padding, but the
+    grid marks a ghost's thumbnail with `~~`, the same two cells: there the shift
+    would pull the rest of the label line, the neighboring thumbnails' included.
 - The pane runs `use_terminal` with
   `[sys.executable, "-m", "profiling.sampling", "attach", "--live", "-a", str(os.getpid())]`.
   - `sys.executable` matters: profiler and target must be the same minor version.

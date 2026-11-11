@@ -13,6 +13,7 @@ from counterweight.gradients import ramp
 from counterweight.hooks import use_clock
 from counterweight.styles.utilities import *
 
+from whats_new.components.look import GHOST
 from whats_new.components.look import PYTHON_BLUE
 from whats_new.components.look import PYTHON_YELLOW
 from whats_new.components.look import dim
@@ -51,8 +52,9 @@ def heading(title: str, peps: tuple[int, ...]) -> Text:
 
 @component
 def footer(
-    index: int,
+    passed: int,
     total: int,
+    is_ghost: bool,
     show_clock: bool,
     show_size: bool,
     columns: int,
@@ -60,7 +62,8 @@ def footer(
     timezone: tzinfo,
 ) -> Div:
     """
-    The talk's title and the slide number, with the clock (F1) and the size check (F2) between them.
+    The talk's title and the slide number, `passed` of `total` in the talk as presented, or a ghost for a ghost,
+    with the clock (F1) and the size check (F2) between them.
     The clock reads 12-hour time in `timezone`, not the machine's, which on the presenting VM is UTC.
     The size check is green when the terminal is exactly the presenting width (and at least its height),
     and red otherwise, so a wrong browser zoom shows before the first diagram.
@@ -95,30 +98,29 @@ def footer(
         | shrink(0)
         | border_top
         | border_light
-        | border_gradient(progress_rule(index, total)),
+        | border_gradient(progress_rule(passed, total)),
         children=(
             Text(content=TALK_TITLE, style=dim | pad_x(1)),
             Div(style=row | gap_width(2), children=tuple(middle)),
-            Text(content=f"{index + 1} / {total}", style=dim | pad_x(1)),
+            Text(content=GHOST if is_ghost else f"{passed} / {total}", style=dim | pad_x(1)),
         ),
     )
 
 
-def progress_rule(index: int, total: int) -> LinearGradient:
+def progress_rule(passed: int, total: int) -> LinearGradient:
     """
-    The footer's rule on slide `index` of `total`: `PROGRESS` from the left as far across as the slide is through
-    the deck, and slate past it. The fill reveals `PROGRESS` in place rather than squeezing all of it into the fill,
+    The footer's rule `passed` slides of `total` through the talk: `PROGRESS` from the left as far across as that is,
+    and slate past it. The fill reveals `PROGRESS` in place rather than squeezing all of it into the fill,
     so how far along the talk is reads from the color at the fill's end too.
     """
-    done = (index + 1) / total
+    # No slides at all to pass when `g` has made every one a ghost.
+    done = passed / total if total else 0.0
     colors = ramp(PROGRESS)
-    return linear_gradient(
-        (PYTHON_BLUE, 0),
-        (colors.color(colors.index(done)), done),
-        (slate_600, done),
-        to="right",
-        interpolation="oklch",
-    )
+    filled = ((PYTHON_BLUE, 0), (colors.color(colors.index(done)), done))
+    # The rightmost cell samples the gradient at exactly 1, where a slate stop at 1 would win,
+    # leaving the last slide's rule one cell short of full.
+    rest = ((slate_600, done),) if done < 1 else ()
+    return linear_gradient(*filled, *rest, to="right", interpolation="oklch")
 
 
 COLOR_OK = green_300

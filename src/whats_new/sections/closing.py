@@ -31,7 +31,7 @@ TOOLKITS = (
 @component
 def thoroughness(props: SlideProps) -> Div:
     return stack(
-        Text(content="Features arrived as toolkits, not single functions:"),
+        Text(content="Features arrived as complete toolkits:"),
         bullets(*TOOLKITS),
     )
 

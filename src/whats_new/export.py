@@ -27,6 +27,7 @@ from counterweight.keys import Key
 from counterweight.paint import Frame
 
 from whats_new.checkpoint import Checkpoint
+from whats_new.components.look import GHOST
 from whats_new.host import Host
 from whats_new.presenter import root
 from whats_new.size import PRESENTING
@@ -37,6 +38,12 @@ SETTLE = timedelta(minutes=1)
 """
 How far the export moves the clock on after each reveal step, which finishes any animation the step started,
 so each screenshot shows where the step ends up rather than its first frame.
+"""
+
+ONWARD_THROUGH_GHOSTS = (KeyPressed(key=Key.ShiftRight),)
+"""
+The keys that move on to the next slide in the deck, ghost or not, for whatever walks every slide:
+Right from a slide that isn't a ghost skips any ghosts after it, but Shift+Right doesn't.
 """
 
 PAGE = """\
@@ -71,15 +78,19 @@ def collector(collect: list[tuple[str, Frame]], caption: str) -> Callable[[Frame
 
 
 def autopilot(slides: tuple[Slide, ...], collect: list[tuple[str, Frame]]) -> Iterator[AnyEvent | AnyControl]:
-    """Screenshots every step of every slide, starting from the first, then quits."""
+    """Screenshots every step of every slide, ghosts too, marked as such, starting from the first, then quits."""
     for index, slide in enumerate(slides):
         for step in range(slide.steps):
-            caption = f"{index + 1}. {slide.title}" + (f" ({step + 1}/{slide.steps})" if slide.steps > 1 else "")
+            caption = (
+                f"{index + 1}. {slide.title}"
+                + (f" ({step + 1}/{slide.steps})" if slide.steps > 1 else "")
+                + (f" {GHOST}" if slide.is_ghost else "")
+            )
             yield Screenshot(handler=collector(collect, caption))
             if step < slide.steps - 1:
                 yield KeyPressed(key=Key.Space)
                 yield AdvanceClock(by=SETTLE)
-        yield KeyPressed(key=Key.Right)
+        yield from ONWARD_THROUGH_GHOSTS
     yield Quit()
 
 

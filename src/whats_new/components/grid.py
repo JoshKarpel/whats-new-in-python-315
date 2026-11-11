@@ -35,6 +35,7 @@ from counterweight.styles.utilities import *
 
 from whats_new.components.crossing import Tiles
 from whats_new.components.easing import ease_in_out
+from whats_new.components.look import GHOST_STAND_IN
 from whats_new.components.look import TURN_PERIOD
 from whats_new.components.look import dim
 from whats_new.components.look import highlight
@@ -42,6 +43,7 @@ from whats_new.components.look import turning_edge
 from whats_new.components.slide_body import slide_body
 from whats_new.host import Host
 from whats_new.slides import Slide
+from whats_new.slides import passed
 from whats_new.slides import sections
 
 COLUMNS = 3
@@ -175,9 +177,15 @@ def tiles(width: int, height: int, selected: int, slides: tuple[Slide, ...]) -> 
     )
 
 
+def thumbnail_number(index: int, ghosts: frozenset[int]) -> str:
+    """The number on the thumbnail of the slide at `index`: its number in the talk as presented, or a ghost's mark."""
+    return GHOST_STAND_IN if index in ghosts else str(passed(index, ghosts))
+
+
 @component
 def thumbnail(
     slides: tuple[Slide, ...],
+    ghosts: frozenset[int],
     index: int,
     is_selected: bool,
     jump: Callable[[int], InputResponse],
@@ -185,7 +193,8 @@ def thumbnail(
     code_theme: str,
 ) -> Div:
     """
-    One slide's thumbnail, which jumps to it when clicked. The selected one's border turns as a title card's does,
+    One slide's thumbnail, which jumps to it when clicked, labeled with its number in the talk as presented,
+    as the footer numbers it, or as a ghost. The selected one's border turns as a title card's does,
     counting from the thumbnail's mount, so a picture of the grid moved on by a transition's length draws it
     where the live grid does when the transition ends.
     """
@@ -201,7 +210,10 @@ def thumbnail(
         | (border_gradient(turning_edge(border_phase)) if is_selected else border_color("slate", 600)),
         on_input=on_click(lambda: jump(index)),
         children=(
-            Text(content=f"{index + 1} | {slide.title}", style=(text_color("amber", 300) if is_selected else dim)),
+            Text(
+                content=f"{thumbnail_number(index, ghosts)} | {slide.title}",
+                style=(text_color("amber", 300) if is_selected else dim),
+            ),
             Div(
                 style=col | fill(1) | overflow_hidden,
                 children=(slide_body(slide, 0, False, host, code_theme, thumbnail_focus),),
@@ -213,6 +225,7 @@ def thumbnail(
 @component
 def grid(
     slides: tuple[Slide, ...],
+    ghosts: frozenset[int],
     selected: int,
     jump: Callable[[int], InputResponse],
     host: Host,
@@ -251,7 +264,7 @@ def grid(
                 | grid_template_rows(*(fr(share) for share in shares(row, ROWS, openness))),
                 children=tuple(
                     # Keyed by slide index, so moving the selection a row mounts one new row and keeps the other two.
-                    thumbnail(slides, index, index == selected, jump, host, code_theme).with_key(str(index))
+                    thumbnail(slides, ghosts, index, index == selected, jump, host, code_theme).with_key(str(index))
                     for index in visible
                 ),
             ),

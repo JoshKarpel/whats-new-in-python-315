@@ -1,6 +1,7 @@
 """The recording's walk through the deck: a chapter per slide, and only the runs this machine can do."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -42,6 +43,16 @@ async def test_the_recording_marks_a_chapter_per_slide_in_order(host: Host, tmp_
     assert [data for _, code, data in events if code == "m"] == [
         f"{index + 1}. {slide.title}" for index, slide in enumerate(slides)
     ]
+
+
+async def test_the_recording_leaves_out_ghosts(host: Host, tmp_path: Path) -> None:
+    first, second, third = tuple(slide for slide in SLIDES if slide.is_title_card)[:3]
+    path = tmp_path / "deck.cast"
+
+    await record((first, replace(second, is_ghost=True), third), host, frozenset(), path)
+
+    events = [json.loads(line) for line in path.read_text().splitlines()[1:]]
+    assert [data for _, code, data in events if code == "m"] == [f"1. {first.title}", f"2. {third.title}"]
 
 
 async def test_the_recording_ends_with_the_deck_quitting(host: Host, tmp_path: Path) -> None:

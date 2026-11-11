@@ -179,7 +179,7 @@ async def test_the_tachyon_streaks_trail_fades_away_from_the_particle() -> None:
 
 def typing_thumbnail(host: Host, is_selected: bool) -> Component:
     index = next(index for index, slide in enumerate(SLIDES) if slide.title == "Typing")
-    return thumbnail(SLIDES, index, is_selected, lambda index: (), host, "github-dark")
+    return thumbnail(SLIDES, frozenset(), index, is_selected, lambda index: (), host, "github-dark")
 
 
 THUMBNAIL_BORDER = "╭╮╰╯─│"

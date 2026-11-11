@@ -108,7 +108,7 @@ SELECTIONS = {"middle": MIDDLE, "corner": CORNER, "short section": SHORT}
 async def test_tiles_are_where_the_grid_draws_its_thumbnails(host: Host, selected: int, size: tuple[int, int]) -> None:
     width, height = size
     drawn = await photograph(
-        grid(SLIDES, selected, lambda index: None, host, "dracula", None), width, height, after=timedelta()
+        grid(SLIDES, frozenset(), selected, lambda index: None, host, "dracula", None), width, height, after=timedelta()
     )
     where = tiles(width, height, selected, SLIDES)
 

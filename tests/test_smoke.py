@@ -23,6 +23,7 @@ from whats_new.checkpoint import Checkpoint
 from whats_new.components.grid import COLUMNS
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
+from whats_new.export import ONWARD_THROUGH_GHOSTS
 from whats_new.host import Host
 from whats_new.presenter import root
 from whats_new.size import PRESENTING
@@ -61,7 +62,7 @@ async def sample_children(spawned: set[int]) -> None:
 
 def walk(frames: list[tuple[int, Frame]], spawned: set[int] | None = None) -> Iterator[AnyEvent | AnyControl]:
     """
-    Every step of every slide, then the grid through every row.
+    Every step of every slide, ghosts too, then the grid through every row.
     With `spawned`, each slide's last step stays up for a few more render cycles, sampling the deck's children in each:
     the app hangs every child up as it quits, so only a sample taken while a slide shows can see one it started,
     and a run waits a couple of cycles for its box to be laid out before it starts.
@@ -74,7 +75,7 @@ def walk(frames: list[tuple[int, Frame]], spawned: set[int] | None = None) -> It
         if spawned is not None:
             for _ in range(SETTLE_CYCLES):
                 yield Screenshot(handler=lambda frame: sample_children(spawned))
-        yield KeyPressed(key=Key.Right)
+        yield from ONWARD_THROUGH_GHOSTS
     # The grid opens on the last slide; walk the selection back up through every row of every section.
     yield KeyPressed(key="d")
     for _ in range(sum(-(-len(section) // COLUMNS) for section in sections(SLIDES))):

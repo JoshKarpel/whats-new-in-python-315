@@ -115,6 +115,13 @@ def start_files(props: SlideProps) -> Div:
             labeled("greet.start", code_snippet(props, "greet:hello", language="text")),
             labeled("greet/__init__.py", code_snippet(props, 'def hello():\n    print("hello from greet.start")')),
         ),
+        bullets(
+            (
+                plain("bundled fix: 3.14 runs a venv's "),
+                code(".pth"),
+                plain(" files twice per start (gh-75723, open since 2017)"),
+            ),
+        ),
     )
 
 
@@ -227,7 +234,7 @@ SLIDES = (
         peps=(829,),
         runs=on_both(
             "startup/start_files.py",
-            old=Expect(status=0, output="hello from greet.pth"),
+            old=Expect(status=0, output="hello from greet.pth\n  hello from greet.pth"),
             new=Expect(status=0, output="suppressed due to matching greet.start file"),
         ),
     ),

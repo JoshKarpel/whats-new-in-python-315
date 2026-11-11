@@ -71,6 +71,8 @@ not from memory or its docs site.
   A transition drawn from pictures (`components/crossing.py`) also renders the arriving slide headless, in an app
   of its own, moved on by the transition's length, and ends on that picture, so the slide has to draw the same
   however it's mounted: anything that moves counts from its own mount, never the app's start.
+- Right skips ghosts (`Slide.is_ghost`), so an autopilot that has to visit every slide (the export, the smoke test)
+  moves on with `export.ONWARD_THROUGH_GHOSTS`, Shift+Right, rather than Right.
 - Time comes only from counterweight's clock, through its `use_progress` and `use_loop`,
   used as `components/animation.py` says.
   Tests and the export run on a frozen clock (`export.EXPORT_CLOCK`) moved by `AdvanceClock`,

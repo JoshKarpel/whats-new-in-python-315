@@ -1,6 +1,6 @@
 """
 What a slide is: a title, the component that draws it, how many reveal steps it has, the PEPs it cites,
-what it runs, and what the recording does on it.
+what it runs, what the recording does on it, and whether it's a ghost, trimmed from the talk but kept in the deck.
 
 Sections build tuples of these; the deck concatenates them, and the presenter, the grid and the export all walk them.
 """
@@ -103,6 +103,13 @@ class Slide:
     plays none. The recording waits for it before holding on the step, so an animation plays out in full,
     however long it is.
     """
+    is_ghost: bool = False
+    """
+    Whether the slide is trimmed from the talk without being deleted: Left and Right from any other slide skip it,
+    the slide count leaves it out, and the recording doesn't present it, but the grid and Shift+Left and
+    Shift+Right still reach it, and from a ghost Left and Right step to the slides beside it, ghosts or not.
+    `g` in the grid overrides this while practicing (see `ghosts`).
+    """
 
     def __post_init__(self) -> None:
         if self.steps < 1:
@@ -134,6 +141,33 @@ def previous_section(index: int, slides: tuple[Slide, ...]) -> int:
     as a media player's "previous" restarts the track before it skips back.
     """
     return max((section.start for section in sections(slides) if section.start < index), default=0)
+
+
+def ghosts(slides: tuple[Slide, ...], overrides: frozendict[str, bool]) -> frozenset[int]:
+    """
+    The indexes of the ghosts among `slides`: each slide's own `is_ghost`, unless `overrides` has another answer
+    for its title. Overrides go by title rather than index so they stay on their slides as slides come and go.
+    """
+    return frozenset(index for index, slide in enumerate(slides) if overrides.get(slide.title, slide.is_ghost))
+
+
+def ghost_toggled(overrides: frozendict[str, bool], slide: Slide) -> frozendict[str, bool]:
+    """
+    `overrides` with `slide` a ghost if it wasn't, and not one if it was.
+    An override that agrees with the slide's own `is_ghost` is dropped rather than kept, so toggling twice
+    leaves `overrides` as it was.
+    """
+    is_ghost = not overrides.get(slide.title, slide.is_ghost)
+    rest = frozendict({title: value for title, value in overrides.items() if title != slide.title})
+    return rest if is_ghost == slide.is_ghost else rest | {slide.title: is_ghost}
+
+
+def passed(index: int, ghosts: frozenset[int]) -> int:
+    """
+    How many slides that aren't ghosts are at or before `index`: the number of a slide that isn't one,
+    in the talk as presented, and how far through it a ghost comes.
+    """
+    return sum(1 for earlier in range(index + 1) if earlier not in ghosts)
 
 
 def pep_url(number: int) -> str:

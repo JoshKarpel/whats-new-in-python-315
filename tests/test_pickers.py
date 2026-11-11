@@ -86,6 +86,14 @@ def test_matches_puts_the_option_named_exactly_first() -> None:
             '{"slide": 12, "code_theme": "monokai", "speed": "11x", "grid_transition": "swipe"}',
             Checkpoint(slide=12, code_theme="monokai"),
         ),
+        (
+            '{"slide": 12, "code_theme": "monokai", "ghost_overrides": {"Tachyon": true, "Thanks": false}}',
+            Checkpoint(slide=12, code_theme="monokai", ghost_overrides=frozendict({"Tachyon": True, "Thanks": False})),
+        ),
+        (
+            '{"slide": 12, "code_theme": "monokai", "ghost_overrides": {"Tachyon": "yes"}}',
+            Checkpoint(slide=12, code_theme="monokai"),
+        ),
         ("12", Checkpoint(slide=0)),
         ("", Checkpoint(slide=0)),
     ],
@@ -96,6 +104,8 @@ def test_matches_puts_the_option_named_exactly_first() -> None:
         "a transition the picker doesn't offer",
         "a field the deck doesn't read",
         "a speed and a grid transition the pickers don't offer",
+        "ghost overrides",
+        "ghost overrides that aren't booleans",
         "not an object",
         "not JSON",
     ],
@@ -105,7 +115,14 @@ def test_checkpoint_parse(text: str, expected: Checkpoint) -> None:
 
 
 def test_checkpoint_round_trips() -> None:
-    checkpoint = Checkpoint(slide=7, code_theme="nord", transition="morph", speed="2x", grid_transition="zoom")
+    checkpoint = Checkpoint(
+        slide=7,
+        code_theme="nord",
+        transition="morph",
+        speed="2x",
+        grid_transition="zoom",
+        ghost_overrides=frozendict({"Tachyon": True}),
+    )
 
     assert Checkpoint.parse(checkpoint.serialized()) == checkpoint
 

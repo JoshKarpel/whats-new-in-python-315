@@ -78,7 +78,10 @@ from whats_new.components.transitions import grid_transition_for
 from whats_new.components.transitions import transition_for
 from whats_new.host import Host
 from whats_new.slides import Slide
+from whats_new.slides import ghost_toggled
+from whats_new.slides import ghosts
 from whats_new.slides import next_section
+from whats_new.slides import passed
 from whats_new.slides import previous_section
 from whats_new.slides import section_of
 from whats_new.slides import sections
@@ -114,21 +117,51 @@ def clamp(value: int, low: int, high: int) -> int:
     return max(low, min(value, high))
 
 
-def navigate(position: Position, key: str, slides: tuple[Slide, ...]) -> Position | None:
+type Move = Callable[[int, tuple[Slide, ...]], int]
+"""A move from one slide to another, as the index it goes to from an index in a deck."""
+
+
+def presenting(index: int, move: Move, slides: tuple[Slide, ...], ghosts: frozenset[int]) -> int:
     """
-    Where `key` moves the presenter from `position`, or `None` if the deck doesn't use that key there.
+    Where `move` goes from the slide at `index`. From a ghost it moves through the whole deck, so the ghosts that
+    follow one are a step away; from any other slide, through the deck with its ghosts left out, so it skips them.
+    """
+    if index in ghosts:
+        return move(index, slides)
+    shown = tuple(other for other in range(len(slides)) if other not in ghosts)
+    return shown[move(shown.index(index), tuple(slides[other] for other in shown))]
+
+
+def onward(index: int, deck: tuple[Slide, ...]) -> int:
+    """Right's move: the next slide, or the same one from the last."""
+    return min(index + 1, len(deck) - 1)
+
+
+def back(index: int, deck: tuple[Slide, ...]) -> int:
+    """Left's move: the previous slide, or the same one from the first."""
+    return max(index - 1, 0)
+
+
+def navigate(position: Position, key: str, slides: tuple[Slide, ...], ghosts: frozenset[int]) -> Position | None:
+    """
+    Where `key` moves the presenter from `position` in `slides`, `ghosts` among them,
+    or `None` if the deck doesn't use that key there.
     This is the whole of the deck's navigation, as a pure function of the position and the key.
     """
     last = len(slides) - 1
     match position.browsing, key:
         case None, Key.Right:
-            return Position(index=min(position.index + 1, last))
+            return Position(index=presenting(position.index, onward, slides, ghosts))
         case None, Key.Left:
-            return Position(index=max(position.index - 1, 0))
+            return Position(index=presenting(position.index, back, slides, ghosts))
+        case None, Key.ShiftRight:
+            return Position(index=onward(position.index, slides))
+        case None, Key.ShiftLeft:
+            return Position(index=back(position.index, slides))
         case None, Key.PageDown:
-            return Position(index=next_section(position.index, slides))
+            return Position(index=presenting(position.index, next_section, slides, ghosts))
         case None, Key.PageUp:
-            return Position(index=previous_section(position.index, slides))
+            return Position(index=presenting(position.index, previous_section, slides, ghosts))
         case None, Key.Space:
             return replace(position, step=min(position.step + 1, slides[position.index].steps - 1))
         case None, "r":
@@ -283,13 +316,14 @@ def root(
 ) -> Div:
     """
     The deck. It starts from `start` and calls `remember` with a new checkpoint whenever the slide, the code theme,
-    the transition, its speed, or the grid's transition changes, so a restart (live reload, or a crash on stage)
-    comes back to the same slide, looking the same. The footer's clock reads the time in `timezone`, and `choose`
+    the transition, its speed, the grid's transition, or which slides are ghosts changes, so a restart (live reload,
+    or a crash on stage) comes back to the same slide, looking the same. The footer's clock reads the time in `timezone`, and `choose`
     picks each move's transition while F6 has `random` picked, and `choose_grid` the grid's while F7 has `random`
     or a group's bar picked.
     F4 opens the code theme picker, F6 the slide transition picker, F7 the grid transition picker,
     and F8 the speed picker (see `picker`); the same key closes it unchanged.
     Not F5, which the presenting browser keeps for itself.
+    `g` in the grid makes the selected slide a ghost, or not, overriding its own `is_ghost` (see `ghosts`).
     """
     position, set_position = use_state(Position(index=clamp(start.slide, 0, len(slides) - 1)))
     # The live slide's, owned here rather than by the slide, so closing a picker can give focus back to it.
@@ -304,6 +338,8 @@ def root(
     transition, set_transition = use_state(start.transition)
     speed, set_speed = use_state(start.speed)
     grid_transition, set_grid_transition = use_state(start.grid_transition)
+    ghost_overrides, set_ghost_overrides = use_state(start.ghost_overrides)
+    trimmed = ghosts(slides, ghost_overrides)
     no_picker: Picking | None = None
     picking, set_picking = use_state(no_picker)
     stage_handle, _ = use_state(ElementHandle)
@@ -318,10 +354,11 @@ def root(
                 transition=transition,
                 speed=speed,
                 grid_transition=grid_transition,
+                ghost_overrides=ghost_overrides,
             )
         )
 
-    use_effect(checkpoint, deps=(position.index, code_theme, transition, speed, grid_transition))
+    use_effect(checkpoint, deps=(position.index, code_theme, transition, speed, grid_transition, ghost_overrides))
 
     def view(at: Position, of: Mounting, is_live: bool) -> Component:
         return slide_view(slides[at.index], at.step, is_live, host, code_theme, of.focus).with_key(of.key)
@@ -343,7 +380,7 @@ def root(
                 area = stage_area
                 # The grid as it opens, or as it would be closing to the slide, the same grid the zoom draws.
                 selected = moved.browsing.selected if isinstance(moved.browsing, InGrid) else moved.index
-                opened = grid(slides, selected, jump, host, code_theme, None)
+                opened = grid(slides, trimmed, selected, jump, host, code_theme, None)
                 arriving = slide_view(slides[moved.index], moved.step, True, host, code_theme, FocusHandle())
                 where = tiles(area.width, area.height, selected, slides)
                 length = duration / pace
@@ -452,9 +489,12 @@ def root(
                 return toggle(GRID_TRANSITION)
             case Key.F8:
                 return toggle(PACE)
+            case "g" if isinstance(position.browsing, InGrid):
+                set_ghost_overrides(ghost_toggled(ghost_overrides, slides[position.browsing.selected]))
+                return ()
             case _:
                 pass
-        moved = navigate(position, event.key, slides)
+        moved = navigate(position, event.key, slides, trimmed)
         if moved is None:
             return None
         return go(moved)
@@ -466,9 +506,9 @@ def root(
             layers.append(stage(view(position, mounting, is_live=True), playing).with_key("stage"))
             # The grid stays over the stage while it zooms in to the slide it left for, already mounted beneath it.
             if zoom is not None:
-                layers.append(grid(slides, position.index, jump, host, code_theme, zoom).with_key("grid"))
+                layers.append(grid(slides, trimmed, position.index, jump, host, code_theme, zoom).with_key("grid"))
         case InGrid(selected):
-            layers.append(grid(slides, selected, jump, host, code_theme, zoom).with_key("grid"))
+            layers.append(grid(slides, trimmed, selected, jump, host, code_theme, zoom).with_key("grid"))
         case InSectionList(highlighted):
             layers.append(section_list(slides, highlighted, open_section).with_key("sections"))
         case _ as unreachable:
@@ -482,8 +522,9 @@ def root(
         children=(
             Div(style=col | fill(1) | position_relative, children=tuple(layers), handle=stage_handle),
             footer(
-                position.index,
-                len(slides),
+                passed(position.index, trimmed),
+                len(slides) - len(trimmed),
+                position.index in trimmed,
                 show_clock,
                 show_size,
                 screen.width,

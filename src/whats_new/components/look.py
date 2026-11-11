@@ -18,6 +18,17 @@ from counterweight.styles.utilities import *
 
 PYTHON_BLUE = Color.from_hex("#4B8BBE")
 PYTHON_YELLOW = Color.from_hex("#FFD43B")
+
+GHOST = "👻"
+"""What marks a ghost: the footer shows it in place of the slide number."""
+GHOST_STAND_IN = "~~"
+"""
+What marks a ghost's thumbnail in the grid, in place of `GHOST` and the same two cells wide: zellij web draws `GHOST`
+one cell wide (zellij-org/zellij#5718), which pulls the rest of the grid's label line, the neighboring thumbnails'
+included, a cell left. The footer keeps `GHOST`, which ends its line, so there the shift only takes the padding.
+Mark thumbnails with `GHOST` once zellij measures it.
+"""
+
 CLAUDE_ORANGE = Color.from_hex("#D77757")
 """The orange Claude Code draws its spark and mascot in."""
 CLAUDE_SHIMMER = Color.from_hex("#EB9F7F")
