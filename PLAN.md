@@ -21,7 +21,8 @@ A whirlwind tour of how Python is getting better, for working Python programmers
 (not C-extension authors). There's no single theme. The deck is executable: show a
 snippet, press a key, and see its output, mypy's verdict, or a timing, run live on
 3.15. Where behavior changed, or the syntax is new, another key runs it on 3.14.
-An addition gets no 3.14 run: all 3.14 can say is that it doesn't exist.
+An addition gets no 3.14 run when all 3.14 can say is that it doesn't exist;
+it gets one when the example also shows what 3.14 does instead (`pprint`'s default layout).
 
 Prefer a diagram to text wherever a picture can carry the point: a mechanism, a
 before/after, a fan-out, a timeline. Timing comparisons usually get a bar chart
@@ -954,6 +955,10 @@ Each item gets one runnable line where possible:
   - The pane stretches across the slide: a terminal takes no width from its
     program, so in a centered column it would get none.
 - `pprint(..., expand=True)` gives JSON-style output.
+  - The example prints a nested dict both ways at `width=30`, and runs on both,
+    so 3.14 shows the default layout before its `TypeError` for `expand`. The
+    default hangs each level off its opening bracket, so its first line runs to
+    column 46. Run on 3.15, the expanded layout follows it and stays inside the width.
 - A context manager used as a decorator (`@contextmanager`, `@asynccontextmanager`
   or any `ContextDecorator`) on a generator, coroutine or async generator function
   now stays open across the iteration or `await`. It used to exit as soon as the

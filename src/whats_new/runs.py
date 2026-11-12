@@ -156,7 +156,8 @@ def on_both(name: str, *, old: Expect, new: Expect) -> tuple[Run, Run]:
     """
     The example `name` on 3.14 (`1`) and on 3.15 (`2`), for a change worth seeing on both: behavior that differs,
     or new syntax that 3.14 rejects. Old first, so the story runs "this didn't work, and now it does".
-    An addition (a new builtin, method or parameter) gets no 3.14 run, since all 3.14 can say is that it doesn't exist.
+    An addition (a new builtin, method or parameter) gets no 3.14 run when all 3.14 can say is that it doesn't exist,
+    and one when the example also shows what 3.14 does instead, as `pprint(expand=True)`'s shows the default layout.
     """
     return (python(Interpreter.PY314, name, expect=old), python(Interpreter.PY315, name, expect=new))
 

@@ -16,9 +16,7 @@ from whats_new.components.look import title_card
 from whats_new.components.repl import repl_pane
 from whats_new.components.repl import repl_tour
 from whats_new.runs import Expect
-from whats_new.runs import Interpreter
 from whats_new.runs import on_both
-from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
 
@@ -72,6 +70,10 @@ def pprint_expand(props: SlideProps) -> Div:
         props,
         code_example(props, "lightning/pprint_expand.py", start="config"),
         bullets(
+            (
+                plain("the default hangs each level off its opening bracket, so nesting drifts right, past "),
+                code("width"),
+            ),
             (code("expand=True"), plain(": one item per line, each bracket closed on a line of its own")),
             (plain("laid out as "), code("json.dumps(indent=1)"), plain(" would, plus trailing commas")),
         ),
@@ -138,8 +140,10 @@ SLIDES = (
     Slide(
         title="Lightning: pprint(expand=True)",
         content=pprint_expand,
-        runs=(
-            python(Interpreter.PY315, "lightning/pprint_expand.py", expect=Expect(status=0, output="'counterweight',")),
+        runs=on_both(
+            "lightning/pprint_expand.py",
+            old=Expect(status=1, output="unexpected keyword argument 'expand'"),
+            new=Expect(status=0, output="  'dependencies': ["),
         ),
     ),
     Slide(
