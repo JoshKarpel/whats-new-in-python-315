@@ -3,9 +3,11 @@ import sys
 lazy import json
 lazy from pathlib import Path
 
-print(f"{"json" in sys.lazy_modules=}")
 print(f"{globals()["json"]=}")
 print(f"{"json" in sys.modules=}")
-
-json.dumps({})
+print(json.dumps({"json": "imported"}))
 print(f"{"json" in sys.modules=}")
+
+print(f"{"pathlib" in sys.modules=}")
+print(Path("pathlib") / "imported")
+print(f"{"pathlib" in sys.modules=}")

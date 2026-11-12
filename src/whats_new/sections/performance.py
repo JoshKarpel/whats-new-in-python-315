@@ -49,6 +49,7 @@ def jit(props: SlideProps) -> Div:
     return stack(
         low_level.jit_pipeline(),
         bullets(
+            "a just-in-time compiler: turns hot bytecode into machine code while the program runs",
             "still experimental: uv's builds ship it compiled in, and off",
             (code("PYTHON_JIT=1"), plain(" turns it on, and "), code("sys._jit.is_enabled()"), plain(" says so")),
             "the whatsnew cites 7-8% geomean on x86-64 Linux, 11-12% on AArch64 macOS",

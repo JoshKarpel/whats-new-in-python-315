@@ -122,7 +122,7 @@ async def test_an_animation_shows_its_end_only_once_it_has_played(host: Host, in
 
 def test_the_recording_waits_for_each_animation_to_end_before_holding_on_it() -> None:
     # Animated on every step after the first, and without runs, whose waits would count too.
-    slide = next(slide for slide in SLIDES if slide.title == "One source, four threads")
+    slide = next(slide for slide in SLIDES if slide.title == "serialize_iterator or concurrent_tee")
     steps = list(presented((slide,), capabilities=frozenset()))
 
     after_space = [steps[i + 1] for i, step in enumerate(steps) if step == KeyPressed(key=Key.Space)]

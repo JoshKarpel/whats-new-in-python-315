@@ -9,14 +9,14 @@ async def fetch(mirror):
 async def first_wins(mirrors):
     winner = None
 
-    async def attempt(mirror):
+    async def attempt(tg, mirror):
         nonlocal winner
         winner = (mirror, await fetch(mirror))
         tg.cancel()
 
     async with asyncio.TaskGroup() as tg:
         for mirror in mirrors:
-            tg.create_task(attempt(mirror))
+            tg.create_task(attempt(tg, mirror))
     return winner
 
 print(asyncio.run(first_wins(["us", "eu", "ap"])))

@@ -16,6 +16,6 @@ def consume(source):
     return f"took {count}"
 
 source = rows()
-with ThreadPoolExecutor(4) as pool:
-    for result in pool.map(consume, [source] * 4):
+with ThreadPoolExecutor(3) as pool:
+    for result in pool.map(consume, [source, source, source]):
         print(result)

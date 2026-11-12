@@ -1,5 +1,7 @@
 """3. Concurrency: TaskGroup.cancel, iterator synchronization, and the state of free-threading."""
 
+from functools import partial
+
 from counterweight.components import component
 from counterweight.elements import Div
 from counterweight.styles.utilities import *
@@ -20,6 +22,7 @@ from whats_new.diagrams import fan_out
 from whats_new.diagrams import task_group
 from whats_new.runs import Expect
 from whats_new.runs import Interpreter
+from whats_new.runs import on_both
 from whats_new.runs import python
 from whats_new.slides import Slide
 from whats_new.slides import SlideProps
@@ -35,7 +38,7 @@ def section_title(props: SlideProps) -> Div:
 
 @component
 def first_wins(props: SlideProps) -> Div:
-    return code_above_runs(props, code_example(props, "concurrency/first_wins.py", start="async def first_wins"))
+    return code_above_runs(props, code_example(props, "concurrency/first_wins.py", start="DELAYS"))
 
 
 @component
@@ -60,12 +63,28 @@ def shutdown(props: SlideProps) -> Div:
 
 
 @component
-def shared_iterators(props: SlideProps) -> Div:
+def shared_generator(props: SlideProps) -> Div:
     return notes_beside_code_above_runs(
         props,
         code_example(props, "concurrency/shared_generator.py", start="def rows"),
         bullets(
             "never safe to share one generator between threads",
+            "the same on 3.14 and 3.15, with or without the GIL",
+        ),
+    )
+
+
+@component
+def broken_fan_out(props: SlideProps) -> Div:
+    return stack(fan_out.fan_out(fan_out.BROKEN, props.step, props.is_live))
+
+
+@component
+def shared_iterator(props: SlideProps) -> Div:
+    return notes_beside_code_above_runs(
+        props,
+        code_example(props, "concurrency/shared_iterator.py", start="class Countdown"),
+        bullets(
             (
                 plain("on a free-threaded build, a hand-written "),
                 code("__next__"),
@@ -73,6 +92,7 @@ def shared_iterators(props: SlideProps) -> Div:
                 em("duplicates"),
                 plain(", silently"),
             ),
+            "the same on 3.14t and 3.15t",
         ),
     )
 
@@ -82,13 +102,14 @@ def serialize(props: SlideProps) -> Div:
     return code_above_runs(
         props,
         code_example(props, "concurrency/serialize.py", start="def consume"),
+        bullets("the counts sum to 10,000: each item went to exactly one thread"),
     )
 
 
 @component
-def fan_outs(props: SlideProps) -> Div:
+def shared_fan_out(props: SlideProps) -> Div:
     return stack(
-        fan_out.fan_out(props.step, props.is_live),
+        fan_out.fan_out(fan_out.SHARED, props.step, props.is_live),
         bullets(
             (plain("production stays serial: the lock is held across "), code("__next__")),
             "only the consumers' work runs in parallel",
@@ -157,26 +178,36 @@ SLIDES = (
         ),
     ),
     Slide(
-        title="Sharing an iterator between threads",
-        content=shared_iterators,
+        title="Sharing a generator between threads",
+        content=shared_generator,
+        runs=on_both(
+            "concurrency/shared_generator.py",
+            old=Expect(status=0, output="generator already executing"),
+            new=Expect(status=0, output="generator already executing"),
+        ),
+    ),
+    Slide(
+        title="One generator, three threads",
+        content=broken_fan_out,
+        steps=fan_out.steps(fan_out.BROKEN),
+        ends_showing=partial(fan_out.ends_showing, fan_out.BROKEN),
+    ),
+    Slide(
+        title="Sharing a hand-written iterator",
+        content=shared_iterator,
         runs=(
-            python(
-                PY315,
-                "concurrency/shared_generator.py",
-                label="generator, 3.15",
-                expect=Expect(status=0, output="generator already executing"),
-            ),
+            python(PY315, "concurrency/shared_iterator.py", expect=Expect(status=0, output="GIL=True\n0 duplicates")),
             python(
                 Interpreter.PY314T,
                 "concurrency/shared_iterator.py",
-                label="__next__, 3.14t",
-                expect=Expect(status=0, output="free-threaded"),
+                label="3.14t",
+                expect=Expect(status=0, output="GIL=False"),
             ),
             python(
                 Interpreter.PY315T,
                 "concurrency/shared_iterator.py",
-                label="__next__, 3.15t",
-                expect=Expect(status=0, output="free-threaded"),
+                label="3.15t",
+                expect=Expect(status=0, output="GIL=False"),
             ),
         ),
     ),
@@ -188,17 +219,22 @@ SLIDES = (
             python(
                 PY315,
                 "concurrency/serialize.py",
-                expect=Expect(status=0, output="concurrent_tee:     [10000, 10000, 10000, 10000]"),
+                expect=Expect(status=0, output="sum(counts)=10000"),
             ),
             python(
                 Interpreter.PY315T,
                 "concurrency/serialize.py",
                 label="3.15t",
-                expect=Expect(status=0, output="concurrent_tee:     [10000, 10000, 10000, 10000]"),
+                expect=Expect(status=0, output="sum(counts)=10000"),
             ),
         ),
     ),
-    Slide(title="One source, four threads", content=fan_outs, steps=fan_out.STEPS, ends_showing=fan_out.ends_showing),
+    Slide(
+        title="serialize_iterator or concurrent_tee",
+        content=shared_fan_out,
+        steps=fan_out.steps(fan_out.SHARED),
+        ends_showing=partial(fan_out.ends_showing, fan_out.SHARED),
+    ),
     Slide(
         title="Free-threading in 3.15",
         content=free_threading,

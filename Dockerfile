@@ -1,5 +1,5 @@
 # The image others run the deck from, with everything it uses baked in, so it runs with `--network none`:
-# the interpreters, the locked environment, the type checkers (and Node for pyright), the old mypy, hyperfine,
+# the interpreters, the locked environment, mypy and the old mypys, hyperfine,
 # and a C compiler and perf for the frame pointer demo.
 #
 #   docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:main
@@ -10,12 +10,12 @@ FROM docker.io/library/debian:trixie-slim
 
 # git: counterweight is a git source. gcc and libc6-dev: the frame pointer demo builds a C extension.
 # tzdata: the footer's clock reads Chicago time, through zoneinfo.
-# linux-perf: the frame pointer demo samples with perf. nodejs: pyright runs on it.
+# linux-perf: the frame pointer demo samples with perf.
 # locales: the UTF-8 slide runs under en_US, a Latin-1 locale, to show the old default.
 RUN <<EOF
 set -e
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates git gcc libc6-dev linux-perf locales nodejs tzdata
+apt-get install -y --no-install-recommends ca-certificates git gcc libc6-dev linux-perf locales tzdata
 echo "en_US ISO-8859-1" >> /etc/locale.gen
 locale-gen
 apt-get clean
@@ -59,12 +59,8 @@ uv sync --frozen
 uv python install $(uv run --frozen python -m whats_new.runs)
 EOF
 
-# Fetch what pyright and the old mypy download on first use, so they work offline.
-RUN <<EOF
-set -e
-uv run --frozen pyright --version
-uvx --from mypy==2.3.1 mypy --version
-EOF
+# Fetch the old mypys, which uvx downloads on first use, so they work offline.
+RUN uvx --from mypy==2.3.1 mypy --version && uvx --from mypy==1.17.1 mypy --version
 
 COPY --chown=deck:deck examples ./examples
 COPY --chown=deck:deck demos ./demos

@@ -45,9 +45,9 @@ Several features arrive as complete toolkits rather than a single function:
 - "More color" reaches about 20 command-line interfaces, from argparse and
   `python --help` to sqlite3, timeit, pickletools and unraisable exceptions.
 
-Collect these as the talk goes, and close with them. Whether coding agents make this
-kind of completeness cheaper is a question to ask aloud, not one to put on the slide:
-there's no evidence here about how any of these were written.
+Point these out aloud as the talk goes; no slide collects them.
+Whether coding agents make this kind of completeness cheaper is a question to ask
+aloud too: there's no evidence here about how any of these were written.
 
 ## Running order
 
@@ -78,10 +78,9 @@ cut-first items are worth about 6 minutes, so getting back to about an hour
 also means trimming some of the std items.
 
 ### 0. Opening (core)
-- Title, who I am.
+- Title, who I am. No agenda slide: the talk gets straight into it.
 - Don't announce that the deck is a Python 3.15 program. The first run box gives
   it away, and the audience working that out is part of the fun.
-- A quick glance at the 3.15 changelog's size, to set up the "thorough" observation.
 - Disclose that the deck was built with help from Claude Code: a
   `✻ built with help from Claude Code` line under the title, in Claude Code's
   orange. The Thanks slide repeats it beside Claude Code's mascot.
@@ -94,11 +93,18 @@ also means trimming some of the std items.
   - It is _not_ a dict subclass: `isinstance(fd, dict)` is False, so use `Mapping`.
   - Hashing is order-insensitive, and it is hashable only if all its values are.
   - `fd | {...}` returns a frozendict.
+  - Each check prints as an `f"{expr=}"`, so the output says which line is which.
 - Example: the mutable-default-argument footgun, shown first with a `dict` default
   that one call mutates for every later call, then fixed with
   `options=frozendict(...)` in a file shaped the same way.
-- Example: `functools.cache` rejects a dict argument (`unhashable type: 'dict'`) and
-  accepts a frozendict. The cached function prints `cache miss...` when it runs.
+  Both call `fetch()` twice, for python.org and then pypi.org, and print the first
+  result: with the `dict`, the second call has rewritten it to pypi.org.
+- Example: `functools.cache` keyed on the filters of a URL's query string,
+  parsed into a frozendict. The point is keys nobody knows ahead of time:
+  for keys you do know, a frozen dataclass is the better fit, and the notes say so.
+  The same filters in another order hit the cache, since the hash ignores order,
+  and a dict argument is rejected (`unhashable type: 'dict'`).
+  The cached function prints `cache miss...` when it runs.
 - The sad note: no literal syntax. The PEP defers it ("can be added later").
 - Why not a subclass? The common first guess is that `frozendict` should subclass
   `dict`. That's backwards: `frozendict` has _fewer_ methods, so if anything `dict`
@@ -174,12 +180,13 @@ also means trimming some of the std items.
 
 #### `unicodedata.iter_graphemes` (std)
 - Background first, since much of the audience won't have thought about Unicode or
-  text rendering: a "Text, in layers" diagram, revealed a layer at a time. "café"
+  text rendering: a "Text, in layers" diagram, all shown at once. "café"
   spelled with a combining accent is 4 graphemes (what a reader counts), 5 code
   points (what a `str` holds and `len()` counts), and 6 UTF-8 bytes (what a file or
-  socket holds). Then what a font does (draws a grapheme as one glyph) and a terminal
-  (gives it cells, by `wcwidth`), and that `é` has a one-code-point spelling NFC
-  picks while many graphemes have none.
+  socket holds). Then what a font does: draws a grapheme as one glyph.
+  The "what you see" row draws the `é` precomposed, as U+00E9, which zellij keeps.
+  The slide is a ghost: with zellij dropping every combining mark on stage,
+  the layers are hard to talk through, so it's there to reach from the grid.
 - `"Spinal Tap"` with an umlaut on its n is 11 code points but 10 graphemes: the n̈
   is `n` and U+0308 COMBINING DIAERESIS, with no precomposed form, so NFC can't fold
   it away.
@@ -202,29 +209,33 @@ also means trimming some of the std items.
 ### 2. Startup and imports
 
 #### Lazy imports, PEP 810 (core)
-- Syntax: `lazy import x`, `lazy from x import y`. Module scope only.
-- Show `sys.lazy_modules` and the proxy repr `<lazy_import 'json'>`. The proxy's type
-  is `types.LazyImportType`.
+- Syntax: `lazy import x`, `lazy from x import y`. Imported on first use; module scope only.
+- Show the proxy repr `<lazy_import 'json'>` (its type is `types.LazyImportType`),
+  then use each import and show its module arriving in `sys.modules`:
+  `json.dumps` and `Path(...) / ...` each print a line of their own, so the output
+  marks the moment of first use. `pathlib` isn't loaded at startup, so the
+  `lazy from` import proves itself the same way `json` does.
 - Startup demo, run with hyperfine: a fake CLI that eagerly imports asyncio,
   sqlite3, email, http.client, etc. but only prints `--version`. Observed: eager
-  84–93 ms, lazy 13–16 ms, bare interpreter 9 ms. `-X importtime` shows 215 vs 25 imports.
+  84–93 ms, lazy 13–16 ms, bare interpreter 9 ms.
 - The global switch: run the _unmodified_ eager file with `-X lazy_imports=all` (10 ms).
   `PYTHON_LAZY_IMPORTS` and `sys.set_lazy_imports` do the same.
   `sys.set_lazy_imports_filter` decides per import.
 - Failure mode: a typo in a lazy import surfaces at first use, with a chained
   traceback pointing at both lines. Show it. The example prints one line before the
   failing use, so the print and the whole traceback fit the run box together.
-- Gotchas worth a line each:
-  - `try` blocks go both ways. Writing `lazy import` inside one is a `SyntaxError`
-    (observed: `lazy import not allowed inside try/except blocks`), and a plain
-    import inside one stays eager even in `all` mode, which is right for optional
-    deps.
-  - `lazy from x import *` and lazy `__future__` imports are `SyntaxError`s too.
-  - import-time side effects (plugin registration) break under laziness
-  - `__lazy_modules__` is the 3.14-compatible spelling
-  - The gotchas slide shows two examples side by side, each labeled ("left: lazy
-    import inside try", "right: the 3.14-compatible spelling"), and its runs say
-    which they run where: "left on 3.15", "right on 3.14", "right on 3.15".
+  Import-time side effects (a plugin registering itself) show up late the same way.
+- A bullet says a type checker helps, with no example of its own: mypy 2.4 parses
+  `lazy` imports and reports the typo (`Module "json" has no attribute "dumsp"`)
+  and a misspelled module, before anything runs. It doesn't report a `lazy import`
+  inside `try` or `lazy from x import *`, which the compiler rejects, and it can't
+  see side effects.
+- Where `lazy` isn't allowed, one slide: inside `try` is a `SyntaxError`
+  (observed: `lazy import not allowed inside try/except blocks`), and so is
+  `lazy from x import *`. Under `-X lazy_imports=all` both stay eager,
+  which is right for optional deps.
+- `__lazy_modules__`, the 3.14-compatible spelling, on a slide of its own,
+  run on both: 3.15 makes the named imports lazy, and 3.14 ignores it.
 - Framing: mostly a CLI win, but the global switch makes it a one-flag experiment
   for any app.
 - Dogfood: the deck itself can `lazy import` its heavy demo dependencies (numpy).
@@ -263,7 +274,9 @@ also means trimming some of the std items.
 - It cancels the children and the body, and the `async with` exits _without_
   raising `CancelledError`.
 - Example 1, first-mirror-wins: the first successful fetch calls `tg.cancel()`.
-  Observed: returns `('eu', ...)` in 0.10 s.
+  Observed: returns `('eu', ...)` in 0.10 s. The slide shows the mirrors' delays,
+  so the winner is predictable, and `attempt()` takes the task group as an argument,
+  so where `tg` comes from is on the line that uses it.
 - Example 2: `loop.add_signal_handler(SIGTERM, tg.cancel)` for clean shutdown.
 - Before/after: the 3.14 version needs a private `_Done` exception plus `except* _Done`.
   Show both, run both.
@@ -272,24 +285,32 @@ also means trimming some of the std items.
   `async with` exits cleanly.
 
 #### Iterator synchronization (core)
-- Sharing one generator across threads was never safe. Run the unsafe demo, 4 threads
-  on one iterator, on each build:
-  - Generator, any build: `ValueError: generator already executing`. Three
-    workers die and one does all the work.
-  - Hand-written `__next__` on a free-threaded build: silently hands out
-    duplicates (observed 540k dupes in 1.5M items on 3.14t). The 3.15t build does this too.
-- Old safe patterns (both correct), side by side on one slide: a lock-wrapping
-  iterator class, and a feeder thread pushing into a `queue.Queue` with a stop
-  marker, which workers drain with `for item in iter(q.get, DONE)`.
+- Sharing one iterator across threads was never safe, and 3.15 doesn't change
+  that: it adds the tools. Run the unsafe demo, 3 threads on one iterator
+  (3 rather than 4, so the diagrams are symmetric and the output a line shorter):
+  - A generator, on 3.14 and 3.15 (the free-threaded builds too):
+    `ValueError: generator already executing`. Two workers die and one does
+    all the work. Its fan-out diagram follows right after.
+  - A hand-written `__next__`, shown in full, on 3.15 and on 3.14t and 3.15t:
+    with the GIL no duplicates, free-threaded it silently hands out duplicates
+    (observed over a hundred thousand in a million items, on both).
+- Old safe patterns (both correct), side by side on one slide, each with the code
+  that sets it up: a lock-wrapping iterator class shared by a pool, and a feeder
+  thread pushing into a `queue.Queue` with a stop marker, which a pool of workers
+  drains with `for item in iter(q.get, DONE)`.
 - New: `threading.serialize_iterator(it)`, `@threading.synchronized_iterator`, and
   `threading.concurrent_tee(it, n)` (every consumer sees every item).
+  The example runs only `serialize_iterator`, printing each thread's count and
+  their sum, 10,000: every item went to exactly one thread.
+  `concurrent_tee` appears only in the diagram after it.
 - Honest caveat: production stays serial, since the lock is held across
   `__next__`. Only consumer work runs in parallel.
 - Needs 3.14t and 3.15t interpreters for the free-threaded half.
-- Diagram: three fan-outs, one source and four threads each.
-  - a bare generator: three threads die with `ValueError`
-  - `serialize_iterator`: each item goes to exactly one thread
-  - `concurrent_tee`: each item goes to every thread
+- Diagrams: fan-outs, one source and three threads each, split across two slides,
+  each right after the example it explains.
+  - a bare generator, alone: two threads die with `ValueError`
+  - `serialize_iterator` beside `concurrent_tee`: each item goes to exactly one
+    thread, or to every thread
 
   The difference between the last two is the one people will mix up.
 
@@ -312,30 +333,31 @@ also means trimming some of the std items.
 
 ### 4. Typing
 
-Run mypy live from the slide, and say once, on the section's title card, that pyright
-and ty agree unless a slide says otherwise. Three checkers' output on every run
-crowded the box and repeated one verdict. Where they differ, the slide says so:
-`extra_items` runs pyright beside mypy, since mypy rejects valid code there, and the
-disjoint-bases slide notes that pyright and ty flag the class but don't narrow.
-Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.87.
+Run mypy live from the slide, and only mypy: the slides don't mention other checkers.
+Three checkers' output on every run crowded the box and repeated one verdict.
+pyright and ty were checked while planning, and their verdicts below are background
+for questions. Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.87.
 
 #### Sentinels, PEP 661 (core)
 - The runtime: builtin `sentinel("MISSING")`.
-  - repr is the name, always truthy, identity-equal only.
-  - `copy`/`deepcopy` return the same object.
-  - pickles by module and name.
-  - can't be subclassed.
-- The real story is typing. A four-slide matrix,
-  all running the same `greet(name=MISSING)` function:
+  - repr is the name, its type is `sentinel`, always truthy, identity-equal only.
+    The slide prints each, and that it is and equals itself but not `None`.
+  - It also can't be subclassed, `copy`/`deepcopy` return the same object, and it
+    pickles by module and name: the slide skips those as beside the point.
+- The real story is typing. A four-slide matrix, all running the same
+  `wait(host, timeout=MISSING)` function, where the default can't be a plain value:
+  `None` already means "wait forever", and an unset timeout depends on the host.
+  (A `greet(name=MISSING)` example read badly, since its default could just be a string.)
 
-  | Approach | Checker | Narrowing | `greet(42)` caught |
+  | Approach | Checker | Narrowing | `timeout=30` caught |
   |---|---|---|---|
-  | `MISSING: Final = object()`, `str \| object` | mypy, pyright, ty (on 3.14) | broken; all report `"object" has no attribute "upper"` | no; the annotation is just `object` |
-  | enum workaround, `str \| Literal[_Missing.MISSING]` | all three (on 3.14) | works | yes |
-  | `sentinel`, `str \| MISSING` | mypy 2.4.0 (on 3.15) | works | yes |
-  | `sentinel`, `str \| MISSING` | mypy 2.3.1 | `not valid as a type`, reveals `Any` | |
+  | `MISSING: Final = object()`, `timedelta \| None \| object` | mypy | broken: `"object" has no attribute "total_seconds"` | no; the annotation is just `object` |
+  | enum workaround, `timedelta \| None \| Literal[_Missing.MISSING]` | mypy | works | yes |
+  | `sentinel`, `timedelta \| None \| MISSING` | mypy 2.4.0 (on 3.15) | works | yes |
+  | `sentinel`, `timedelta \| None \| MISSING` | mypy 2.3.1 | `not valid as a type` | |
 
   The last row is old mypy against new Python: support arrived in mypy 2.4.0 and pyright 1.1.410.
+  With `greet(name: str | object)`, pyright and ty agreed with mypy on the first two rows.
 - Bridge for 3.14 users: `typing_extensions.Sentinel`. Use the capital S; pyright's
   typeshed lacks the lowercase alias.
 - Aside: only pyright enforces that the sentinel's name matches the variable.
@@ -345,28 +367,33 @@ Tool versions observed: mypy 2.4.0, pyright 1.1.414, ty 0.0.87.
   in one slide: `type[T]` only accepts class objects, so `int | None`,
   `Literal["GET", "POST"]` and protocols are rejected.
 - Demo: the same `validate(value, typ)` function (think `TypeAdapter`) with
-  `type[T]` and with `TypeForm[T]`. Run all three checkers. Observed:
+  `type[T]` and with `TypeForm[T]`, shown whole, `reveal_type` calls included, so the
+  audience sees what mypy is asked. Run mypy. Observed, with all three checkers:
   - `type[T]`: errors everywhere, and reveals of `Never` or `Unknown`.
   - `TypeForm[T]`: `int | None` and `Literal['GET', 'POST']` inferred correctly.
 
 #### TypedDict, PEP 728 (std)
 - Lean into the "I kinda hate TypedDict" angle: it keeps getting better anyway, and
   LangChain state is the motivating day job.
-- `closed=True`:
-  - rejects extra keys and structural "wider" assignment
-  - lets `"isbn" in item` narrow a union soundly
+- `closed=True` lets `"isbn" in item` narrow a union soundly. It also rejects
+  extra keys and structural "wider" assignment, which got its own slide until it
+  proved to show nothing the narrowing slide didn't.
 - `extra_items=str` types the leftover keys (an HTTP headers example).
 - Checker gap, shown live: mypy 2.4 doesn't support `extra_items` and rejects valid
-  code. pyright and ty get it right.
+  code. (pyright and ty get it right, which the slide doesn't say.)
 
 #### `@disjoint_base`, PEP 800 (cut-first)
-- Practical example with no decorator: two `@dataclass(slots=True)` classes.
+- Practical example with no decorator: two plain classes with non-empty `__slots__`.
   - At runtime `class ColoredPoint(Point, Color)` raises a layout-conflict `TypeError`.
   - Checkers now know, so `isinstance(p, Color)` inside `def draw(p: Point)` is unreachable.
-  - Without `slots=True` it's reachable, which makes a good control slide.
-- Support varies: mypy (with `--warn-unreachable`) and ty narrow, while pyright
-  only checks the class definition.
-- The decorator itself is mostly for stub authors.
+- The point is old mypy against new: mypy 1.17.1 reports no issues; 1.18 onward
+  (2.4.0 on the slide) reports `have distinct disjoint bases` for the branch and the
+  class, with `--warn-unreachable`. (ty narrows too, while pyright only checks the
+  class definition; the slide doesn't say.)
+- Plain classes, not `@dataclass(slots=True)`: every mypy before 2.4 also flags two
+  dataclasses for their conflicting generated `__replace__`, which muddies the
+  before and after. (The slots-less control slide went for the same reason.)
+- The decorator itself is for classes written in C, in stubs.
 
 Typing lightning round (cut-first): `TypeVarTuple` variance, the Protocol
 `isinstance` deprecation warning, and the removals.
@@ -411,6 +438,8 @@ frame earns a slide or just a sentence.
     frames.
 
 #### JIT (std)
+- The first JIT slide defines it in a bullet: a just-in-time compiler turns hot
+  bytecode into machine code while the program runs. Later slides lean on that.
 - What changed: a tracing frontend, register allocation, and more constant
   propagation and refcount elimination. The whatsnew cites 7–8% geomean on x86-64
   Linux and 11–12% on AArch64 macOS, still experimental.
@@ -480,13 +509,20 @@ frame earns a slide or just a sentence.
    - The program counts the unique users in 99,000 log lines, parsing each line's
      timestamp first. The obvious suspect is the parsing; the culprit is
      `if user not in seen` on a list, which compares against every user so far.
-   - The first slide runs it (observed: about 1.9 s), then runs it under
-     `python -m profiling.sampling run -l 3 --no-summary`. The table names the line,
-     not just the function: `report.py:11(unique_users)`, the `if`, with 97% of samples.
+   - The first slide shows the whole program, with line numbers, and no bullets:
+     the talk walks through the profilers' output instead. It runs the program, then
+     the tracing profiler (`python -m profiling.tracing -s tottime`, cProfile under
+     its 3.15 name), then Tachyon (`python -m profiling.sampling run -l 2 --no-summary`).
+     The tracing profiler blames the function, at its `def` line:
+     `report.py:7(unique_users)`. Tachyon names the line: `report.py:10(unique_users)`,
+     the `if`, with about 95% of samples.
+   - The program prints only the count, not its own timing: both profilers report the
+     run's total time, and the code, numbered, and two tables only just fit the slide.
    - The second slide shows the function before and after (`[]` to `set()`, `append`
-     to `add`), runs the fix (observed: about 0.04 s), and profiles it again: what's
-     left is `parse`, a row for each of its two lines.
-   - The table goes through a harness that prints Tachyon's output up to its legend.
+     to `add`), runs the fix, and profiles it again: what's left is building the
+     lines, and `parse`.
+   - The tables go through a harness, `harness/profile.py`, that cuts each to its top
+     two rows. For Tachyon it also drops the legend and the sampling statistics:
      Tachyon always prints the legend after the table (`--no-summary` drops only the
      summary below it), and the run box sticks to the end of its output, so the
      legend would scroll the table out of the box.
@@ -520,7 +556,7 @@ frame earns a slide or just a sentence.
      | blocking file/sleep I/O in a thread | wall vs cpu mode: idle time vanishes in cpu mode |
      | a fan of asyncio tasks | `--async-aware` reconstructs task trees |
      | garbage-cycle churn | `<GC>` frames, which leads into the GC saga next |
-     | a raise-and-catch loop in a worker thread | exception mode shows only it |
+     | a raise-and-catch loop in a worker thread | exception mode shows only it, as `handle_key_error`, a function of its own |
 
    - `m` opens a picker of the profiler's modes (wall, cpu, gil, exception,
      async-aware), each with a line on what it samples, and choosing one
@@ -650,11 +686,15 @@ frame earns a slide or just a sentence.
     generation 1 on the tenth and everything on the twentieth (`▁`, `▃`, `█`);
     incremental lights the young generation and the next of ten old slices each
     time, every pause the same `▂`.
-  - a timeline: the 3.13 rollback, 3.14.0 shipping it, 3.14.1's speed fix, the
-    3.14.5 revert, and 3.15. Mark which collector each release has. It's its own
+  - a timeline: the 3.13 betas (where incremental GC was tried and pulled before
+    3.13.0, so the first release to ship it is 3.14.0), 3.14.0 shipping it, 3.14.1's
+    speed fix, the 3.14.5 revert, and 3.15. The first milestone reads "3.13 betas:
+    tried, pulled", since a bare "3.13: rolled back" read as if 3.13.0 had shipped it. Mark which collector each release has. It's its own
     slide, one release per Space, the axis drawing itself out to each.
   - what went wrong: the early return from `Python/gc.c` verbatim, under Sergey's
-    two quotes, above a bar chart of Neil's three measurements (under 100, about
+    two quotes, each linked to its post on the revert thread
+    ([22](https://discuss.python.org/t/reverting-the-incremental-gc-in-python-3-14-and-3-15/107014/22),
+    [29](https://discuss.python.org/t/reverting-the-incremental-gc-in-python-3-14-and-3-15/107014/29)), above a bar chart of Neil's three measurements (under 100, about
     2,000, 10,000), which grows on Space and ends on Tim's 90-to-100 ratio.
   - a bar chart of peak RSS per interpreter, laid out to match the timeline.
 
@@ -839,12 +879,11 @@ everyone else first, in a PEP.
    into the interpreter...".
 3. A PEP, or out: a 2026 timeline, Jun 5 to Dec 2026, one event per Space,
    under the SC's "without a backing PEP" and Wouters' "status quo for 3.15".
-4. What the SC asked: four quotes (the pause, Pablo's five questions, the
-   impact on non-JIT maintainers, the SC's own share of the blame).
-5. The thread: four quotes, one per Space, in posting order: the rumor, Pablo,
-   Savannah, Alyssa. The rumor's poster isn't named on the slide: the point is the
-   rumor, not who repeated it.
-6. Three experiments: the table above, and the closing lines.
+4. Three experiments: the table above, and the closing lines.
+
+What the SC asked (the pause, Pablo's five questions, the impact on non-JIT
+maintainers, the SC's own share of the blame) and the thread after the withdrawal
+are told aloud, not shown as slides of quotes.
 
 Every quote's attribution on the slides is underlined and linked to the post it
 quotes (`look.attributed`), as the closing slide's URLs are.
@@ -935,15 +974,14 @@ Each item gets one runnable line where possible:
   `Process <pid> terminated abruptly with exit code 3` (observed).
 - `subprocess.Popen.wait(timeout=...)` waits on an event (`pidfd_open` on Linux,
   kqueue on macOS) instead of a sleep loop.
-- The import deadlock between one thread importing `pkg.sub` and another importing
-  `pkg.sub.mod` is fixed: module locks are taken parent first.
 - `__slots__` on a namedtuple subclass. Observed: 3.14 raises
   `TypeError: nonempty __slots__ not supported for subtype of 'P'`, and 3.15
-  accepts it.
+  accepts it. Its own slide, with words for what it shows, as is `pprint`'s
+  `expand=True`: one shared slide of two unexplained examples read as a jumble.
+- Left out: the `pkg.sub`/`pkg.sub.mod` import deadlock fix, which few will have hit.
 
 ### 11. Closing (core)
 
-- The thoroughness observation, with the examples collected along the way.
 - Links, each labeled and a clickable OSC 8 hyperlink: the whatsnew, this talk's
   repository (public by the time of the talk), and counterweight.
 - The Claude Code disclosure from the opening, again, beside Claude Code's mascot.
@@ -967,7 +1005,8 @@ Each item gets one runnable line where possible:
   - counterweight already requires 3.15, and imports and renders headless on rc2.
     Pygments 2.21 already lexes `lazy`, `sentinel` and `frozendict`.
 - Demo tools:
-  - mypy, pyright and ty as a pinned uv dependency group.
+  - mypy as a pinned uv dependency group. pyright and ty were checked while
+    planning, but no slide runs them, so the deck doesn't depend on them.
   - The deliberately old mypy 2.3.1, run via `uvx --from mypy==2.3.1`, since it
     exists only to show the before state.
   - hyperfine via `mise.toml`.
@@ -1246,12 +1285,17 @@ it.
    end first, and the other two stop partway and turn red. The race shows that
    cancellation lands mid-flight. It replaces the diagram's first two reveal
    steps: the tree, the race, then the clean exit.
-2. One source, four threads. Numbered items travel a cell every 100 ms down from
-   the source, along the bar, and down each thread's six-row line to T1–T4:
+2. One source, three threads. Numbered items travel a cell every 100 ms down from
+   the source, along the bar, and down each thread's six-row line to T1–T3,
+   the middle one straight under the source:
    dealt one per thread for `serialize_iterator`, split at the bar into a copy for
-   each of the four for `concurrent_tee`, and for the bare generator, three threads
-   dying with the `ValueError` as the second item sets off. The generator's panel shows still,
-   then each Space plays the next panel, revealing it.
+   each of the three for `concurrent_tee`, and for the bare generator, two threads
+   dying with the `ValueError` as the second item sets off. The generator's panel is
+   a slide of its own and the other two share one. Each panel shows still, then
+   each Space plays the next. Every item takes the same time to land, whichever
+   thread it's going to: `concurrent_tee`'s copies cross the stem as one item, and
+   the copy bound for the nearer middle thread moves slower once split off,
+   so all three land on the same tick.
 3. Frame pointers. A cursor walks the saved-`rbp` chain frame by frame, as
    `perf` does, back to `_start`. On the next step it walks again, reaches
    `churn.so`, follows its `rbp` to data that isn't a frame, and stops, and the
@@ -1691,7 +1735,11 @@ profiler.
     small!" screen (observed).
   - Stack the panes unless the presenting width leaves the slide a useful
     strip beside a pane of at least 60 columns.
-  - The `file:line` column truncates long paths, so run the deck from a short path.
+  - The `file:line` column truncates long paths. Tachyon strips the stdlib and
+    site-packages from the front of a path, but not the deck's own `src/`, so the same
+    `sitecustomize` (below) adds the directory the `whats_new` package is in, and the
+    deck's frames show as `whats_new/workloads.py:42`. A test checks the shortening,
+    with a control that the path starts out long.
   - Tachyon marks its top three functions with medal emoji, which zellij web
     measures at the wrong width
     ([zellij-org/zellij#5718](https://github.com/zellij-org/zellij/issues/5718)),
@@ -1817,7 +1865,7 @@ docker run --rm -it --network none ghcr.io/joshkarpel/whats-new-in-python-315:ma
   in everything the deck uses:
   - the interpreters, from `uv python install`, so the startup interpreter
     check passes in the image too
-  - the dev group's type checkers, and Node for pyright
+  - mypy, from the locked environment
   - mypy 2.3.1, by running its `uvx --from mypy==2.3.1` once at build time and
     setting `UV_OFFLINE=1`. Confirm that `uvx` then reuses the cached
     environment without the network.

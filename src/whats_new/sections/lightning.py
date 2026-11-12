@@ -7,7 +7,6 @@ from counterweight.styles.utilities import *
 from whats_new.components.code import code_example
 from whats_new.components.layouts import code_above_runs
 from whats_new.components.layouts import notes_beside_code_above_runs
-from whats_new.components.layouts import side_by_side
 from whats_new.components.layouts import stack
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
@@ -56,12 +55,25 @@ def context_managers(props: SlideProps) -> Div:
 
 
 @component
-def odds_and_ends(props: SlideProps) -> Div:
-    return code_above_runs(
+def namedtuple_slots(props: SlideProps) -> Div:
+    return notes_beside_code_above_runs(
         props,
-        side_by_side(
-            code_example(props, "lightning/namedtuple_slots.py", start="class Point"),
-            code_example(props, "lightning/pprint_expand.py", start="config"),
+        code_example(props, "lightning/namedtuple_slots.py", start="class Point"),
+        bullets(
+            (plain("a namedtuple subclass can add "), code("__slots__"), plain(" of its own")),
+            (plain("3.14 refused: "), code("nonempty __slots__ not supported")),
+        ),
+    )
+
+
+@component
+def pprint_expand(props: SlideProps) -> Div:
+    return notes_beside_code_above_runs(
+        props,
+        code_example(props, "lightning/pprint_expand.py", start="config"),
+        bullets(
+            (code("expand=True"), plain(": one item per line, each bracket closed on a line of its own")),
+            (plain("laid out as "), code("json.dumps(indent=1)"), plain(" would, plus trailing commas")),
         ),
     )
 
@@ -88,7 +100,6 @@ def quickfire(props: SlideProps) -> Div:
             "argparse suggests fixes for typos, and about 20 CLIs got color",
             "Windows builds use the tail-calling interpreter: 15-20% on pyperformance, as cited",
             (code("Popen.wait(timeout=)"), plain(" waits on an event, not a sleep loop")),
-            (plain("the "), code("pkg.sub"), plain(" / "), code("pkg.sub.mod"), plain(" import deadlock is fixed")),
         ),
         code_above_runs(props, code_example(props, "lightning/broken_pool.py", start="def crash")),
     )
@@ -116,14 +127,18 @@ SLIDES = (
         ),
     ),
     Slide(
-        title="Lightning: odds and ends",
-        content=odds_and_ends,
+        title="Lightning: namedtuple __slots__",
+        content=namedtuple_slots,
+        runs=on_both(
+            "lightning/namedtuple_slots.py",
+            new=Expect(status=0, output="point=Point(x=1, y=2) point.label='origin-ish'"),
+            old=Expect(status=1, output="nonempty __slots__ not supported"),
+        ),
+    ),
+    Slide(
+        title="Lightning: pprint(expand=True)",
+        content=pprint_expand,
         runs=(
-            *on_both(
-                "lightning/namedtuple_slots.py",
-                new=Expect(status=0, output="point=Point(x=1, y=2) point.label='origin-ish'"),
-                old=Expect(status=1, output="nonempty __slots__ not supported"),
-            ),
             python(Interpreter.PY315, "lightning/pprint_expand.py", expect=Expect(status=0, output="'counterweight',")),
         ),
     ),

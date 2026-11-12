@@ -28,21 +28,18 @@ dev = [
     "pytest-asyncio>=1",
     "ruff>=0.16.10",
 ]
-# The type checkers the typing slides run live. Pinned exactly, since each slide's expected
+# The type checker the typing slides run live. Pinned exactly, since each slide's expected
 # output is the verdict of one specific version.
 checkers = [
     "mypy==2.4.0",
-    "pyright==1.1.414",
-    "ty==0.0.87",
     "typing-extensions>=4.15",
 ]
 
 [tool.uv]
 default-groups = ["dev", "checkers"]
 exclude-newer = "7 days"
-# ty: the typing slides show this exact version's verdicts, observed while planning the talk.
 # counterweight, waxy (its layout engine), and evp (its terminal emulator): the deck tracks their releases closely.
-exclude-newer-package = { ty = false, counterweight = false, waxy = false, evp = false }
+exclude-newer-package = { counterweight = false, waxy = false, evp = false }
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers"]

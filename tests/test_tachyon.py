@@ -1,7 +1,7 @@
 """
 The Tachyon stage's profiler modes, each handed to Tachyon itself, since some of its options refuse each other
 and on stage the refusal only shows as a pane that exits as soon as `m`'s picker chooses that mode;
-the medals its live view draws, which the stage's profiler environment swaps for ranks;
+the medals its live view draws, which the stage's profiler environment swaps for ranks, and the paths it shortens;
 and Tab, which moves the keyboard between the stage and the profiler.
 """
 
@@ -85,6 +85,34 @@ def test_the_profiler_draws_ranks_instead_of_medals() -> None:
 def test_tachyon_draws_medals_without_the_profiler_s_environment() -> None:
     # The control: the medals are there to replace, so the test above reaches the row that draws them.
     assert "🥇" in drawn_top_functions({})
+
+
+SHORTENED_PATH = """
+from profiling.sampling.live_collector.collector import LiveStatsCollector
+
+import whats_new.workloads
+
+collector = LiveStatsCollector.__new__(LiveStatsCollector)
+collector._path_prefixes = collector._get_common_path_prefixes()
+print(collector.simplify_path(whats_new.workloads.__file__))
+"""
+
+
+def shortened_workloads_path(env: Mapping[str, str]) -> str:
+    """How Tachyon's live view shows the deck's `workloads.py`, in a fresh interpreter with `env` added."""
+    result = subprocess.run(
+        (sys.executable, "-c", SHORTENED_PATH), env={**os.environ, **env}, capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
+
+
+def test_the_profiler_shows_the_deck_s_files_from_its_package() -> None:
+    assert shortened_workloads_path(PROFILER_ENV) == "whats_new/workloads.py"
+
+
+def test_tachyon_shows_the_deck_s_files_whole_without_the_profiler_s_environment() -> None:
+    # The control: the path starts out long, so the test above reaches the shortening.
+    assert shortened_workloads_path({}).endswith("/whats_new/workloads.py")
 
 
 PROFILING = (KeyPressed(key="p"), showing("Tachyon Profiler"))

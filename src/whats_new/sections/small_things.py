@@ -15,7 +15,6 @@ from whats_new.components.look import em
 from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.diagrams import frozendict_hierarchy
-from whats_new.diagrams.graphemes import LAYER_STEPS
 from whats_new.diagrams.graphemes import band_code_points
 from whats_new.diagrams.graphemes import layers
 from whats_new.diagrams.take_bytes import take_bytes_memory
@@ -74,6 +73,13 @@ def frozendict_cache(props: SlideProps) -> Div:
         code_example(props, "small/frozendict_cache.py"),
         bullets(
             (plain("a mapping argument that "), code("@cache"), plain(" can key on")),
+            (
+                plain("for keys you "),
+                em("don't know"),
+                plain(" ahead of time: a query string, JSON, "),
+                code("**kwargs"),
+            ),
+            (plain("keys you do know want a frozen dataclass")),
         ),
     )
 
@@ -154,7 +160,7 @@ def take_bytes_peak(props: SlideProps) -> Div:
 
 @component
 def text_layers(props: SlideProps) -> Div:
-    return stack(layers(props.step))
+    return stack(layers())
 
 
 @component
@@ -209,7 +215,7 @@ SLIDES = (
             python(
                 PY315,
                 "small/mutable_default.py",
-                expect=Expect(status=0, output="DEFAULTS={'retries': 3, 'timeout': 10.0, 'url': 'https://python.org'}"),
+                expect=Expect(status=0, output="first={'retries': 3, 'timeout': 10.0, 'url': 'https://pypi.org'}"),
             ),
         ),
     ),
@@ -221,7 +227,13 @@ SLIDES = (
             python(
                 Interpreter.PY315,
                 "small/frozendict_default.py",
-                expect=Expect(status=0, output="frozendict({'retries': 3, 'timeout': 10.0})"),
+                expect=Expect(
+                    status=0,
+                    output=(
+                        "first=frozendict({'retries': 3, 'timeout': 10.0, 'url': 'https://python.org'})\n"
+                        "DEFAULTS=frozendict({'retries': 3, 'timeout': 10.0})"
+                    ),
+                ),
             ),
         ),
     ),
@@ -305,7 +317,7 @@ SLIDES = (
         content=take_bytes_peak,
         runs=(python(PY315, "small/take_bytes_memory.py", expect=Expect(status=0, output="take_bytes: peak 50 MiB")),),
     ),
-    Slide(title="Text, in layers", content=text_layers, steps=LAYER_STEPS),
+    Slide(title="Text, in layers", content=text_layers, is_ghost=True),
     Slide(
         title="unicodedata.iter_graphemes",
         content=graphemes,

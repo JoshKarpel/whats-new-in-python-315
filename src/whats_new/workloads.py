@@ -52,6 +52,16 @@ def nbody_steps(bodies: Bodies, steps: int) -> None:
         bj[0] += 0.01 * bj[3]
 
 
+def handle_key_error(total: float, steps: int) -> float:
+    """
+    Arithmetic done while a `KeyError` is being handled, under a name of its own,
+    so a profile tells the exception workload's samples from `nbody_steps`'s.
+    """
+    for step in range(steps):
+        total = (total + step) * 0.5
+    return total
+
+
 def has_passed(deadline: float) -> bool:
     """Whether `time.monotonic()` has reached `deadline`: an `IsStopped` for a freeze that ends on its own."""
     return time.monotonic() >= deadline
@@ -101,12 +111,12 @@ def garbage_cycles(is_stopped: IsStopped) -> None:
 def exceptions(is_stopped: IsStopped) -> None:
     """Raising and catching in a loop, which exception mode samples while nothing else is."""
     empty: dict[str, int] = {}
-    bodies = new_bodies()
+    total = 0.0
     while not is_stopped():
         try:
             empty["missing"]
         except KeyError:
-            nbody_steps(bodies, 1000)
+            total = handle_key_error(total, 5000)
 
 
 async def task_fan() -> None:

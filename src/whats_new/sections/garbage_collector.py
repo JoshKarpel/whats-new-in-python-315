@@ -8,9 +8,9 @@ from whats_new.components.code import code_snippet
 from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
 from whats_new.components.layouts import stack
+from whats_new.components.look import attributed
 from whats_new.components.look import bullets
 from whats_new.components.look import centered
-from whats_new.components.look import em
 from whats_new.components.look import plain
 from whats_new.components.look import title_card
 from whats_new.diagrams import collector
@@ -52,6 +52,9 @@ def gc_story(props: SlideProps) -> Div:
     )
 
 
+REVERT_THREAD = "https://discuss.python.org/t/reverting-the-incremental-gc-in-python-3-14-and-3-15/107014"
+"""The Steering Council-backed revert's thread, where Sergey Miryanov's posts below are."""
+
 EARLY_RETURN = """\
 gcstate->work_to_do += assess_work_to_do(gcstate);
 if (gcstate->work_to_do < 0) {
@@ -70,12 +73,12 @@ def gc_went_wrong(props: SlideProps) -> Div:
             (
                 plain('"The incremental GC has early return since 3.14.1. Even if threshold0 reached, '),
                 plain('it can exit early and skip all processing." '),
-                em("Sergey Miryanov"),
+                attributed("Sergey Miryanov", f"{REVERT_THREAD}/22"),
             ),
             (
                 plain("\"they do get reclaimed, but it can take a long time since it's controlled by the "),
                 plain('work_to_do logic and the size of the old generation" '),
-                em("Sergey Miryanov"),
+                attributed("Sergey Miryanov", f"{REVERT_THREAD}/29"),
             ),
         ),
         collector.waiting(props.step, props.is_live),

@@ -449,7 +449,7 @@ def incremental_heap(tick: int) -> tuple[Chunk, ...]:
 
 
 RELEASES = (
-    Milestone("3.13", "rolled back", "generational", NOTE),
+    Milestone("3.13 betas", "tried, pulled", "generational", NOTE),
     Milestone("3.14.0", "ships it", "incremental", CROSSED),
     Milestone("3.14.1", "a speed fix", "incremental", CROSSED),
     Milestone("3.14.5", "reverted", "generational", NOTE),

@@ -1,13 +1,8 @@
-from dataclasses import dataclass
-
-@dataclass(slots=True)
 class Point:
-    x: float
-    y: float
+    __slots__ = ("x", "y")
 
-@dataclass(slots=True)
 class Color:
-    hex: str
+    __slots__ = ("hex",)
 
 def draw(p: Point) -> None:
     if isinstance(p, Color):

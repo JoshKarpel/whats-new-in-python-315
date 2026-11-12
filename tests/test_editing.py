@@ -6,10 +6,12 @@ from pathlib import Path
 import pytest
 from counterweight import app
 from counterweight.autopilot import typed
+from counterweight.components import component
 from counterweight.controls import AnyControl
 from counterweight.controls import Quit
 from counterweight.controls import Screenshot
 from counterweight.elements import Chunk
+from counterweight.elements import Div
 from counterweight.events import AnyEvent
 from counterweight.events import KeyPressed
 from counterweight.keys import Key
@@ -18,17 +20,25 @@ from counterweight.styles import CellStyle
 
 from whats_new.checkpoint import Checkpoint
 from whats_new.components.code import CURSOR
+from whats_new.components.code import code_example
 from whats_new.components.code import compiles
 from whats_new.components.code import excerpt
 from whats_new.components.code import with_cursor
+from whats_new.components.layouts import code_above_runs
+from whats_new.components.layouts import side_by_side
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
 from whats_new.host import Host
 from whats_new.presenter import root
 from whats_new.runs import EXAMPLES
+from whats_new.runs import Expect
+from whats_new.runs import Interpreter
 from whats_new.runs import copy_examples
+from whats_new.runs import python
 from whats_new.runs import rehomed
 from whats_new.size import PRESENTING
+from whats_new.slides import Slide
+from whats_new.slides import SlideProps
 
 SOURCE = "import sys\n\ndef shown():\n    pass\n\n\ndef hidden():\n    pass"
 BOLD = CellStyle(bold=True)
@@ -126,8 +136,25 @@ async def test_a_run_executes_the_edited_example(host: Host) -> None:
     assert "│edited on stage" in frames[0].text(ansi=False)
 
 
-FIRST_EDITED = "json = NoneQ"
-SECOND_EDITED = 'print(f"{"csv" in sys.modules=}")Q'
+@component
+def two_editors(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        side_by_side(
+            code_example(props, "lightning/namedtuple_slots.py", start="class Point"),
+            code_example(props, "lightning/pprint_expand.py", start="config"),
+        ),
+    )
+
+
+TWO_EDITORS = Slide(
+    title="Two editors",
+    content=two_editors,
+    runs=(python(Interpreter.PY315, "lightning/pprint_expand.py", expect=Expect(status=0, output="'numpy',")),),
+)
+"""A slide of its own with two editors and a run pane, so the Tab order is the test's, not the deck's running order."""
+FIRST_EDITED = 'print(f"{point=} {point.label=}")Q'
+SECOND_EDITED = "pprint(config, expand=True, width=30)Q"
 
 
 @pytest.mark.parametrize(
@@ -150,11 +177,10 @@ SECOND_EDITED = 'print(f"{"csv" in sys.modules=}")Q'
 async def test_tab_cycles_through_the_editors_and_the_run_pane(
     host: Host, keys: tuple[str, ...], edited_line: str | None
 ) -> None:
-    index = next(index for index, slide in enumerate(SLIDES) if slide.title == "Lazy imports: gotchas")
     frames: list[Frame] = []
 
     await app(
-        root(SLIDES, host, Checkpoint(slide=index), lambda checkpoint: None),
+        root((TWO_EDITORS,), host, Checkpoint(slide=0), lambda checkpoint: None),
         headless=True,
         dimensions=PRESENTING.dimensions,
         autopilot=(

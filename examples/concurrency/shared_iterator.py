@@ -15,12 +15,8 @@ class Countdown:
         self.i = i + 1
         return i
 
-def consume(source):
-    return list(source)
-
 source = Countdown(1_000_000)
-with ThreadPoolExecutor(4) as pool:
-    items = [item for taken in pool.map(consume, [source] * 4) for item in taken]
-
-print("free-threaded" if not sys._is_gil_enabled() else "GIL")
-print(f"{len(items):,} items, {len(items) - len(set(items)):,} duplicates")
+with ThreadPoolExecutor(3) as pool:
+    taken = sum(pool.map(list, [source, source, source]), [])
+print(f"GIL={sys._is_gil_enabled()}")
+print(f"{len(taken) - len(set(taken)):,} duplicates")

@@ -30,8 +30,11 @@ CELL = 7
 SPACING = {"\N{COMBINING DIAERESIS}": "\N{DIAERESIS}", "\N{COMBINING ACUTE ACCENT}": "\N{ACUTE ACCENT}"}
 """Each combining mark the diagrams show, as the spacing character that looks like it."""
 
-PRECOMPOSED = {CAFE: "café"}
-"""How a grapheme is drawn in the "what you see" row: as its one-code-point spelling, where it has one."""
+PRECOMPOSED = {"e\N{COMBINING ACUTE ACCENT}": "\N{LATIN SMALL LETTER E WITH ACUTE}"}
+"""
+How a grapheme is drawn in the "what you see" row: as its one-code-point spelling, where it has one,
+since zellij would drop the combining mark from the spelling the row is about.
+"""
 
 
 def glyph(code_point: str) -> str:
@@ -78,17 +81,16 @@ def band_code_points() -> Text:
     )
 
 
-LAYER_STEPS = 3
 LABEL = 15
 """The width of the column naming each layer."""
 CODE_POINT = 8
 """The width of each code point's column."""
 
 
-def layers(step: int) -> Div:
+def layers() -> Div:
     """
     "café" spelled with a combining accent, one layer per row: the graphemes a reader sees, the code points a `str`
-    holds, then the bytes UTF-8 stores them as; and last, what a font and a terminal do with a grapheme.
+    holds, then the bytes UTF-8 stores them as; and last, what a font does with a grapheme.
     """
     graphemes = [str(g) for g in iter_graphemes(CAFE)]
     seen: list[Chunk] = []
@@ -101,37 +103,23 @@ def layers(step: int) -> Div:
     names = "".join(glyph(c).center(6).ljust(CODE_POINT) for c in CAFE)
     encoded = "".join(c.encode().hex(" ").upper().center(6).ljust(CODE_POINT) for c in CAFE)
     right = LABEL + len(CAFE) * CODE_POINT
-    parts: list[Text | Div] = [
+    return area(
+        86,
+        11,
         ink("what you see", 0, 0, NOTE),
         ink(tuple(seen), LABEL, 0),
         ink(tuple(brackets), LABEL, 1),
         ink(f"{len(graphemes)} graphemes", right, 0, HIGHLIGHT),
         ink("what a reader counts", right, 1, EDGE),
-    ]
-    if step >= 1:
-        parts += [
-            ink("code points", 0, 3, NOTE),
-            ink(points, LABEL, 3),
-            ink(names, LABEL, 4, EDGE),
-            ink(f"{len(CAFE)} code points", right, 3, HIGHLIGHT),
-            ink("what a str holds, len() counts", right, 4, EDGE),
-            ink(f"the last is {name(CAFE[-1])}", LABEL, 5, EDGE),
-        ]
-    if step >= 2:
-        parts += [
-            ink("UTF-8 bytes", 0, 7, NOTE),
-            ink(encoded, LABEL, 7),
-            ink(f"{len(CAFE.encode())} bytes", right, 7, HIGHLIGHT),
-            ink("what a file or a socket holds", right, 8, EDGE),
-            ink("a font draws each grapheme as one glyph, placing the accent over the e", 0, 10, NOTE),
-            ink("a terminal gives each grapheme cells: 1 for é, 2 for 漢 (wcwidth, not the stdlib)", 0, 11, NOTE),
-            ink(
-                (
-                    Chunk(content="é also has a one-code-point spelling, U+00E9, which NFC picks; ", style=EDGE),
-                    Chunk(content="many have none", style=HIGHLIGHT),
-                ),
-                0,
-                12,
-            ),
-        ]
-    return area(86, 13, *parts)
+        ink("code points", 0, 3, NOTE),
+        ink(points, LABEL, 3),
+        ink(names, LABEL, 4, EDGE),
+        ink(f"{len(CAFE)} code points", right, 3, HIGHLIGHT),
+        ink("what a str holds, len() counts", right, 4, EDGE),
+        ink(f"the last is {name(CAFE[-1])}", LABEL, 5, EDGE),
+        ink("UTF-8 bytes", 0, 7, NOTE),
+        ink(encoded, LABEL, 7),
+        ink(f"{len(CAFE.encode())} bytes", right, 7, HIGHLIGHT),
+        ink("what a file or a socket holds", right, 8, EDGE),
+        ink("a font draws each grapheme as one glyph, placing the accent over the e", 0, 10, NOTE),
+    )

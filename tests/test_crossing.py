@@ -49,6 +49,7 @@ from whats_new.components.transitions import Transition
 from whats_new.components.transitions import transition_for
 from whats_new.deck import SLIDES
 from whats_new.export import EXPORT_CLOCK
+from whats_new.export import ONWARD_THROUGH_GHOSTS
 from whats_new.host import Host
 from whats_new.presenter import root
 from whats_new.presenter import slide_view
@@ -181,7 +182,7 @@ async def test_the_arriving_slide_draws_its_picture(host: Host) -> None:
             *(
                 step
                 for _ in SLIDES
-                for step in (AdvanceClock(by=ARRIVED_FOR), Screenshot(handler=frames.append), KeyPressed(key=Key.Right))
+                for step in (AdvanceClock(by=ARRIVED_FOR), Screenshot(handler=frames.append), *ONWARD_THROUGH_GHOSTS)
             ),
             Quit(),
         ),

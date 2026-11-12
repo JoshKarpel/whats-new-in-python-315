@@ -187,16 +187,11 @@ def harness(name: str, *arguments: str | Interpreter, label: str, expect: Expect
     return Run(label=label, argv=(Interpreter.PY315, example(f"harness/{name}"), *arguments), expect=expect)
 
 
-def checkers(
-    name: str, *mypy_flags: str, tools: tuple[str, ...] = ("mypy",), label: str | None = None, expect: Expect
-) -> Run:
+def checkers(name: str, *mypy_flags: str, label: str = "mypy", expect: Expect) -> Run:
     """
-    Type checkers (mypy unless `tools` names others, from mypy, pyright and ty) on the example `name`,
-    one after another, as the deck's own environment pins them, labeled by their names unless `label` is given.
+    mypy on the example `name`, as the deck's own environment pins it, with `mypy_flags`.
     """
-    return harness(
-        "checkers.py", str(BIN), ",".join(tools), name, *mypy_flags, label=label or ", ".join(tools), expect=expect
-    )
+    return harness("checkers.py", str(BIN), name, *mypy_flags, label=label, expect=expect)
 
 
 if __name__ == "__main__":

@@ -27,7 +27,6 @@ from whats_new.diagrams import low_level
 from whats_new.diagrams import profilers
 from whats_new.diagrams import task_group
 from whats_new.diagrams.draw import fork
-from whats_new.diagrams.graphemes import LAYER_STEPS
 from whats_new.diagrams.graphemes import band_code_points
 from whats_new.diagrams.graphemes import layers
 from whats_new.diagrams.site_startup import site_startup
@@ -46,7 +45,11 @@ DRAWINGS: dict[str, Callable[[], Component | Text | Div]] = {
         for s in range(frozendict_hierarchy.STEPS)
     },
     **{f"task group {s}": partial(task_group.task_group, s, False) for s in range(task_group.STEPS)},
-    **{f"fan out {s}": partial(fan_out.fan_out, s, False) for s in range(fan_out.STEPS)},
+    **{
+        f"fan out {shown} {s}": partial(fan_out.fan_out, shown, s, False)
+        for shown in (fan_out.BROKEN, fan_out.SHARED)
+        for s in range(fan_out.steps(shown))
+    },
     **{
         f"frame pointers {s}": partial(low_level.frame_pointer_chain, s, False)
         for s in range(low_level.FRAME_POINTER_STEPS)
@@ -64,7 +67,7 @@ DRAWINGS: dict[str, Callable[[], Component | Text | Div]] = {
         f"tracing vs sampling {s}": partial(profilers.tracing_vs_sampling, s, False)
         for s in range(profilers.SAMPLING_STEPS)
     },
-    **{f"text layers {s}": partial(layers, s) for s in range(LAYER_STEPS)},
+    "text layers": layers,
     "architectures": profilers.architectures,
     "the loop": partial(profilers.the_loop, 4_194_304),
     "site startup": site_startup,
@@ -73,8 +76,8 @@ DRAWINGS: dict[str, Callable[[], Component | Text | Div]] = {
 }
 
 
-async def drawn_width(drawing: Component | Text | Div) -> int:
-    """How many columns `drawing` covers, from its leftmost drawn cell to its rightmost, on a screen `WIDE` columns wide."""
+async def drawn(drawing: Component | Text | Div) -> str:
+    """`drawing` as text, alone on a screen `WIDE` columns wide."""
 
     @component
     def alone() -> Div:
@@ -88,7 +91,12 @@ async def drawn_width(drawing: Component | Text | Div) -> int:
         autopilot=(Screenshot(handler=frames.append), Quit()),
         clock=EXPORT_CLOCK,
     )
-    lines = [line.rstrip() for line in frames[0].text(ansi=False).split("\n") if line.strip()]
+    return frames[0].text(ansi=False)
+
+
+async def drawn_width(drawing: Component | Text | Div) -> int:
+    """How many columns `drawing` covers, from its leftmost drawn cell to its rightmost, on a screen `WIDE` columns wide."""
+    lines = [line.rstrip() for line in (await drawn(drawing)).split("\n") if line.strip()]
     return max(len(line) for line in lines) - min(len(line) - len(line.lstrip()) for line in lines)
 
 
@@ -114,6 +122,13 @@ def test_fork_rises_at_the_parent_and_drops_at_each_child(
     assert (text_of(bar), text_of(stems)) == expected
 
 
+async def test_text_layers_show_the_accent_a_reader_sees() -> None:
+    """The "what you see" row draws "é" as its one code point, which zellij keeps, where it drops a combining mark."""
+    seen = next(line for line in (await drawn(layers())).split("\n") if "what you see" in line)
+
+    assert "\N{LATIN SMALL LETTER E WITH ACUTE}" in seen
+
+
 def text_of(ink: Text) -> str:
     return "".join(chunk if isinstance(chunk, str) else chunk.content for chunk in ink.content)
 
@@ -125,6 +140,21 @@ def test_fan_out_items_move_one_cell_at_a_time(thread: int) -> None:
 
     assert all(abs(x - nx) + abs(y - ny) == 1 for (x, y), (nx, ny) in pairwise(route))
     assert route[-1] == (fan_out.DROPS[thread], fan_out.LABELS - 1)
+
+
+@pytest.mark.parametrize("fraction", [step / 200 for step in range(200)])
+def test_concurrent_tee_copies_land_on_every_thread_at_once(fraction: float) -> None:
+    landed = {fan_out.flight(thread, fraction) is None for thread in range(fan_out.THREADS)}
+
+    assert len(landed) == 1
+
+
+@pytest.mark.parametrize("fraction", [step / 200 for step in range(200)])
+def test_concurrent_tee_copies_cross_the_stem_as_one(fraction: float) -> None:
+    stem = set(fan_out.route(0)[: fan_out.SHARED_CELLS])
+    cells = {fan_out.flight(thread, fraction) for thread in range(fan_out.THREADS)}
+
+    assert cells.isdisjoint(stem) or len(cells) == 1
 
 
 def test_a_collection_moves_only_survivors_up() -> None:

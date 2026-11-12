@@ -1,8 +1,9 @@
 """
-One source, four threads, three ways, each played out item by item as it's revealed: a bare generator (three threads
+One source, three threads, three ways, each played out item by item as it's revealed: a bare generator (two threads
 die), `serialize_iterator` (each item to exactly one thread), and `concurrent_tee` (each item to every thread).
-The last two are the ones people mix up, which is why the items move, a cell at a time along the lines:
-dealt out, or copied to all four.
+The generator is drawn alone, after the slide that breaks it, and the other two side by side, after the slide that
+introduces them: they're the ones people mix up, which is why the items move, a cell at a time along the lines:
+dealt out, or copied to all three.
 """
 
 from datetime import timedelta
@@ -22,14 +23,15 @@ from whats_new.diagrams.draw import area
 from whats_new.diagrams.draw import centered_node
 from whats_new.diagrams.draw import ink
 
-STEPS = 4
-"""The generator's panel, still; then playing; then each of the other two, revealed playing."""
-PANEL = 29
-RISE = 13
-"""The column of the `┴` in each panel's bar, which its title box sits on."""
-THREADS = 4
-DROPS = tuple(3 + thread * 7 for thread in range(THREADS))
+PANEL = 26
+THREADS = 3
+DROPS = tuple(4 + thread * 7 for thread in range(THREADS))
 """The column each thread's line leaves the bar at, and its label and items sit under."""
+RISE = DROPS[1]
+"""
+The column of the `┼` in each panel's bar, which its title box sits on: over the middle thread, so the panel is
+symmetric and the middle thread's items fall straight down. Far enough in that the widest title box starts at 0.
+"""
 STEM = 3
 """The row of the line from the title box down to the bar."""
 BAR = STEM + 1
@@ -43,7 +45,7 @@ HEIGHT = CAPTION + 2
 ITEMS = 6
 PER_CELL = timedelta(milliseconds=100)
 """How long an item in flight takes to move a cell: two frames, so it glides rather than jumps."""
-BAR_LINE = "┌──────┬──┴───┬──────┐"
+BAR_LINE = "┌──────┼──────┐"
 
 PANELS = (
     ("rows()", ("ValueError: generator", "already executing")),
@@ -51,10 +53,14 @@ PANELS = (
     ("concurrent_tee", ("each item to every", "thread")),
 )
 GENERATOR, SERIALIZE, TEE = range(3)
+BROKEN = (GENERATOR,)
+"""The panels of the diagram that follows the generator breaking."""
+SHARED = (SERIALIZE, TEE)
+"""The panels of the diagram that follows `serialize_iterator`, which sets `concurrent_tee` beside it."""
 
 
 def destinations(panel: int, item: int) -> tuple[int, ...]:
-    """Which threads `item` goes to: the generator's survivor, one thread in turn, or all four."""
+    """Which threads `item` goes to: the generator's survivor, one thread in turn, or all three."""
     match panel:
         case 0:
             return (0,)
@@ -72,26 +78,51 @@ def route(thread: int) -> tuple[tuple[int, int], ...]:
     return ((RISE, STEM), (RISE, BAR), *along, *((drop, y) for y in range(BAR + 1, LABELS)))
 
 
-SPAN = max(len(route(thread)) for thread in range(THREADS)) + 3
+LONGEST = max(len(route(thread)) for thread in range(THREADS))
+"""How many cells the route to the farthest thread has, which sets how long every item's flight takes."""
+SPAN = LONGEST + 3
 """
 How many cells' worth of time each item gets: long enough to reach the farthest thread, and a beat after.
-Every copy moves a cell per tick of this, so copies to nearer threads arrive first, as they would.
+Every copy lands after the same time, `LONGEST` ticks of this, so `concurrent_tee`'s copies reach all three threads
+together: a copy on a shorter route moves slower once it's split off, and still never more than a cell a tick.
 """
+SHARED_CELLS = 2
+"""The cells every route starts with, the stem and the bar's junction, which `concurrent_tee`'s copies cross as one."""
 PER_ITEM = PER_CELL * SPAN
 
 
-def ends_showing(step: int) -> str | None:
+def flight(thread: int, fraction: float) -> tuple[int, int] | None:
+    """
+    The cell an item `fraction` of the way through its time is in on its way to `thread`, or `None` once it's landed.
+    Every copy moves a cell a tick down the stem, where they're one item, then covers the rest of its own route
+    in the same time as the farthest thread's, so every copy lands at once.
+    """
+    path = route(thread)
+    ticks = fraction * SPAN
+    if ticks < SHARED_CELLS:
+        return path[int(ticks)]
+    rest = (ticks - SHARED_CELLS) * (len(path) - SHARED_CELLS) / (LONGEST - SHARED_CELLS)
+    cell = SHARED_CELLS + int(rest)
+    return path[cell] if cell < len(path) else None
+
+
+def steps(shown: tuple[int, ...]) -> int:
+    """How many reveal steps a diagram of the `shown` panels takes: all of them still, then each played in turn."""
+    return len(shown) + 1
+
+
+def ends_showing(shown: tuple[int, ...], step: int) -> str | None:
     """The caption of the panel `step` plays, which appears once all its items are dealt; step 0 plays nothing."""
-    return None if step == 0 else PANELS[step - 1][1][0]
+    return None if step == 0 else PANELS[shown[step - 1]][1][0]
 
 
-def fan_out(step: int, is_live: bool) -> Div:
+def fan_out(shown: tuple[int, ...], step: int, is_live: bool) -> Div:
+    """The `shown` panels side by side, still at step 0, then each played as its step is revealed."""
     panels: list[Div | Component] = []
-    for index in range(len(PANELS)):
-        # Panel 0 shows still before it plays; the others are blank until they play, which keeps the row's width.
-        playing = index + 1
+    for position, index in enumerate(shown):
+        playing = position + 1
         if step < playing:
-            panels.append(panel(index, 0.0) if index == 0 else area(PANEL, HEIGHT))
+            panels.append(panel(index, 0.0))
         elif step == playing:
             panels.append(playing_panel(index, is_live).with_key(f"panel-{index}"))
         else:
@@ -115,10 +146,9 @@ def panel(index: int, progress: float) -> Div:
     in_flight = None if not 0 < progress < 1 else int(current)
     delivered = 0 if progress <= 0 else ITEMS if in_flight is None else in_flight
     has_died = index == GENERATOR and delivered + (in_flight is not None) >= 2
-    cell = int(fraction * SPAN)
 
     def has_arrived(thread: int) -> bool:
-        return cell >= len(route(thread))
+        return flight(thread, fraction) is None
 
     flying = () if in_flight is None else destinations(index, in_flight)
     is_dead = [has_died and thread > 0 for thread in range(THREADS)]
@@ -127,10 +157,11 @@ def panel(index: int, progress: float) -> Div:
         ink("│", RISE, STEM),
         ink(BAR_LINE, DROPS[0], BAR),
         *(ink("│\n" * DROP, DROPS[thread], BAR + 1) for thread in range(THREADS) if not is_dead[thread]),
-        *(ink("✗", DROPS[thread], BAR, CROSSED) for thread in range(THREADS) if is_dead[thread]),
+        # Under the bar, not on it, so the middle thread's cross doesn't cut the source off from the survivor.
+        *(ink("✗", DROPS[thread], BAR + 1, CROSSED) for thread in range(THREADS) if is_dead[thread]),
         # After the lines, so an item in flight paints over them.
-        *(ink(str(in_flight), *route(thread)[cell], HIGHLIGHT) for thread in flying if not has_arrived(thread)),
-        ink("T1     T2     T3     T4", DROPS[0], LABELS, NOTE),
+        *(ink(str(in_flight), *cell, HIGHLIGHT) for thread in flying if (cell := flight(thread, fraction)) is not None),
+        ink("T1     T2     T3", DROPS[0], LABELS, NOTE),
     ]
     for thread in range(THREADS):
         x = DROPS[thread]

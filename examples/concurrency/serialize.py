@@ -10,9 +10,8 @@ def rows():
 def consume(source):
     return sum(1 for _ in source)
 
-with ThreadPoolExecutor(4) as pool:
-    shared = threading.serialize_iterator(rows())
-    print("serialize_iterator:", list(pool.map(consume, [shared] * 4)))
-
-    copies = threading.concurrent_tee(rows(), 4)
-    print("concurrent_tee:    ", list(pool.map(consume, copies)))
+shared = threading.serialize_iterator(rows())
+with ThreadPoolExecutor(3) as pool:
+    counts = list(pool.map(consume, [shared, shared, shared]))
+print(f"{counts=}")
+print(f"{sum(counts)=}")

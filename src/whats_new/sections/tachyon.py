@@ -15,7 +15,6 @@ from counterweight.styles.utilities import *
 from whats_new.components.code import code_example
 from whats_new.components.code import labeled
 from whats_new.components.layouts import code_above_runs
-from whats_new.components.layouts import notes_beside_code_above_runs
 from whats_new.components.layouts import side_by_side
 from whats_new.components.layouts import stack
 from whats_new.components.look import PYTHON_YELLOW
@@ -119,21 +118,9 @@ def why_in_cpython(props: SlideProps) -> Div:
 
 @component
 def finding_the_slow_line(props: SlideProps) -> Div:
-    return notes_beside_code_above_runs(
+    return code_above_runs(
         props,
-        labeled(
-            "report.py: 99,000 log lines, 3,000 users",
-            code_example(props, "tachyon/report.py", start="def parse", stop="lines ="),
-        ),
-        bullets(
-            "the obvious suspect: parsing all those timestamps",
-            (
-                plain("Tachyon names the line, not just the function: "),
-                code("report.py:11"),
-                plain(" is the "),
-                code("if"),
-            ),
-        ),
+        code_example(props, "tachyon/report.py", is_numbered=True),
     )
 
 
@@ -150,7 +137,7 @@ def the_fix(props: SlideProps) -> Div:
         ),
         bullets(
             (code("not in"), plain(" a list compares against every user so far; a set hashes once")),
-            (plain("profile it again: what's left is "), code("parse"), plain(", a row for each of its lines")),
+            (plain("profile it again: what's left is building the lines, and "), code("parse")),
         ),
     )
 
@@ -218,14 +205,20 @@ SLIDES = (
         content=finding_the_slow_line,
         peps=(799,),
         runs=(
-            python(
-                PY315, "tachyon/report.py", label="python report.py", expect=Expect(status=0, output="3,000 users in")
+            python(PY315, "tachyon/report.py", label="python report.py", expect=Expect(status=0, output="3,000 users")),
+            harness(
+                "profile.py",
+                "tracing",
+                "tachyon/report.py",
+                label="profiling.tracing",
+                expect=Expect(status=0, output="report.py:7(unique_users)"),
             ),
             harness(
                 "profile.py",
+                "sampling",
                 "tachyon/report.py",
                 label="profiling.sampling run",
-                expect=Expect(status=0, output="report.py:11(unique_users)"),
+                expect=Expect(status=0, output="report.py:10(unique_users)"),
             ),
         ),
     ),
@@ -238,13 +231,14 @@ SLIDES = (
                 PY315,
                 "tachyon/report_fixed.py",
                 label="python report_fixed.py",
-                expect=Expect(status=0, output="3,000 users in"),
+                expect=Expect(status=0, output="3,000 users"),
             ),
             harness(
                 "profile.py",
+                "sampling",
                 "tachyon/report_fixed.py",
                 label="profiling.sampling run",
-                expect=Expect(status=0, output="report_fixed.py:6(parse)"),
+                expect=Expect(status=0, output="report_fixed.py:14(<module>)"),
             ),
         ),
     ),

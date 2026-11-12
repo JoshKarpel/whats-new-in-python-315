@@ -123,11 +123,17 @@ def first_line(lines: list[str], prefix: str, after: int, name: str) -> int:
 
 
 def code_example(
-    props: SlideProps, name: str, style: Style = default, start: str | None = None, stop: str | None = None
+    props: SlideProps,
+    name: str,
+    style: Style = default,
+    start: str | None = None,
+    stop: str | None = None,
+    is_numbered: bool = False,
 ) -> Component:
     """
     The example file `name`, highlighted, in the deck's code border, from the line that starts with `start`
     to the one before the line that starts with `stop` (see `excerpt`), as the slide has edited it.
+    `is_numbered` puts the file's own line numbers beside it, for a slide whose runs report lines by number.
     """
     source = read_example(name)
     return code_editor(
@@ -139,6 +145,7 @@ def code_example(
         props.is_live and bool(props.runs),
         props.code_theme,
         style,
+        is_numbered,
     )
 
 
@@ -151,12 +158,14 @@ def code_editor(
     is_editable: bool,
     theme: str,
     style: Style,
+    is_numbered: bool = False,
 ) -> Div:
     """
     The shown lines of `source`, the example's text, which typing edits while the editor is focused,
     with a yellow border while it is, and a red one whenever the whole file, hidden lines included, isn't valid Python.
     Escape does `leave`. Tab isn't an edit, so it bubbles out, to move focus on to the next editor or the run pane;
     it's the way out that works in a browser, which keeps Escape for itself.
+    `is_numbered` numbers the lines as the file does, counting the hidden lines above.
     """
     shown = excerpt.shown(source)
 
@@ -173,15 +182,31 @@ def code_editor(
     is_focused = field.focus.is_focused
     chunks = highlight(shown, "python", theme)
     border = INVALID_BORDER if not compiles(source) else EDITING_BORDER if is_focused else default
+    text = Text(
+        content=with_cursor(chunks, field.cursor, field.at_cursor) if is_focused else chunks,
+        style=code_style(theme) | text_wrap_none,
+    )
+    boxed = code_style(theme) | code_border | pad_x(1) | shrink(0) | style | border
+    on_input = first(on_leave, field.on_input, field.on_press)
+    if not is_numbered:
+        return Div(style=boxed, on_input=on_input, children=(text,))
+    # The press handler finds the cell pressed in its own element's content box, so the gutter sits outside that element.
     return Div(
-        style=code_style(theme) | code_border | pad_x(1) | shrink(0) | style | border,
-        on_input=first(on_leave, field.on_input, field.on_press),
+        style=boxed | row,
         children=(
-            Text(
-                content=with_cursor(chunks, field.cursor, field.at_cursor) if is_focused else chunks,
-                style=code_style(theme) | text_wrap_none,
-            ),
+            line_numbers(excerpt.hidden_above + 1, shown.count("\n") + 1, theme),
+            Div(style=code_style(theme) | shrink(0), on_input=on_input, children=(text,)),
         ),
+    )
+
+
+def line_numbers(first_number: int, count: int, theme: str) -> Text:
+    """The line numbers `first_number` on, `count` of them, right-aligned in a dim gutter beside the code."""
+    numbers = range(first_number, first_number + count)
+    widest = len(str(numbers[-1]))
+    return Text(
+        content="\n".join(f"{number:>{widest}}" for number in numbers),
+        style=code_style(theme) | dim | pad_right(1) | text_wrap_none | shrink(0),
     )
 
 

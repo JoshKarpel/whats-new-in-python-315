@@ -28,7 +28,6 @@ from whats_new.slides import Slide
 from whats_new.slides import SlideProps
 
 PY315 = Interpreter.PY315
-PY314 = Interpreter.PY314
 LAZY_SYNTAX_ERROR = Expect(status=1, output="SyntaxError: invalid syntax")
 
 
@@ -44,8 +43,8 @@ def lazy_basics(props: SlideProps) -> Div:
         code_example(props, "startup/lazy_basics.py"),
         bullets(
             (code("lazy import x"), plain(", "), code("lazy from x import y")),
-            (plain("module scope only")),
             (plain("imported on "), em("first use")),
+            (plain("module scope only")),
         ),
     )
 
@@ -86,22 +85,33 @@ def lazy_typo(props: SlideProps) -> Div:
         code_example(props, "startup/lazy_typo.py"),
         bullets(
             (plain("a typo surfaces at first use, with a chained traceback pointing at both lines")),
+            (plain("so do import-time side effects, like a plugin registering itself")),
+            (plain("mypy catches the typo before anything runs")),
         ),
     )
 
 
 @component
-def lazy_gotchas(props: SlideProps) -> Div:
+def lazy_not_allowed(props: SlideProps) -> Div:
     return code_above_runs(
         props,
-        side_by_side(
-            labeled("left: lazy import inside try", code_example(props, "startup/lazy_try.py")),
-            labeled("right: the 3.14-compatible spelling", code_example(props, "startup/lazy_compat.py")),
-        ),
+        code_example(props, "startup/lazy_try.py"),
         bullets(
-            (plain("a plain import in "), code("try"), plain(" stays eager, even in "), code("all"), plain(" mode")),
-            (code("lazy from x import *"), plain(" is a "), code("SyntaxError")),
-            (plain("import-time side effects (plugin registration) break")),
+            (code("lazy"), plain(" inside "), code("try"), plain(" is a "), code("SyntaxError")),
+            (plain("so is "), code("lazy from x import *")),
+            (plain("under "), code("-X lazy_imports=all"), plain(", both stay eager")),
+        ),
+    )
+
+
+@component
+def lazy_compat(props: SlideProps) -> Div:
+    return code_above_runs(
+        props,
+        code_example(props, "startup/lazy_compat.py"),
+        bullets(
+            (code("__lazy_modules__"), plain(" names the imports 3.15 makes lazy")),
+            (plain("3.14 ignores it, and imports them eagerly")),
         ),
     )
 
@@ -150,7 +160,9 @@ SLIDES = (
         content=lazy_basics,
         peps=(810,),
         runs=on_both(
-            "startup/lazy_basics.py", old=LAZY_SYNTAX_ERROR, new=Expect(status=0, output="<lazy_import 'json'>")
+            "startup/lazy_basics.py",
+            old=LAZY_SYNTAX_ERROR,
+            new=Expect(status=0, output='pathlib/imported\n"pathlib" in sys.modules=True'),
         ),
     ),
     Slide(
@@ -168,14 +180,6 @@ SLIDES = (
                 "bare={python} -c pass",
                 label="hyperfine",
                 expect=Expect(status=0, output="bare"),
-            ),
-            harness(
-                "import_count.py",
-                PY315,
-                "startup/cli_eager.py",
-                "startup/cli_lazy.py",
-                label="-X importtime",
-                expect=Expect(status=0, output="cli_eager.py:"),
             ),
         ),
     ),
@@ -204,28 +208,25 @@ SLIDES = (
         runs=(python(PY315, "startup/lazy_typo.py", expect=Expect(status=1, output="Did you mean: 'dump'?")),),
     ),
     Slide(
-        title="Lazy imports: gotchas",
-        content=lazy_gotchas,
+        title="Lazy imports: where they're not allowed",
+        content=lazy_not_allowed,
         peps=(810,),
         runs=(
             python(
                 PY315,
                 "startup/lazy_try.py",
-                label="left on 3.15",
                 expect=Expect(status=1, output="lazy import not allowed inside try/except blocks"),
             ),
-            python(
-                PY314,
-                "startup/lazy_compat.py",
-                label="right on 3.14",
-                expect=Expect(status=0, output='"json" in sys.modules=True'),
-            ),
-            python(
-                PY315,
-                "startup/lazy_compat.py",
-                label="right on 3.15",
-                expect=Expect(status=0, output='"json" in sys.modules=False'),
-            ),
+        ),
+    ),
+    Slide(
+        title="Lazy imports, and still running on 3.14",
+        content=lazy_compat,
+        peps=(810,),
+        runs=on_both(
+            "startup/lazy_compat.py",
+            old=Expect(status=0, output='"json" in sys.modules=True'),
+            new=Expect(status=0, output='"json" in sys.modules=False'),
         ),
     ),
     Slide(
