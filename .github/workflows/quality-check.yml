@@ -17,13 +17,21 @@ jobs:
     permissions:
       contents: read
     env:
-      PYTHONUTF8: 1
       COLORTERM: truecolor
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+
+      # The UTF-8 slide runs 3.14 under en_US, a Latin-1 locale, to show the old default;
+      # without the locale, 3.14 falls back to the C locale, which gets UTF-8 mode too.
+      # Tachyon attaches to processes that aren't its descendants, which Yama's ptrace_scope 1 refuses;
+      # the presenting machine has no Yama.
+      - name: Match the presenting machine
+        run: |
+          sudo localedef --inputfile en_US --charmap ISO-8859-1 en_US
+          sudo sysctl --write kernel.yama.ptrace_scope=0
 
       - name: Install uv, just and hyperfine
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1

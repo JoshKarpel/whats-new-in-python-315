@@ -42,6 +42,11 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
 
+      # Tachyon attaches to processes that aren't its descendants, which Yama's ptrace_scope 1 refuses,
+      # and a container shares the host's setting; the presenting machine has no Yama.
+      - name: Allow ptrace as the presenting machine does
+        run: sudo sysctl --write kernel.yama.ptrace_scope=0
+
       # With no network, so anything that reaches for one fails the build rather than a viewer's run.
       - name: Test image
         run: >
